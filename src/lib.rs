@@ -80,8 +80,6 @@ extern crate num;
 extern crate num_traits as traits;
 
 use num::{bigint, integer};
-//extern crate num_bigint as bigint;
-//extern crate num_integer as integer;
 
 use std::default::Default;
 use std::error::Error;
@@ -302,6 +300,8 @@ impl One for BigDecimal {
     }
 }
 
+forward_all_binop_to_ref_ref!(impl Add for BigDecimal, add);
+
 impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
@@ -315,44 +315,7 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl<'a> Add<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, other: BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.clone().set_scale(scale);
-        let right = other.set_scale(scale);
-
-        BigDecimal::new(left.int_val + right.int_val, left.scale)
-    }
-}
-
-impl<'a> Add<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, other: &BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.set_scale(scale);
-        let right = other.clone().set_scale(scale);
-
-        BigDecimal::new(left.int_val + right.int_val, left.scale)
-    }
-}
-
-impl Add<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, other: BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.set_scale(scale);
-        let right = other.set_scale(scale);
-
-        BigDecimal::new(left.int_val + right.int_val, left.scale)
-    }
-}
+forward_all_binop_to_ref_ref!(impl Sub for BigDecimal, sub);
 
 impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
@@ -362,45 +325,6 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
         let scale = max(self.scale, other.scale);
         let left = self.clone().set_scale(scale);
         let right = other.clone().set_scale(scale);
-
-        BigDecimal::new(left.int_val - right.int_val, left.scale)
-    }
-}
-
-impl<'a> Sub<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, other: BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.clone().set_scale(scale);
-        let right = other.set_scale(scale);
-
-        BigDecimal::new(left.int_val - right.int_val, left.scale)
-    }
-}
-
-impl<'a> Sub<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, other: &BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.set_scale(scale);
-        let right = other.clone().set_scale(scale);
-
-        BigDecimal::new(left.int_val - right.int_val, left.scale)
-    }
-}
-
-impl Sub<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, other: BigDecimal) -> BigDecimal {
-        let scale = max(self.scale, other.scale);
-        let left = self.set_scale(scale);
-        let right = other.set_scale(scale);
 
         BigDecimal::new(left.int_val - right.int_val, left.scale)
     }
