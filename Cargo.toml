@@ -1,0 +1,18 @@
+[package]
+name = "bigdecimal"
+version = "0.0.1"
+authors = ["Andrew Kubera"]
+description = "An implementation of arbitrary percision decimal numbers"
+documentation = "https://docs.rs/bigdecimal"
+homepage = "https://github.com/akubera/bigdecimal-rs"
+repository = "https://github.com/akubera/bigdecimal-rs"
+keywords = ["mathematics", "numerics"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+num = { version = "0.1.35", default-features=false, features=["bigint"] }
+num-traits = "0.1.35"
+
+[dev-dependencies.rand]
+version = "0.3.8"
+
