@@ -400,7 +400,32 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.pad_integral(true, "", &self.int_val.to_str_radix(10))
+        let mut v = self.int_val.to_str_radix(10);
+        if self.scale > 0 {
+            let pos = v.len() - (self.scale as usize);
+            v.insert(pos, '.');
+        }
+        if self.scale < 0 {
+            for _ in 0..(-self.scale) {
+                v.push('0');
+            }
+        }
+        if let Some(precision) = f.precision() {
+            let truncate = -(precision as i64 - self.scale);
+            if truncate > 0 {
+                for _ in 0..truncate {
+                    v.pop();
+                }
+            } else if truncate < 0 {
+                if self.scale <= 0 {
+                    v.push('.');
+                }
+                for _ in 0..-truncate {
+                    v.push('0');
+                }
+            }
+        }
+        f.write_str(&v)
     }
 }
 
