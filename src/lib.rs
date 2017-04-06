@@ -1,6 +1,8 @@
-// Copyright 2013-2016 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
+// Copyright 2016 Adam Sunderland
+//           2016-2017 Andrew Kubera
+//           2017 Ruben De Smet
+// See the COPYRIGHT file at the top-level directory of this
+// distribution.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
