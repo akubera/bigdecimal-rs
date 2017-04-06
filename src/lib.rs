@@ -41,9 +41,9 @@ use integer::Integer;
 use std::error::Error;
 use std::default::Default;
 use std::str::{self, FromStr};
-use bigint::{BigInt, ParseBigIntError};
+use bigint::{BigInt, ParseBigIntError, Sign};
 use std::ops::{Add, Div, Mul, Rem, Sub};
-use traits::{Num, Zero, One, FromPrimitive};
+use traits::{Num, Zero, One, FromPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 
 macro_rules! forward_val_val_binop {
@@ -400,32 +400,69 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut v = self.int_val.to_str_radix(10);
-        if self.scale > 0 {
-            let pos = v.len() - (self.scale as usize);
-            v.insert(pos, '.');
-        }
-        if self.scale < 0 {
-            for _ in 0..(-self.scale) {
-                v.push('0');
+        // Aquire the absolute integer as a decimal string
+        let mut abs_int = self.int_val.abs().to_str_radix(10);
+
+        // Split the representation at the decimal point
+        let (before, after) = if self.scale >= abs_int.len() as i64 {
+            // First case: the integer representation falls
+            // completely behind the decimal point
+            let scale = self.scale as usize;
+            let after = "0".repeat(scale - abs_int.len())
+                + abs_int.as_str();
+            ("0".to_string(), after)
+        } else {
+            // Second case: the integer representation falls
+            // around, or before the decimal point
+            let location = abs_int.len() as i64 - self.scale;
+            if location > abs_int.len() as i64 {
+                // Case 2.1, entirely before the decimal point
+                // We should prepend zeros
+                let zeros = location as usize - abs_int.len();
+                let abs_int = abs_int + "0".repeat(zeros as usize).as_str();
+                (abs_int, "".to_string())
+            } else {
+                // Case 2.2, somewhere around the decimal point
+                // Just split it in two
+                let after = abs_int.split_off(location as usize);
+                (abs_int, after)
+            }
+        };
+
+        // Alter precision after the decimal point
+        let after = if let Some(precision) = f.precision() {
+            let len = after.len();
+            if len < precision {
+                after + "0".repeat(precision - len).as_str()
+            } else {
+                // TODO: Should we round?
+                after[0..precision].to_string()
+            }
+        } else {
+            after
+        };
+
+        // Concatenate everything
+        let complete = if after.len() > 0 {
+            before + "." + after.as_str()
+        } else {
+            before
+        };
+
+        // TODO: f.width()
+
+        // Write out the sign
+        match self.int_val.sign() {
+            Sign::Plus | Sign::NoSign => {
+                if f.sign_plus() {
+                    f.write_str("+")?;
+                }
+            }
+            Sign::Minus => {
+                f.write_str("-")?;
             }
         }
-        if let Some(precision) = f.precision() {
-            let truncate = -(precision as i64 - self.scale);
-            if truncate > 0 {
-                for _ in 0..truncate {
-                    v.pop();
-                }
-            } else if truncate < 0 {
-                if self.scale <= 0 {
-                    v.push('.');
-                }
-                for _ in 0..-truncate {
-                    v.push('0');
-                }
-            }
-        }
-        f.write_str(&v)
+        f.write_str(&complete)
     }
 }
 
@@ -500,6 +537,7 @@ mod bigdecimal_tests {
     use super::BigDecimal;
     use traits::ToPrimitive;
     use std::str::FromStr;
+    use num;
 
     #[test]
     fn test_add() {
@@ -646,6 +684,26 @@ mod bigdecimal_tests {
             let x = BigDecimal::from_str(source).unwrap();
             assert_eq!(x.int_val.to_i32().unwrap(), val);
             assert_eq!(x.scale, scale);
+        }
+    }
+
+    #[test]
+    fn test_fmt() {
+        let vals = vec![
+          // b  s   ( {}        {:.1}     {:.4}    )
+            (1, 0,  (  "1",     "1.0",    "1.0000")),
+            (1, 1,  (  "0.1",   "0.1",    "0.1000")),
+            (1, 2,  (  "0.01",  "0.0",    "0.0100")),
+            (1, -2, ("100",   "100.0",  "100.0000")),
+            (-1, 0, ( "-1",    "-1.0",   "-1.0000")),
+            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000")),
+            (-1, 2, ( "-0.01", "-0.0",   "-0.0100")),
+        ];
+        for (i, scale, results) in vals {
+            let x = BigDecimal::new(num::BigInt::from(i), scale);
+            assert_eq!(format!("{}", x), results.0);
+            assert_eq!(format!("{:.1}", x), results.1);
+            assert_eq!(format!("{:.4}", x), results.2);
         }
     }
 
