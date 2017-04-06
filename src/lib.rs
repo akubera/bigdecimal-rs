@@ -44,7 +44,7 @@ use std::error::Error;
 use std::default::Default;
 use std::str::{self, FromStr};
 use bigint::{BigInt, ParseBigIntError, Sign};
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign};
 use traits::{Num, Zero, One, FromPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 
@@ -128,6 +128,18 @@ fn ten_to_the(pow: u64) -> BigInt {
         }
 
         if rem == 0 { x } else { x * ten_to_the(rem) }
+    }
+}
+
+macro_rules! forward_val_assignop {
+    (impl $imp:ident for $res:ty, $method:ident) => {
+        impl $imp<$res> for $res {
+            #[inline]
+            fn $method(&mut self, other: $res) {
+                // forward to mutref-ref
+                $imp::$method(self, &other)
+            }
+        }
     }
 }
 
@@ -318,6 +330,28 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
+
+impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn add_assign(&mut self, rhs: &BigDecimal) {
+        if self.scale < rhs.scale {
+            let scaled = self.with_scale(rhs.scale);
+            self.int_val = scaled.int_val + &rhs.int_val;
+            self.scale = rhs.scale;
+
+        } else if self.scale > rhs.scale {
+            let scaled = rhs.with_scale(self.scale);
+            // Whenever `rust-num` implements AddAssign on BigInt
+            // this can be simplified. More cases follow.
+            self.int_val = &self.int_val + scaled.int_val;
+
+        } else {
+            self.int_val = &self.int_val + &rhs.int_val;
+        }
+    }
+}
+
 forward_all_binop_to_ref_ref!(impl Sub for BigDecimal, sub);
 
 impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
@@ -339,6 +373,26 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+forward_val_assignop!(impl SubAssign for BigDecimal, sub_assign);
+
+impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn sub_assign(&mut self, rhs: &BigDecimal) {
+        if self.scale < rhs.scale {
+            let scaled = self.with_scale(rhs.scale);
+            self.int_val = scaled.int_val - &rhs.int_val;
+            self.scale = rhs.scale;
+
+        } else if self.scale > rhs.scale {
+            let scaled = rhs.with_scale(self.scale);
+            self.int_val = &self.int_val - scaled.int_val;
+
+        } else {
+            self.int_val = &self.int_val - &rhs.int_val;
+        }
+    }
+}
+
 forward_all_binop_to_ref_ref!(impl Mul for BigDecimal, mul);
 
 impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
@@ -348,6 +402,16 @@ impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
     fn mul(self, rhs: &BigDecimal) -> BigDecimal {
         let scale = self.scale + rhs.scale;
         BigDecimal::new(&self.int_val * &rhs.int_val, scale)
+    }
+}
+
+forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
+
+impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &BigDecimal) {
+        self.scale += rhs.scale;
+        self.int_val = &self.int_val * &rhs.int_val;
     }
 }
 
@@ -554,12 +618,15 @@ mod bigdecimal_tests {
 
         for &(x, y, z) in vals.iter() {
 
-            let a = BigDecimal::from_str(x).unwrap();
+            let mut a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let s = a + b;
+            let s = a.clone() + b.clone();
             assert_eq!(s, c);
+
+            a += b;
+            assert_eq!(a, c);
         }
     }
 
@@ -573,12 +640,15 @@ mod bigdecimal_tests {
 
         for &(x, y, z) in vals.iter() {
 
-            let a = BigDecimal::from_str(x).unwrap();
+            let mut a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let d = a - b;
+            let d = a.clone() - b.clone();
             assert_eq!(d, c);
+
+            a -= b;
+            assert_eq!(a, c);
         }
     }
 
@@ -596,12 +666,15 @@ mod bigdecimal_tests {
 
         for &(x, y, z) in vals.iter() {
 
-            let a = BigDecimal::from_str(x).unwrap();
+            let mut a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let p = a * b;
+            let p = a.clone() * b.clone();
             assert_eq!(p, c);
+
+            a *= b;
+            assert_eq!(a, c);
         }
     }
 
