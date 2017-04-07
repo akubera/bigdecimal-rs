@@ -203,6 +203,24 @@ impl BigDecimal {
         }
 
     }
+
+    /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate num;
+    /// extern crate bigdecimal;
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("-1").unwrap().sign(), num::bigint::Sign::Minus);
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("0").unwrap().sign(), num::bigint::Sign::NoSign);
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("1").unwrap().sign(), num::bigint::Sign::Plus);
+    /// ```
+    #[inline]
+    pub fn sign(&self) -> num::bigint::Sign {
+        self.int_val.sign()
+    }
 }
 
 #[derive(Debug, PartialEq)]
