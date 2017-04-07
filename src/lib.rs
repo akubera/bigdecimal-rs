@@ -45,7 +45,7 @@ use std::default::Default;
 use std::str::{self, FromStr};
 use bigint::{BigInt, ParseBigIntError, Sign};
 use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
-use traits::{Num, Zero, One, FromPrimitive, Signed};
+use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 use std::cmp::Ordering;
 
@@ -719,6 +719,42 @@ impl Num for BigDecimal {
         let big_int = try!(BigInt::from_str_radix(&digits, radix));
 
         return Ok(BigDecimal::new(big_int, scale));
+    }
+}
+
+impl ToPrimitive for BigDecimal {
+    fn to_i64(&self) -> Option<i64> {
+        // Boundaries of i64:
+        match self.sign() {
+            Sign::Plus => {
+                let limit = BigDecimal::new(1.into(), 63);
+                if *self < limit {
+                    return self.with_scale(0).int_val.to_i64();
+                }
+            },
+            Sign::Minus => {
+                let limit = BigDecimal::new(BigInt::from(-1), 63);
+                if *self > limit {
+                    return self.with_scale(0).int_val.to_i64();
+                }
+            }
+            Sign::NoSign => return Some(0),
+        }
+        None
+    }
+    fn to_u64(&self) -> Option<u64> {
+        // Boundaries of u64:
+        match self.sign() {
+            Sign::Plus => {
+                let limit = BigDecimal::new(1.into(), 64);
+                if *self < limit {
+                    return self.with_scale(0).int_val.to_u64();
+                }
+            },
+            Sign::NoSign => return Some(0),
+            Sign::Minus => {},
+        }
+        None
     }
 }
 
