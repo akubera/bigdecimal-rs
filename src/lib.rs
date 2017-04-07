@@ -43,7 +43,7 @@ use integer::Integer;
 use std::error::Error;
 use std::default::Default;
 use std::str::{self, FromStr};
-use bigint::{BigInt, ParseBigIntError, Sign};
+use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
 use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
@@ -755,6 +755,12 @@ impl ToPrimitive for BigDecimal {
             Sign::Minus => {},
         }
         None
+    }
+}
+
+impl ToBigInt for BigDecimal {
+    fn to_bigint(&self) -> Option<BigInt> {
+        Some(self.with_scale(0).int_val)
     }
 }
 
