@@ -756,6 +756,12 @@ impl ToPrimitive for BigDecimal {
         }
         None
     }
+
+    fn to_f64(&self) -> Option<f64> {
+        self.int_val.to_f64().map(|x| {
+            x * 10f64.powi(-self.scale as i32)
+        })
+    }
 }
 
 impl ToBigInt for BigDecimal {
@@ -770,6 +776,23 @@ mod bigdecimal_tests {
     use traits::ToPrimitive;
     use std::str::FromStr;
     use num;
+
+    #[test]
+    fn test_to_f64() {
+        let vals = vec![
+            ("12.34", 12.34),
+            ("3.14", 3.14),
+            ("50", 50.),
+            ("50000", 50000.),
+            ("0.001", 0.001),
+        ];
+        for (s, ans) in vals {
+            let diff = BigDecimal::from_str(s).unwrap().to_f64().unwrap() - ans;
+            let diff = diff.abs();
+
+            assert!(diff < 1e-10);
+        }
+    }
 
     #[test]
     fn test_add() {
