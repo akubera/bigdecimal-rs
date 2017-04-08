@@ -47,6 +47,7 @@ use bigint::{BigInt, ParseBigIntError, Sign};
 use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign};
 use traits::{Num, Zero, One, FromPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
+use std::cmp::Ordering;
 
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -145,7 +146,7 @@ macro_rules! forward_val_assignop {
 
 /// A big decimal type.
 ///
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Eq)]
 #[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
 pub struct BigDecimal {
     int_val: BigInt,
@@ -274,6 +275,54 @@ impl FromStr for BigDecimal {
     #[inline]
     fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
         BigDecimal::from_str_radix(s, 10)
+    }
+}
+
+impl PartialOrd for BigDecimal {
+    #[inline]
+    fn partial_cmp(&self, other: &BigDecimal) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for BigDecimal {
+    /// Complete ordering implementation for BigDecimal
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    ///
+    /// let a = bigdecimal::BigDecimal::from_str("-1").unwrap();
+    /// let b = bigdecimal::BigDecimal::from_str("1").unwrap();
+    /// assert!(a < b);
+    /// assert!(b > a);
+    /// let c = bigdecimal::BigDecimal::from_str("1").unwrap();
+    /// assert!(b >= c);
+    /// assert!(c >= b);
+    /// let d = bigdecimal::BigDecimal::from_str("10.0").unwrap();
+    /// assert!(d > c);
+    /// let e = bigdecimal::BigDecimal::from_str(".5").unwrap();
+    /// assert!(e < c);
+    /// ```
+    #[inline]
+    fn cmp(&self, other: &BigDecimal) -> Ordering {
+        let scmp = self.sign().cmp(&other.sign());
+        if scmp != Ordering::Equal {
+            return scmp;
+        }
+
+        match self.sign() {
+            Sign::NoSign => Ordering::Equal,
+            _ => {
+                let tmp = self - other;
+                match tmp.sign() {
+                    Sign::Plus => Ordering::Greater,
+                    Sign::Minus => Ordering::Less,
+                    Sign::NoSign => Ordering::Equal,
+                }
+            }
+        }
     }
 }
 
