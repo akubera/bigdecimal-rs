@@ -758,6 +758,24 @@ mod bigdecimal_tests {
     use num;
 
     #[test]
+    fn test_to_i64() {
+        let vals = vec![
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),
+            ("50000", 50000),
+            ("0.001", 0),
+            // TODO: Is the desired behaviour to round?
+            //("0.56", 1),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_i64().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
     fn test_to_f64() {
         let vals = vec![
             ("12.34", 12.34),
