@@ -43,9 +43,9 @@ use integer::Integer;
 use std::error::Error;
 use std::default::Default;
 use std::str::{self, FromStr};
-use bigint::{BigInt, ParseBigIntError, Sign};
+use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
-use traits::{Num, Zero, One, FromPrimitive, Signed};
+use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 use std::cmp::Ordering;
 
@@ -722,12 +722,75 @@ impl Num for BigDecimal {
     }
 }
 
+impl ToPrimitive for BigDecimal {
+    fn to_i64(&self) -> Option<i64> {
+        match self.sign() {
+            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i64(),
+            Sign::NoSign => Some(0),
+        }
+    }
+    fn to_u64(&self) -> Option<u64> {
+        match self.sign() {
+            Sign::Plus => self.with_scale(0).int_val.to_u64(),
+            Sign::NoSign => return Some(0),
+            Sign::Minus => None,
+        }
+    }
+
+    fn to_f64(&self) -> Option<f64> {
+        self.int_val.to_f64().map(|x| {
+            x * 10f64.powi(-self.scale as i32)
+        })
+    }
+}
+
+impl ToBigInt for BigDecimal {
+    fn to_bigint(&self) -> Option<BigInt> {
+        Some(self.with_scale(0).int_val)
+    }
+}
+
 #[cfg(test)]
 mod bigdecimal_tests {
     use super::BigDecimal;
     use traits::ToPrimitive;
     use std::str::FromStr;
     use num;
+
+    #[test]
+    fn test_to_i64() {
+        let vals = vec![
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),
+            ("50000", 50000),
+            ("0.001", 0),
+            // TODO: Is the desired behaviour to round?
+            //("0.56", 1),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_i64().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
+    fn test_to_f64() {
+        let vals = vec![
+            ("12.34", 12.34),
+            ("3.14", 3.14),
+            ("50", 50.),
+            ("50000", 50000.),
+            ("0.001", 0.001),
+        ];
+        for (s, ans) in vals {
+            let diff = BigDecimal::from_str(s).unwrap().to_f64().unwrap() - ans;
+            let diff = diff.abs();
+
+            assert!(diff < 1e-10);
+        }
+    }
 
     #[test]
     fn test_add() {
