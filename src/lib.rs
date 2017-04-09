@@ -44,7 +44,7 @@ use std::error::Error;
 use std::default::Default;
 use std::str::{self, FromStr};
 use bigint::{BigInt, ParseBigIntError, Sign};
-use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign};
+use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
 use traits::{Num, Zero, One, FromPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 use std::cmp::Ordering;
@@ -531,6 +531,63 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+impl Neg for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(mut self) -> BigDecimal {
+        self.int_val = -self.int_val;
+        self
+    }
+}
+
+impl<'a> Neg for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(self) -> BigDecimal {
+        -self.clone()
+    }
+}
+
+impl Signed for BigDecimal {
+    #[inline]
+    fn abs(&self) -> BigDecimal {
+        match self.sign() {
+            Sign::Plus | Sign::NoSign => self.clone(),
+            Sign::Minus => -self,
+        }
+    }
+
+    #[inline]
+    fn abs_sub(&self, other: &BigDecimal) -> BigDecimal {
+        if *self <= *other {
+            Zero::zero()
+        } else {
+            self - other
+        }
+    }
+
+    #[inline]
+    fn signum(&self) -> BigDecimal {
+        match self.sign() {
+            Sign::Plus => One::one(),
+            Sign::NoSign => Zero::zero(),
+            Sign::Minus => -Self::one(),
+        }
+    }
+
+    #[inline]
+    fn is_positive(&self) -> bool {
+        self.sign() == Sign::Plus
+    }
+
+    #[inline]
+    fn is_negative(&self) -> bool {
+        self.sign() == Sign::Minus
+    }
+}
+
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Aquire the absolute integer as a decimal string
@@ -847,6 +904,17 @@ mod bigdecimal_tests {
             assert_eq!(format!("{:.1}", x), results.1);
             assert_eq!(format!("{:.4}", x), results.2);
         }
+    }
+
+    #[test]
+    fn test_signed() {
+        use traits::{One,Signed,Zero};
+        assert!(!BigDecimal::zero().is_positive());
+        assert!(!BigDecimal::one().is_negative());
+
+        assert!(BigDecimal::one().is_positive());
+        assert!((-BigDecimal::one()).is_negative());
+        assert!((-BigDecimal::one()).abs().is_positive());
     }
 
     #[test]
