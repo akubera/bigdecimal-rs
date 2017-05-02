@@ -10,9 +10,9 @@ keywords = ["mathematics", "numerics"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-num = { version = "0.1.35", default-features=false, features=["bigint"] }
-num-traits = "0.1.35"
+num = { version = "0.1.37", default-features=false, features=["bigint"] }
+num-traits = "0.1.37"
 
 [dev-dependencies.rand]
-version = "0.3.8"
+version = "0.3"
 
