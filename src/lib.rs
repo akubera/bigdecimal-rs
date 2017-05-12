@@ -744,6 +744,38 @@ impl ToPrimitive for BigDecimal {
     }
 }
 
+impl FromPrimitive for BigDecimal {
+    fn from_i64(n: i64) -> Option<Self>
+    {
+        BigInt::from_i64(n).map(|int_val| {
+           BigDecimal {
+                int_val: int_val,
+                scale: 0
+           }
+        })
+    }
+
+    fn from_u64(n: u64) -> Option<Self>
+    {
+        BigInt::from_u64(n).map(|int_val| {
+           BigDecimal {
+                int_val: int_val,
+                scale: 0
+           }
+        })
+    }
+
+    fn from_f32(n: f32) -> Option<Self>
+    {
+        BigDecimal::from_str(&format!("{:.16}", n)).ok()
+    }
+
+    fn from_f64(n: f64) -> Option<Self>
+    {
+        BigDecimal::from_str(&format!("{:.16}", n)).ok()
+    }
+}
+
 impl ToBigInt for BigDecimal {
     fn to_bigint(&self) -> Option<BigInt> {
         Some(self.with_scale(0).int_val)
@@ -753,7 +785,7 @@ impl ToBigInt for BigDecimal {
 #[cfg(test)]
 mod bigdecimal_tests {
     use super::BigDecimal;
-    use traits::ToPrimitive;
+    use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num;
 
@@ -789,6 +821,67 @@ mod bigdecimal_tests {
             let diff = diff.abs();
 
             assert!(diff < 1e-10);
+        }
+    }
+
+     #[test]
+    fn test_from_i8() {
+        let vals = vec![
+            ("0", 0),
+            ("1", 1),
+            ("12", 12),
+            ("-13", -13),
+            ("111", 111),
+            ("-128", ::std::i8::MIN),
+            ("127", ::std::i8::MAX),
+        ];
+        for (s, n) in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let value = BigDecimal::from_i8(n).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    #[test]
+    fn test_from_f32() {
+        let vals = vec![
+            ("1.0", 1.0),
+            ("0.5", 0.5),
+            ("0.25", 0.25),
+            ("50", 50.),
+            ("50000", 50000.),
+            ("0.0010000000474975", 0.001),
+            ("12.3400001525878906", 12.34),
+            ("0.15625", 5.0 * 0.03125),
+            ("3.1415927410125732", ::std::f32::consts::PI),
+        ];
+        for (s, n) in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let value = BigDecimal::from_f32(n).unwrap();
+            assert_eq!(expected, value);
+            // assert_eq!(expected, n);
+        }
+
+    }
+     #[test]
+    fn test_from_f64() {
+        let vals = vec![
+            ("1.0", 1.0f64),
+            ("0.5", 0.5),
+            ("50", 50.),
+            ("50000", 50000.),
+            ("1e-3", 0.001),
+            ("0.25", 0.25),
+            ("12.3399999999999999", 12.34),
+            ("0.15625", 5.0 * 0.03125),
+            // ("3.14159265358979323846264338327950288", ::std::f64::consts::PI),
+            ("3.1415926535897931", ::std::f64::consts::PI),
+        ];
+        for (s, n) in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let value = BigDecimal::from_f64(n).unwrap();
+            assert_eq!(expected, value);
+            // assert_eq!(expected, n);
         }
     }
 
