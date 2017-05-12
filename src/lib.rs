@@ -235,12 +235,14 @@ pub enum ParseBigDecimalError {
 
 impl fmt::Display for ParseBigDecimalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &ParseBigDecimalError::ParseDecimal(ref e) => e.fmt(f),
-            &ParseBigDecimalError::ParseInt(ref e) => e.fmt(f),
-            &ParseBigDecimalError::ParseBigInt(ref e) => e.fmt(f),
-            &ParseBigDecimalError::Empty => "Failed to parse empty string".fmt(f),
-            &ParseBigDecimalError::Other(ref reason) => reason[..].fmt(f),
+        use ParseBigDecimalError::*;
+
+        match *self {
+            ParseDecimal(ref e) => e.fmt(f),
+            ParseInt(ref e) => e.fmt(f),
+            ParseBigInt(ref e) => e.fmt(f),
+            Empty => "Failed to parse empty string".fmt(f),
+            Other(ref reason) => reason[..].fmt(f),
         }
     }
 }
