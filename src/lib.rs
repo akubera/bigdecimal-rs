@@ -746,37 +746,85 @@ impl ToPrimitive for BigDecimal {
     }
 }
 
-impl FromPrimitive for BigDecimal {
-    fn from_i64(n: i64) -> Option<Self>
-    {
-        BigInt::from_i64(n).map(|int_val| {
-           BigDecimal {
-                int_val: int_val,
-                scale: 0
-           }
-        })
-    }
-
-    fn from_u64(n: u64) -> Option<Self>
-    {
-        BigInt::from_u64(n).map(|int_val| {
-           BigDecimal {
-                int_val: int_val,
-                scale: 0
-           }
-        })
-    }
-
-    fn from_f32(n: f32) -> Option<Self>
-    {
-        BigDecimal::from_str(&format!("{:.16}", n)).ok()
-    }
-
-    fn from_f64(n: f64) -> Option<Self>
-    {
-        BigDecimal::from_str(&format!("{:.16}", n)).ok()
+impl From<i64> for BigDecimal {
+    #[inline]
+    fn from(n: i64) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0
+        }
     }
 }
+
+impl From<u64> for BigDecimal {
+    #[inline]
+    fn from(n: u64) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0
+        }
+    }
+}
+
+macro_rules! impl_from_type {
+    ($FromType:ty, $AsType:ty) => {
+        impl From<$FromType> for BigDecimal {
+            #[inline]
+            fn from(n: $FromType) -> Self {
+                BigDecimal::from(n as $AsType)
+            }
+        }
+    }
+}
+
+impl_from_type!(u8, u64);
+impl_from_type!(u16, u64);
+impl_from_type!(u32, u64);
+
+impl_from_type!(i8,  i64);
+impl_from_type!(i16, i64);
+impl_from_type!(i32, i64);
+
+impl From<f32> for BigDecimal {
+    #[inline]
+    fn from(n: f32) -> Self {
+        BigDecimal::from_str(&format!("{:.16}", n)).unwrap()
+     }
+}
+
+impl From<f64> for BigDecimal {
+    #[inline]
+    fn from(n: f64) -> Self {
+        BigDecimal::from_str(&format!("{:.16}", n)).unwrap()
+    }
+}
+
+impl FromPrimitive for BigDecimal {
+    #[inline]
+    fn from_i64(n: i64) -> Option<Self>
+    {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    fn from_u64(n: u64) -> Option<Self>
+    {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    fn from_f32(n: f32) -> Option<Self>
+    {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    fn from_f64(n: f64) -> Option<Self>
+    {
+        Some(BigDecimal::from(n))
+    }
+}
+
 
 impl ToBigInt for BigDecimal {
     fn to_bigint(&self) -> Option<BigInt> {
