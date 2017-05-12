@@ -788,14 +788,14 @@ impl_from_type!(i32, i64);
 impl From<f32> for BigDecimal {
     #[inline]
     fn from(n: f32) -> Self {
-        BigDecimal::from_str(&format!("{:.16}", n)).unwrap()
-     }
+        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION=::std::f32::DIGITS as usize)).unwrap()
+    }
 }
 
 impl From<f64> for BigDecimal {
     #[inline]
     fn from(n: f64) -> Self {
-        BigDecimal::from_str(&format!("{:.16}", n)).unwrap()
+        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION=::std::f64::DIGITS as usize)).unwrap()
     }
 }
 
@@ -834,7 +834,7 @@ impl ToBigInt for BigDecimal {
 
 #[cfg(test)]
 mod bigdecimal_tests {
-    use super::BigDecimal;
+    use BigDecimal;
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num;
@@ -898,12 +898,16 @@ mod bigdecimal_tests {
             ("1.0", 1.0),
             ("0.5", 0.5),
             ("0.25", 0.25),
-            ("50", 50.),
+            ("50.", 50.0),
             ("50000", 50000.),
-            ("0.0010000000474975", 0.001),
-            ("12.3400001525878906", 12.34),
+            ("0.001", 0.001),
+            ("12.34", 12.34),
             ("0.15625", 5.0 * 0.03125),
-            ("3.1415927410125732", ::std::f32::consts::PI),
+            ("3.141593", ::std::f32::consts::PI),
+            ("31415.93", ::std::f32::consts::PI * 10000.0),
+            ("94247.78", ::std::f32::consts::PI * 30000.0),
+            // ("3.14159265358979323846264338327950288f32", ::std::f32::consts::PI),
+
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
@@ -922,10 +926,13 @@ mod bigdecimal_tests {
             ("50000", 50000.),
             ("1e-3", 0.001),
             ("0.25", 0.25),
-            ("12.3399999999999999", 12.34),
+            ("12.34", 12.34),
+            // ("12.3399999999999999", 12.34), // <- Precision 16 decimal points
             ("0.15625", 5.0 * 0.03125),
-            // ("3.14159265358979323846264338327950288", ::std::f64::consts::PI),
-            ("3.1415926535897931", ::std::f64::consts::PI),
+            ("0.3333333333333333", 1.0 / 3.0),
+            ("3.141592653589793", ::std::f64::consts::PI),
+            ("31415.92653589793",  ::std::f64::consts::PI * 10000.0f64),
+            ("94247.77960769380",  ::std::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
