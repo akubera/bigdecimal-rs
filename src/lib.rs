@@ -222,6 +222,41 @@ impl BigDecimal {
     pub fn sign(&self) -> num::bigint::Sign {
         self.int_val.sign()
     }
+
+    /// Return the internal big integer value and an exponent
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate num;
+    /// extern crate bigdecimal;
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().as_bigint_and_exponent(),
+    ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
+    #[inline]
+    pub fn as_bigint_and_exponent(&self) -> (BigInt, i64) {
+       (self.int_val.clone(), self.scale)
+    }
+
+    /// Convert into the internal big integer value and an exponent
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate num;
+    /// extern crate bigdecimal;
+    /// use std::str::FromStr;
+    ///
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().into_bigint_and_exponent(),
+    ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
+    #[inline]
+    pub fn into_bigint_and_exponent(self) -> (BigInt, i64) {
+       (self.int_val, self.scale)
+    }
+
+
+
 }
 
 #[derive(Debug, PartialEq)]
@@ -765,6 +800,17 @@ impl From<u64> for BigDecimal {
         }
     }
 }
+
+impl From<(BigInt, i64)> for BigDecimal {
+    #[inline]
+    fn from((int_val, scale): (BigInt, i64)) -> Self {
+        BigDecimal {
+            int_val: int_val,
+            scale: scale
+        }
+    }
+}
+
 
 macro_rules! impl_from_type {
     ($FromType:ty, $AsType:ty) => {
