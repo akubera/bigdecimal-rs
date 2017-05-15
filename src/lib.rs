@@ -28,11 +28,6 @@
 //! directly, as the floating point representation may be unexpected.
 //!
 
-#[cfg(feature = "rustc-serialize")]
-extern crate rustc_serialize;
-#[cfg(feature = "serde")]
-extern crate serde;
-
 extern crate num;
 extern crate num_traits as traits;
 
@@ -147,7 +142,6 @@ macro_rules! forward_val_assignop {
 /// A big decimal type.
 ///
 #[derive(Clone, Debug, Hash, Eq)]
-#[cfg_attr(feature = "rustc-serialize", derive(RustcEncodable, RustcDecodable))]
 pub struct BigDecimal {
     int_val: BigInt,
     scale: i64,
