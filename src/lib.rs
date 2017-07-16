@@ -891,7 +891,7 @@ mod bigdecimal_serde {
 
     struct BigDecimalVisitor;
 
-    impl de::Visitor for BigDecimalVisitor {
+    impl<'de> de::Visitor<'de> for BigDecimalVisitor {
         type Value = BigDecimal;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result
@@ -925,11 +925,11 @@ mod bigdecimal_serde {
         }
     }
 
-    impl de::Deserialize for BigDecimal {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where D: de::Deserializer
+    impl<'de> de::Deserialize<'de> for BigDecimal {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+            where D: de::Deserializer<'de>
         {
-            deserializer.deserialize_str(BigDecimalVisitor)
+            d.deserialize_str(BigDecimalVisitor)
         }
     }
 
