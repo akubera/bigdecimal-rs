@@ -12,7 +12,10 @@ license = "MIT/Apache-2.0"
 [dependencies]
 num = { version = "0.1.37", default-features=false, features=["bigint"] }
 num-traits = "0.1.37"
+serde = { version = "1", optional = true }
 
 [dev-dependencies.rand]
 version = "0.3"
 
+[dev-dependencies.serde_json]
+version = "1"
