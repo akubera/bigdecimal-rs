@@ -171,7 +171,9 @@ impl BigDecimal {
     /// ```
     #[inline]
     pub fn parse_bytes(buf: &[u8], radix: u32) -> Option<BigDecimal> {
-        str::from_utf8(buf).ok().and_then(|s| BigDecimal::from_str_radix(s, radix).ok())
+        str::from_utf8(buf).ok().and_then(|s| {
+            BigDecimal::from_str_radix(s, radix).ok()
+        })
     }
 
     /// Return a new BigDecimal object equivalent to self, with internal
@@ -233,7 +235,7 @@ impl BigDecimal {
     ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
     #[inline]
     pub fn as_bigint_and_exponent(&self) -> (BigInt, i64) {
-       (self.int_val.clone(), self.scale)
+        (self.int_val.clone(), self.scale)
     }
 
     /// Convert into the internal big integer value and an exponent
@@ -249,11 +251,8 @@ impl BigDecimal {
     ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
     #[inline]
     pub fn into_bigint_and_exponent(self) -> (BigInt, i64) {
-       (self.int_val, self.scale)
+        (self.int_val, self.scale)
     }
-
-
-
 }
 
 #[derive(Debug, PartialEq)]
@@ -651,8 +650,7 @@ impl fmt::Display for BigDecimal {
             // First case: the integer representation falls
             // completely behind the decimal point
             let scale = self.scale as usize;
-            let after = "0".repeat(scale - abs_int.len())
-                + abs_int.as_str();
+            let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
             ("0".to_string(), after)
         } else {
             // Second case: the integer representation falls
@@ -716,8 +714,9 @@ impl Num for BigDecimal {
     #[inline]
     fn from_str_radix(s: &str, radix: u32) -> Result<BigDecimal, ParseBigDecimalError> {
         if radix != 10 {
-            return Err(ParseBigDecimalError::Other(String::from("The radix for decimal MUST be \
-                                                                 10")));
+            return Err(ParseBigDecimalError::Other(
+                String::from("The radix for decimal MUST be 10"),
+            ));
         }
 
         let exp_separator: &[_] = &['e', 'E'];
@@ -791,9 +790,9 @@ impl ToPrimitive for BigDecimal {
     }
 
     fn to_f64(&self) -> Option<f64> {
-        self.int_val.to_f64().map(|x| {
-            x * 10f64.powi(-self.scale as i32)
-        })
+        self.int_val.to_f64().map(
+            |x| x * 10f64.powi(-self.scale as i32),
+        )
     }
 }
 
@@ -802,7 +801,7 @@ impl From<i64> for BigDecimal {
     fn from(n: i64) -> Self {
         BigDecimal {
             int_val: BigInt::from(n),
-            scale: 0
+            scale: 0,
         }
     }
 }
@@ -812,7 +811,7 @@ impl From<u64> for BigDecimal {
     fn from(n: u64) -> Self {
         BigDecimal {
             int_val: BigInt::from(n),
-            scale: 0
+            scale: 0,
         }
     }
 }
@@ -822,7 +821,7 @@ impl From<(BigInt, i64)> for BigDecimal {
     fn from((int_val, scale): (BigInt, i64)) -> Self {
         BigDecimal {
             int_val: int_val,
-            scale: scale
+            scale: scale,
         }
     }
 }
@@ -843,46 +842,50 @@ impl_from_type!(u8, u64);
 impl_from_type!(u16, u64);
 impl_from_type!(u32, u64);
 
-impl_from_type!(i8,  i64);
+impl_from_type!(i8, i64);
 impl_from_type!(i16, i64);
 impl_from_type!(i32, i64);
 
 impl From<f32> for BigDecimal {
     #[inline]
     fn from(n: f32) -> Self {
-        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION=::std::f32::DIGITS as usize)).unwrap()
+        BigDecimal::from_str(&format!(
+            "{:.PRECISION$e}",
+            n,
+            PRECISION = ::std::f32::DIGITS as usize
+        )).unwrap()
     }
 }
 
 impl From<f64> for BigDecimal {
     #[inline]
     fn from(n: f64) -> Self {
-        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION=::std::f64::DIGITS as usize)).unwrap()
+        BigDecimal::from_str(&format!(
+            "{:.PRECISION$e}",
+            n,
+            PRECISION = ::std::f64::DIGITS as usize
+        )).unwrap()
     }
 }
 
 impl FromPrimitive for BigDecimal {
     #[inline]
-    fn from_i64(n: i64) -> Option<Self>
-    {
+    fn from_i64(n: i64) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 
     #[inline]
-    fn from_u64(n: u64) -> Option<Self>
-    {
+    fn from_u64(n: u64) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 
     #[inline]
-    fn from_f32(n: f32) -> Option<Self>
-    {
+    fn from_f32(n: f32) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 
     #[inline]
-    fn from_f64(n: f64) -> Option<Self>
-    {
+    fn from_f64(n: f64) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 }
@@ -898,12 +901,13 @@ impl ToBigInt for BigDecimal {
 #[cfg(feature = "serde")]
 mod bigdecimal_serde {
     use std::fmt;
-    use super::{BigDecimal};
+    use super::BigDecimal;
     use serde::{ser, de};
 
     impl ser::Serialize for BigDecimal {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where S: ser::Serializer
+        where
+            S: ser::Serializer,
         {
             serializer.collect_str(&self)
         }
@@ -914,32 +918,35 @@ mod bigdecimal_serde {
     impl<'de> de::Visitor<'de> for BigDecimalVisitor {
         type Value = BigDecimal;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result
-        {
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             write!(formatter, "a number or formatted decimal string")
         }
 
         fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-            where E: de::Error
+        where
+            E: de::Error,
         {
             use std::str::FromStr;
             BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
-            where E: de::Error
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
-            where E: de::Error
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
-            where E: de::Error
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
@@ -947,7 +954,8 @@ mod bigdecimal_serde {
 
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
-            where D: de::Deserializer<'de>
+        where
+            D: de::Deserializer<'de>,
         {
             d.deserialize_str(BigDecimalVisitor)
         }
@@ -1010,6 +1018,7 @@ mod bigdecimal_serde {
         }
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_serde_deserialize_int() {
         use traits::FromPrimitive;
@@ -1048,7 +1057,8 @@ mod bigdecimal_serde {
         ];
         for n in vals {
             let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap())
+                .unwrap();
             assert_eq!(expected, value);
         }
     }
@@ -1097,7 +1107,7 @@ mod bigdecimal_tests {
         }
     }
 
-     #[test]
+    #[test]
     fn test_from_i8() {
         let vals = vec![
             ("0", 0),
@@ -1140,7 +1150,7 @@ mod bigdecimal_tests {
         }
 
     }
-     #[test]
+    #[test]
     fn test_from_f64() {
         let vals = vec![
             ("1.0", 1.0f64),
@@ -1154,8 +1164,8 @@ mod bigdecimal_tests {
             ("0.15625", 5.0 * 0.03125),
             ("0.3333333333333333", 1.0 / 3.0),
             ("3.141592653589793", ::std::f64::consts::PI),
-            ("31415.92653589793",  ::std::f64::consts::PI * 10000.0f64),
-            ("94247.77960769380",  ::std::f64::consts::PI * 30000.0f64),
+            ("31415.92653589793", ::std::f64::consts::PI * 10000.0f64),
+            ("94247.77960769380", ::std::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
@@ -1238,6 +1248,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_div() {
         let vals = vec![
@@ -1284,6 +1295,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_not_equal() {
         let vals = vec![
@@ -1414,6 +1426,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_fmt() {
         let vals = vec![
@@ -1436,7 +1449,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_signed() {
-        use traits::{One,Signed,Zero};
+        use traits::{One, Signed, Zero};
         assert!(!BigDecimal::zero().is_positive());
         assert!(!BigDecimal::one().is_negative());
 
