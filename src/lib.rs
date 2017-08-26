@@ -90,19 +90,6 @@ macro_rules! forward_val_ref_binop {
     }
 }
 
-macro_rules! forward_ref_ref_binop {
-    (impl $imp:ident for $res:ty, $method:ident) => {
-        impl<'a, 'b> $imp<&'b $res> for &'a $res {
-            type Output = $res;
-
-            #[inline]
-            fn $method(self, other: &$res) -> $res {
-                // forward to val-ref
-                $imp::$method(self.clone(), other)
-            }
-        }
-    }
-}
 
 // Forward everything to ref-ref, when reusing storage is not helpful
 macro_rules! forward_all_binop_to_ref_ref {
