@@ -74,6 +74,9 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 #[macro_use]
 mod macros;
 
+mod context;
+pub use context::{Context, RoundingMode};
+
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
