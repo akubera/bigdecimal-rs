@@ -48,6 +48,9 @@ use integer::Integer;
 use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 pub use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 
+mod context;
+pub use context::{Context, RoundingMode};
+
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
         impl $imp<$res> for $res {
