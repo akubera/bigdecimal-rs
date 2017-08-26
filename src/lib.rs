@@ -36,16 +36,17 @@ extern crate serde;
 use num::{bigint, integer};
 
 use std::fmt;
-use integer::Integer;
 use std::error::Error;
+use std::cmp::Ordering;
 use std::default::Default;
 use std::str::{self, FromStr};
-use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
-use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
-use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
-use std::num::{ParseFloatError, ParseIntError};
-use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::num::{ParseFloatError, ParseIntError};
+use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
+
+use integer::Integer;
+use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
+pub use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -166,7 +167,9 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// // assert_eq!(BigDecimal::parse_bytes(b"0", 16), BigDecimal::zero());
+    /// use bigdecimal::{BigDecimal, Zero};
+    ///
+    /// assert_eq!(BigDecimal::parse_bytes(b"0", 10).unwrap(), BigDecimal::zero());
     /// // assert_eq!(BigDecimal::parse_bytes(b"f", 16), BigDecimal::parse_bytes(b"16", 10));
     /// ```
     #[inline]
