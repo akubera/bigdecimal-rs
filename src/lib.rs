@@ -1093,6 +1093,7 @@ mod bigdecimal_serde {
 #[cfg(test)]
 mod bigdecimal_tests {
     use BigDecimal;
+    use BigDecimalBuilder;
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num;
@@ -1218,6 +1219,32 @@ mod bigdecimal_tests {
             let c = BigDecimal::from_str(z).unwrap();
 
             let s = a.clone() + b.clone();
+            assert_eq!(s, c);
+
+            a += b;
+            assert_eq!(a, c);
+        }
+    }
+
+    #[test]
+    fn test_add_with_context() {
+        let vals = vec![
+            (4, "12.34", "1.234", "13.574"),
+            // ("12.34", "-1.234", "11.106"),
+            // ("1234e6", "1234e-6", "1234000000.001234"),
+            // ("1234e-6", "1234e6", "1234000000.001234"),
+            // ("18446744073709551616.0", "1", "18446744073709551617"),
+            // ("184467440737e3380", "0", "184467440737e3380"),
+        ];
+
+        for &(prec, x, y, z) in vals.iter() {
+            let build = BigDecimalBuilder::new().Precision(prec);
+
+            let mut a: BigDecimal = build.WithString(x).into();
+            let b: BigDecimal = build.WithString(y).into();
+            let c: BigDecimal = build.WithString(z).into();
+
+            let s = &a + &b;
             assert_eq!(s, c);
 
             a += b;
