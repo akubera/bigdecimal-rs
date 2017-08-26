@@ -139,6 +139,7 @@ macro_rules! forward_val_assignop {
 pub struct BigDecimal {
     int_val: BigInt,
     scale: i64,
+    context: Context,
 }
 
 impl BigDecimal {
@@ -149,6 +150,7 @@ impl BigDecimal {
         BigDecimal {
             int_val: digits,
             scale: scale,
+            context: Context::default(),
         }
     }
 
@@ -253,6 +255,7 @@ impl BigDecimal {
         BigDecimal {
             int_val: self.int_val.abs(),
             scale: self.scale,
+            context: self.context,
         }
     }
 }
@@ -804,6 +807,7 @@ impl From<i64> for BigDecimal {
         BigDecimal {
             int_val: BigInt::from(n),
             scale: 0,
+            context: Context::default(),
         }
     }
 }
@@ -814,6 +818,7 @@ impl From<u64> for BigDecimal {
         BigDecimal {
             int_val: BigInt::from(n),
             scale: 0,
+            context: Context::default(),
         }
     }
 }
@@ -824,6 +829,7 @@ impl From<(BigInt, i64)> for BigDecimal {
         BigDecimal {
             int_val: int_val,
             scale: scale,
+            context: Context::default(),
         }
     }
 }
