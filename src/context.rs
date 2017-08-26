@@ -6,6 +6,8 @@
 //! Each BigDecimal object has its own context object, and all
 //! operations will follow the more 'restricted' rule.
 
+pub static DEFAULT_PRECISION: u64 = 34;
+
 /// Information regarding behavior of certain BigDecimal operations
 ///
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -20,7 +22,7 @@ pub struct Context {
 impl Default for Context {
     fn default() -> Context {
         Context {
-            precision: 34,
+            precision: DEFAULT_PRECISION,
             rounding_mode: RoundingMode::HalfUp,
         }
     }
