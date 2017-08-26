@@ -32,6 +32,9 @@ extern crate num;
 extern crate num_traits as traits;
 #[cfg(feature = "serde")]
 extern crate serde;
+/*
+#![feature(try_from)]
+*/
 
 use num::{bigint, integer};
 
@@ -50,6 +53,9 @@ pub use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 
 mod context;
 pub use context::{Context, RoundingMode};
+
+mod builder;
+pub use builder::BigDecimalBuilder;
 
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
