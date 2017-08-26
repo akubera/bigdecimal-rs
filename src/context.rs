@@ -6,7 +6,10 @@
 //! Each BigDecimal object has its own context object, and all
 //! operations will follow the more 'restricted' rule.
 
+use std::cmp;
+
 pub static DEFAULT_PRECISION: u64 = 34;
+pub static DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::HalfEven;
 
 /// Information regarding behavior of certain BigDecimal operations
 ///
@@ -23,7 +26,16 @@ impl Default for Context {
     fn default() -> Context {
         Context {
             precision: DEFAULT_PRECISION,
-            rounding_mode: RoundingMode::HalfUp,
+            rounding_mode: DEFAULT_ROUNDING_MODE,
+        }
+    }
+}
+
+impl Context {
+    pub fn merge(lhs: &Context, rhs: &Context) -> Context {
+        Context {
+            precision: cmp::min(lhs.precision, rhs.precision),
+            rounding_mode: lhs.rounding_mode,
         }
     }
 }
