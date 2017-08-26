@@ -154,6 +154,7 @@ pub struct BigDecimal {
     int_val: BigInt,
     // A positive scale means a negative power of 10
     scale: i64,
+    context: Context,
 }
 
 impl BigDecimal {
@@ -164,6 +165,7 @@ impl BigDecimal {
         BigDecimal {
             int_val: digits,
             scale: scale,
+            context: Context::default(),
         }
     }
 
@@ -252,6 +254,7 @@ impl BigDecimal {
                 BigDecimal {
                     int_val: q,
                     scale: self.scale - diff as i64,
+                    context: self.context,
                 }
             }
             Ordering::Less => {
@@ -259,6 +262,7 @@ impl BigDecimal {
                 BigDecimal {
                     int_val: &self.int_val * ten_to_the(diff),
                     scale: self.scale + diff as i64,
+                    context: self.context,
                 }
             }
             Ordering::Equal => self.clone(),
@@ -330,6 +334,7 @@ impl BigDecimal {
         BigDecimal {
             int_val: self.int_val.abs(),
             scale: self.scale,
+            context: self.context,
         }
     }
 
@@ -341,6 +346,7 @@ impl BigDecimal {
             BigDecimal {
                 int_val: self.int_val.clone() * 2,
                 scale: self.scale,
+                context: self.context,
             }
         }
     }
@@ -358,11 +364,13 @@ impl BigDecimal {
             BigDecimal {
                 int_val: self.int_val.clone().div(2u8),
                 scale: self.scale,
+                context: self.context,
             }
         } else {
             BigDecimal {
                 int_val: self.int_val.clone().mul(5u8),
                 scale: self.scale + 1,
+                context: self.context,
             }
         }
     }
@@ -376,6 +384,7 @@ impl BigDecimal {
             BigDecimal {
                 int_val: self.int_val.clone() * &self.int_val,
                 scale: self.scale * 2,
+                context: self.context,
             }
         }
     }
@@ -388,6 +397,7 @@ impl BigDecimal {
             BigDecimal {
                 int_val: self.int_val.clone() * &self.int_val * &self.int_val,
                 scale: self.scale * 3,
+                context: self.context,
             }
         }
     }
@@ -1341,6 +1351,7 @@ impl Div<BigDecimal> for BigDecimal {
             return BigDecimal {
                 int_val: 1.into(),
                 scale: scale,
+                context: self.context,
             };
         }
 
@@ -1367,6 +1378,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
             return BigDecimal {
                 int_val: 1.into(),
                 scale: scale,
+                context: self.context,
             };
         }
 
@@ -1713,6 +1725,7 @@ impl From<i64> for BigDecimal {
         BigDecimal {
             int_val: BigInt::from(n),
             scale: 0,
+            context: Context::default(),
         }
     }
 }
@@ -1723,6 +1736,7 @@ impl From<u64> for BigDecimal {
         BigDecimal {
             int_val: BigInt::from(n),
             scale: 0,
+            context: Context::default(),
         }
     }
 }
@@ -1733,6 +1747,7 @@ impl From<(BigInt, i64)> for BigDecimal {
         BigDecimal {
             int_val: int_val,
             scale: scale,
+            context: Context::default(),
         }
     }
 }
