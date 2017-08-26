@@ -9,14 +9,47 @@ use std::convert::TryFrom;
 */
 
 use super::{BigDecimal, ParseBigDecimalError};
-use super::context::{Context, RoundingMode};
+use context::{self, Context, RoundingMode};
 
 
 /// Standard builder for bigdecimal
+#[derive(Clone)]
 pub struct BigDecimalBuilder {
     precision: u64,
     rounding: RoundingMode,
 }
+
+impl BigDecimalBuilder {
+    pub fn new() -> BigDecimalBuilder {
+        BigDecimalBuilder {
+            precision: context::DEFAULT_PRECISION,
+            rounding: context::DEFAULT_ROUNDING_MODE,
+        }
+    }
+
+    pub fn Precision(&self, prec: u64) -> Self {
+        let mut result = self.clone();
+        result.precision = prec;
+        return result;
+    }
+}
+
+macro_rules! impl_common_methods {
+    ($X:ty) => {
+        pub fn Precision(&self, prec: u64) -> $X {
+            let mut result = self.clone();
+            result.builder.precision = prec;
+            return result;
+        }
+
+        pub fn RoundingMode(&self, rm: RoundingMode) -> $X {
+            let mut result = self.clone();
+            result.builder.rounding = rm;
+            return result;
+        }
+    }
+}
+
 
 impl Into<Context> for BigDecimalBuilder {
     fn into(self) -> Context {
@@ -28,47 +61,52 @@ impl Into<Context> for BigDecimalBuilder {
 }
 
 /// Build BigDecimal using String as a source
+#[derive(Clone)]
 pub struct BigDecimalBuilderString {
     builder: BigDecimalBuilder,
     src: String,
 }
 
-impl BigDecimalBuilderString {}
-
 // Build BigDecimal using integer as source
+#[derive(Clone)]
 pub struct BigDecimalBuilderInt {
     builder: BigDecimalBuilder,
     src: i64,
 }
 
 // Build BigDecimal using float as a source
+#[derive(Clone)]
 pub struct BigDecimalBuilderFloat {
     builder: BigDecimalBuilder,
     src: f64,
 }
 
 
+impl BigDecimalBuilderString {
+    impl_common_methods!(BigDecimalBuilderString);
+}
+
 // trait BigDecimalBuilderTrait<T: Into<BigDecimal>> {
 // }
 
 impl BigDecimalBuilder {
-    pub fn WithString(self, src: String) -> BigDecimalBuilderString {
+    pub fn WithString(&self, src: &str) -> BigDecimalBuilderString {
         BigDecimalBuilderString {
-            builder: self,
-            src: src,
+            builder: self.clone(),
+            src: src.into(),
         }
     }
 
-    pub fn WithInt(self, src: i64) -> BigDecimalBuilderInt {
+    pub fn WithInt(&self, src: i64) -> BigDecimalBuilderInt {
         BigDecimalBuilderInt {
-            builder: self,
+            builder: self.clone(),
             src: src,
         }
     }
 
-    pub fn WithFloat(self, src: f64) -> BigDecimalBuilderFloat {
+    pub fn WithFloat(&self, src: f64) -> BigDecimalBuilderFloat {
         BigDecimalBuilderFloat {
-            builder: self,
+            builder: self.clone(),
             src: src,
         }
     }
@@ -97,6 +135,15 @@ impl From<BigDecimalBuilderString> for Result<BigDecimal, ParseBigDecimalError> 
             result.context = ctx;
             result
         })
+    }
+}
+
+impl From<BigDecimalBuilderString> for BigDecimal {
+    #[inline]
+    fn from(obj: BigDecimalBuilderString) -> BigDecimal {
+        let mut result = BigDecimal::from_str(&obj.src).unwrap();
+        result.context = obj.builder.into();
+        return result;
     }
 }
 
