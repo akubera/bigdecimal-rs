@@ -82,6 +82,10 @@ mod macros;
 pub mod bigdigit;
 pub mod arithmetic;
 
+mod context;
+pub use context::{Context, RoundingMode};
+
+
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
