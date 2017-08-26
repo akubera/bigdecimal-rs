@@ -8,6 +8,7 @@
 
 /// Information regarding behavior of certain BigDecimal operations
 ///
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Context {
     /// The maximum number of digits to store
     pub precision: u64,
@@ -29,6 +30,7 @@ impl Default for Context {
 ///
 /// Default rounding mode is HalfUp
 ///
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum RoundingMode {
     /// Always round away from zero
     ///
