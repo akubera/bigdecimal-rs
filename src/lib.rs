@@ -154,6 +154,17 @@ impl BigDecimal {
         }
     }
 
+    /// Creates a `BigDecimal` with a given context
+    ///
+    #[inline]
+    pub fn new_with_context(digits: BigInt, scale: i64, ctx: Context) -> BigDecimal {
+        BigDecimal {
+            int_val: digits,
+            scale: scale,
+            context: ctx,
+        }
+    }
+
     /// Creates and initializes a `BigDecimal`.
     ///
     /// # Examples
@@ -561,7 +572,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
         let mut remainder = remainder * BIG_TEN;
         let mut quotient = quotient;
 
-        let MAX_ITERATIONS = 100;
+        let MAX_ITERATIONS = self.context.precision as i64;
         let mut iteration_count = 0;
         while remainder != BigInt::zero() && iteration_count < MAX_ITERATIONS {
             let (q, r) = remainder.div_rem(&den);
@@ -1269,8 +1280,8 @@ mod bigdecimal_tests {
             ("100", "5", "20"),
             ("-50", "5", "-10"),
             ("200", "5", "40."),
-            ("1", "3", ".3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
-            ("12.34", "1.233", "10.008110300081103000811030008110300081103000811030008110300081103000811030008110300081103000811030008"),
+            ("1", "3", ".3333333333333333333333333333333333"),
+            ("12.34", "1.233", "10.0081103000811030008110300081103"),
         ];
 
         for &(x, y, z) in vals.iter() {
