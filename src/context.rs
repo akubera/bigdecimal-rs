@@ -9,7 +9,11 @@
 use std::cmp;
 
 pub static DEFAULT_PRECISION: u64 = 34;
+pub static DEFAULT_MAX_PRECISION: u64 = 999999999;
 pub static DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::HalfEven;
+
+static MAX_EXP: i32 = 999999999;
+static MIN_EXP: i32 = -999999999;
 
 /// Information regarding behavior of certain BigDecimal operations
 ///
@@ -20,6 +24,21 @@ pub struct Context {
 
     /// Method to round numbers
     pub rounding_mode: RoundingMode,
+
+    /// Maximum positive exponent
+    pub exp_max: i32,
+
+    /// Minimun exponent (negative)
+    pub exp_min: i32,
+
+    /// Trap-enabler flags
+    pub traps: u32,
+
+    /// status flags
+    pub status: u32,
+
+    /// Apply exponent clamp
+    pub clamp: bool,
 }
 
 impl Default for Context {
@@ -27,6 +46,11 @@ impl Default for Context {
         Context {
             precision: DEFAULT_PRECISION,
             rounding_mode: DEFAULT_ROUNDING_MODE,
+            exp_max: MAX_EXP,
+            exp_min: MIN_EXP,
+            status: 0,
+            traps: 0x00000002,
+            clamp: false,
         }
     }
 }
@@ -36,9 +60,27 @@ impl Context {
         Context {
             precision: cmp::min(lhs.precision, rhs.precision),
             rounding_mode: lhs.rounding_mode,
+            exp_max: cmp::max(lhs.exp_max, rhs.exp_max),
+            exp_min: cmp::min(lhs.exp_min, rhs.exp_min),
+            status: 0,
+            traps: lhs.traps | rhs.traps,
+            clamp: false,
         }
     }
 }
+
+/// Status of context object
+pub enum Status {
+    Overflow = 0x00000200,
+    Underflow = 0x00002000,
+    Clambed = 0x00000400,
+    Rounded = 0x00000800,
+    DivByZero = 0x00000002,
+    DivImpossible = 0x00000004,
+    InsufficientStorage = 0x00000010,
+    Inexact = 0x00000020,
+}
+
 
 /// Determines how to calculate the last digit of the number
 ///
