@@ -56,6 +56,7 @@ impl Into<Context> for BigDecimalBuilder {
         Context {
             precision: self.precision,
             rounding_mode: self.rounding,
+            ..Default::default()
         }
     }
 }
