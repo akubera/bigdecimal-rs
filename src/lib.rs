@@ -243,6 +243,15 @@ impl BigDecimal {
     pub fn into_bigint_and_exponent(self) -> (BigInt, i64) {
         (self.int_val, self.scale)
     }
+
+    /// Compute the absolute value of number
+    #[inline]
+    pub fn abs(&self) -> BigDecimal {
+        BigDecimal {
+            int_val: self.int_val.abs(),
+            scale: self.scale,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -1389,6 +1398,20 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
             assert_eq!(a, b);
             assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
+        }
+    }
+
+    #[cfg_attr(rustfmy, rustfmt_skip)]
+    #[test]
+    fn test_abs() {
+        let vals = vec![
+            ("10", "10"),
+            ("-10", "10"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().abs();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert!(a == b, "{} == {}", a, b);
         }
     }
 
