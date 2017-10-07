@@ -32,6 +32,9 @@ extern crate num;
 extern crate num_traits as traits;
 #[cfg(feature = "serde")]
 extern crate serde;
+#[macro_use]
+extern crate bitflags;
+
 /*
 #![feature(try_from)]
 */

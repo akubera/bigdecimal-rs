@@ -35,7 +35,7 @@ pub struct Context {
     pub traps: u32,
 
     /// status flags
-    pub status: u32,
+    pub status: Status,
 
     /// Apply exponent clamp
     pub clamp: bool,
@@ -48,7 +48,7 @@ impl Default for Context {
             rounding_mode: DEFAULT_ROUNDING_MODE,
             exp_max: MAX_EXP,
             exp_min: MIN_EXP,
-            status: 0,
+            status: Status { bits: 0 },
             traps: 0x00000002,
             clamp: false,
         }
@@ -62,7 +62,7 @@ impl Context {
             rounding_mode: lhs.rounding_mode,
             exp_max: cmp::max(lhs.exp_max, rhs.exp_max),
             exp_min: cmp::min(lhs.exp_min, rhs.exp_min),
-            status: 0,
+            status: Status { bits: 0 },
             traps: lhs.traps | rhs.traps,
             clamp: false,
         }
@@ -70,17 +70,18 @@ impl Context {
 }
 
 /// Status of context object
-pub enum Status {
-    Overflow = 0x00000200,
-    Underflow = 0x00002000,
-    Clambed = 0x00000400,
-    Rounded = 0x00000800,
-    DivByZero = 0x00000002,
-    DivImpossible = 0x00000004,
-    InsufficientStorage = 0x00000010,
-    Inexact = 0x00000020,
+bitflags! {
+    pub struct Status: u32 {
+        const OVERFLOW = 0x00000200;
+        const UNDERFLOW = 0x00002000;
+        const CLAMBED = 0x00000400;
+        const ROUNDED = 0x00000800;
+        const DIVBYZERO = 0x00000002;
+        const DIVIMPOSSIBLE = 0x00000004;
+        const INSUFFICIENT_STORAGE = 0x00000010;
+        const INEXACT = 0x00000020;
+    }
 }
-
 
 /// Determines how to calculate the last digit of the number
 ///
@@ -272,4 +273,3 @@ mod context_tests {
         }
     }
 }
-//
