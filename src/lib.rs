@@ -54,6 +54,9 @@ extern crate num_integer;
 #[cfg(feature = "serde")]
 extern crate serde;
 
+#[macro_use]
+extern crate bitflags;
+
 #[cfg(test)]
 #[macro_use]
 extern crate paste;
