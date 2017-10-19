@@ -45,6 +45,7 @@ use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
 use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 use std::num::{ParseFloatError, ParseIntError};
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -143,7 +144,7 @@ macro_rules! forward_val_assignop {
 
 /// A big decimal type.
 ///
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug, Eq)]
 pub struct BigDecimal {
     int_val: BigInt,
     scale: i64,
@@ -308,6 +309,12 @@ impl FromStr for BigDecimal {
     #[inline]
     fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
         BigDecimal::from_str_radix(s, 10)
+    }
+}
+
+impl Hash for BigDecimal {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.int_val.to_str_radix(10).trim_right_matches('0').hash(state);
     }
 }
 
@@ -1275,6 +1282,37 @@ mod bigdecimal_tests {
             let a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             assert!(a != b, "{} == {}", a, b);
+        }
+    }
+
+    #[test]
+    fn test_hash_equal() {
+        use std::hash::{Hash, Hasher};
+        use std::collections::hash_map::DefaultHasher;
+
+        fn hash<T>(obj: &T) -> u64
+            where T: Hash
+        {
+            let mut hasher = DefaultHasher::new();
+            obj.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        let vals = vec![
+            ("1.1234", "1.1234000"),
+            ("1.12340000", "1.1234"),
+            ("001.1234", "1.1234000"),
+            ("001.1234", "0001.1234"),
+            ("1.1234000000", "1.1234000"),
+            ("1.12340", "1.1234000000"),
+            ("-0901300e-3", "-901.3"),
+            ("-0.901300e+3", "-901.3"),
+        ];
+        for &(x,y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
+            assert_eq!(hash(&a), hash(&b), "hash({}) == hash({})", a, b);
         }
     }
 
