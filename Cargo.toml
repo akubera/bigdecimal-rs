@@ -10,8 +10,8 @@ keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floati
 license = "MIT/Apache-2.0"
 
 [dependencies]
-num = { version = "0.1.37", default-features=false, features=["bigint"] }
-num-traits = "0.1.37"
+num = { version = "0.1.40", default-features=false, features=["bigint"] }
+num-traits = "0.1.40"
 serde = { version = "1", optional = true }
 
 [dev-dependencies.rand]
