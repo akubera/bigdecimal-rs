@@ -15,7 +15,7 @@ pub static DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::HalfEven;
 static MAX_EXP: i32 = 999999999;
 static MIN_EXP: i32 = -999999999;
 
-/// Information regarding behavior of certain BigDecimal operations
+/// Information regulating behavior of certain BigDecimal operations
 ///
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Context {

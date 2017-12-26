@@ -216,8 +216,14 @@ impl BigDecimal {
         } else {
             return self.clone();
         }
-
     }
+
+    #[inline]
+    pub fn with_context(mut self, ctx: Context) -> BigDecimal {
+        self.context = ctx;
+        self
+    }
+
 
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
     ///
@@ -590,8 +596,39 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
 
             iteration_count += 1;
         }
+
+        if iteration_count == MAX_ITERATIONS {
+            println!("");
+            println!("Hit max iterations {}", iteration_count);
+            println!(" remainder={:?}", remainder);
+            println!(" quotient={:?}", quotient);
+            println!(" divmod={:?}", remainder.div_rem(&den));
+            let (q, _) = remainder.div_rem(&den);
+            use RoundingMode::*;
+            match self.context.rounding_mode {
+                // Up => if q == BigInt::zero() { 0 } else { 1 },
+                // Down => 0,
+                // // Ceiling => if q > BigInt::one() * 5
+                Ceiling => {
+                    if quotient.sign == BigInt::Minus {
+                        quotient = quotient * BIG_TEN + q;
+                        iteration_count += 1;
+                    } else {
+                        quotient = (quotient + 1) * BIG_TEN;
+                        iteration_count += 1;
+                    }
+                },
+                Floor => {
+                    quotient = quotient * BIG_TEN + q;
+                    iteration_count += 1;
+                },
+                _ => {},
+            }
+        }
+
         let scale = scale + iteration_count;
-        BigDecimal::new(quotient, scale)
+
+        BigDecimal::new_with_context(quotient, scale, self.context)
     }
 }
 
@@ -1330,6 +1367,58 @@ mod bigdecimal_tests {
             assert_eq!(q, c)
         }
     }
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[test]
+    fn test_div_round_floor() {
+        use super::{Context, RoundingMode};
+        let vals = vec![
+            // ("7", "9", 5, "0.77777"),
+            ("3.4", "5.32", 5, "0.63909")
+        ];
+
+        for &(x, y, p, z) in vals.iter() {
+
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            let c = BigDecimal::from_str(z).unwrap();
+
+
+            let q = a.with_context(Context {
+                precision: p,
+                rounding_mode: RoundingMode::Floor,
+                ..Context::default()
+            }) / b;
+            assert_eq!(q, c)
+        }
+    }
+
+    #[cfg_attr(rustfmt, rustfmt_skip)]
+    #[test]
+    fn test_div_round_ceil() {
+        use super::{Context, RoundingMode};
+        let vals = vec![
+            // ("7", "9", 5, "0.77777"),
+            ("3.4", "5.32", 5, "0.63910"),
+            ("-3.4", "5.32", 5, "-0.63909"),
+        ];
+
+        for &(x, y, p, z) in vals.iter() {
+
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            let c = BigDecimal::from_str(z).unwrap();
+
+
+            let q = a.with_context(Context {
+                precision: p,
+                rounding_mode: RoundingMode::Ceiling,
+                ..Context::default()
+            }) / b;
+            assert_eq!(q, c)
+        }
+    }
+
 
     #[test]
     fn test_equal() {
