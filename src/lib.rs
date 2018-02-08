@@ -12,14 +12,14 @@
 
 //! A Big Decimal
 //!
-//! BigDecimal allows storing any real number to arbitrary precision; which
+//! `BigDecimal` allows storing any real number to arbitrary precision; which
 //! avoids common floating point errors (such as 0.1 + 0.2 ≠ 0.3) at the
 //! cost of complexity.
 //!
 //! Internally, `BigDecimal` uses a `BigInt` object, paired with a 64-bit
 //! integer which determines the position of the decimal point. Therefore,
-//! the precision *is not* actually arbitrary, but limitied to 2^63 decimal
-//! places.
+//! the precision *is not* actually arbitrary, but limited to 2<sup>63</sup>
+//! decimal places.
 //!
 //! Common numerical operations are overloaded, so we can treat them
 //! the same way we treat other numbers.
@@ -27,6 +27,18 @@
 //! It is not recommended to convert a floating point number to a decimal
 //! directly, as the floating point representation may be unexpected.
 //!
+//! # Example
+//!
+//! ```
+//! use bigdecimal::BigDecimal;
+//! use std::str::FromStr;
+//!
+//! let input = "0.8";
+//! let dec = BigDecimal::from_str(&input).unwrap();
+//! let float = f32::from_str(&input).unwrap();
+//!
+//! println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
+//! ```
 
 extern crate num;
 extern crate num_traits as traits;
