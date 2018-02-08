@@ -14,8 +14,5 @@ num = { version = "0.1.40", default-features=false, features=["bigint"] }
 num-traits = "0.1.40"
 serde = { version = "1", optional = true }
 
-[dev-dependencies.rand]
-version = "0.3"
-
 [dev-dependencies.serde_json]
 version = "1"
