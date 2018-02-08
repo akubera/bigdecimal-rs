@@ -193,17 +193,14 @@ impl BigDecimal {
         if new_scale > self.scale {
             let scale_diff = new_scale - self.scale;
             let int_val = &self.int_val * ten_to_the(scale_diff as u64);
-            return BigDecimal::new(int_val, new_scale);
-
+            BigDecimal::new(int_val, new_scale)
         } else if new_scale < self.scale {
             let scale_diff = self.scale - new_scale;
             let int_val = &self.int_val / ten_to_the(scale_diff as u64);
-            return BigDecimal::new(int_val, new_scale);
-
+            BigDecimal::new(int_val, new_scale)
         } else {
-            return self.clone();
+            self.clone()
         }
-
     }
 
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
@@ -392,23 +389,15 @@ impl Ord for BigDecimal {
 impl PartialEq for BigDecimal {
     #[inline]
     fn eq(&self, rhs: &BigDecimal) -> bool {
-        // println!("{}E{} =?= {}E{}",
-        //          self.int_val,
-        //          self.scale,
-        //          rhs.int_val,
-        //          rhs.scale);
-
         // fix scale and test equality
         if self.scale > rhs.scale {
             let scaled_int_val = &rhs.int_val * ten_to_the((self.scale - rhs.scale) as u64);
-            return self.int_val == scaled_int_val;
-
+            self.int_val == scaled_int_val
         } else if self.scale < rhs.scale {
             let scaled_int_val = &self.int_val * ten_to_the((rhs.scale - self.scale) as u64);
-            return scaled_int_val == rhs.int_val;
-
+            scaled_int_val == rhs.int_val
         } else {
-            return self.int_val == rhs.int_val;
+            self.int_val == rhs.int_val
         }
     }
 }
@@ -554,9 +543,9 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     #[allow(non_snake_case)]
     fn div(self, other: &BigDecimal) -> BigDecimal {
         let scale = self.scale - other.scale;
-        let ref num = self.int_val;
-        let ref den = other.int_val;
-        let (quotient, remainder) = num.div_rem(&den);
+        let num = &self.int_val;
+        let den = &other.int_val;
+        let (quotient, remainder) = num.div_rem(den);
 
         // no remainder - quotient is final solution
         if remainder == BigInt::zero() {
@@ -570,7 +559,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
         let MAX_ITERATIONS = 100;
         let mut iteration_count = 0;
         while remainder != BigInt::zero() && iteration_count < MAX_ITERATIONS {
-            let (q, r) = remainder.div_rem(&den);
+            let (q, r) = remainder.div_rem(den);
             quotient = quotient * BIG_TEN + q;
             remainder = r * BIG_TEN;
 
@@ -695,7 +684,7 @@ impl fmt::Display for BigDecimal {
         };
 
         // Concatenate everything
-        let complete = if after.len() > 0 {
+        let complete = if !after.is_empty() {
             before + "." + after.as_str()
         } else {
             before
@@ -772,7 +761,7 @@ impl Num for BigDecimal {
                 let mut digits = String::from(lead);
 
                 // copy all trailing characters after '.' into the digits string
-                digits.extend(trail.chars());
+                digits.push_str(trail);
 
                 (digits, trail.len() as i64)
             }
@@ -781,7 +770,7 @@ impl Num for BigDecimal {
         let scale = decimal_offset - exponent_value;
         let big_int = try!(BigInt::from_str_radix(&digits, radix));
 
-        return Ok(BigDecimal::new(big_int, scale));
+        Ok(BigDecimal::new(big_int, scale))
     }
 }
 
@@ -795,7 +784,7 @@ impl ToPrimitive for BigDecimal {
     fn to_u64(&self) -> Option<u64> {
         match self.sign() {
             Sign::Plus => self.with_scale(0).int_val.to_u64(),
-            Sign::NoSign => return Some(0),
+            Sign::NoSign => Some(0),
             Sign::Minus => None,
         }
     }
