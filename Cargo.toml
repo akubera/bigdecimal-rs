@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.0.10"
+version = "0.0.11"
 authors = ["Andrew Kubera"]
 description = "Arbitrary percision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
@@ -11,7 +11,7 @@ license = "MIT/Apache-2.0"
 
 [dependencies]
 num = { version = "0.1.40", default-features=false, features=["bigint"] }
-num-traits = "0.1.40"
+num-traits = "0.2"
 serde = { version = "1", optional = true }
 
 [dev-dependencies.serde_json]
