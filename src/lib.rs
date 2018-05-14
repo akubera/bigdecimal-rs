@@ -690,8 +690,6 @@ impl fmt::Display for BigDecimal {
             before
         };
 
-        // TODO: f.width()
-
         // Write out the sign
         match self.int_val.sign() {
             Sign::Plus | Sign::NoSign => {
@@ -703,7 +701,13 @@ impl fmt::Display for BigDecimal {
                 f.write_str("-")?;
             }
         }
-        f.write_str(&complete)
+
+        // Check if we've received a width and use it if so
+        if let Some(width) = f.width() {
+            write!(f, "{:width$}", &complete, width = width)
+        } else {
+            f.write_str(&complete)
+        }
     }
 }
 
