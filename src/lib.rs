@@ -44,6 +44,11 @@ extern crate num;
 extern crate num_traits as traits;
 #[cfg(feature = "serde")]
 extern crate serde;
+#[cfg(feature = "diff")]
+extern crate struct_diff;
+#[cfg(feature = "diff")]
+#[macro_use]
+extern crate derive_diff;
 
 use num::{bigint, integer};
 
@@ -149,6 +154,23 @@ pub struct BigDecimal {
     int_val: BigInt,
     // A positive scale means a negative power of 10
     scale: i64,
+}
+
+#[cfg(feature = "diff")]
+use struct_diff::{Diff, Difference};
+#[cfg(feature = "diff")]
+impl Diff for BigDecimal {
+    fn diff<'a>(&'a self, other: &'a Self) -> Option<Vec<Difference<'a>>> {
+        if self != other {
+            Some(vec![Difference {
+                field: "big_decimal".to_owned(),
+                left: self,
+                right: other,
+            }])
+        } else {
+            None
+        }
+    }
 }
 
 impl BigDecimal {
