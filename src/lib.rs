@@ -684,26 +684,18 @@ impl fmt::Display for BigDecimal {
         };
 
         // Concatenate everything
-        let complete = if !after.is_empty() {
+        let complete_without_sign = if !after.is_empty() {
             before + "." + after.as_str()
         } else {
             before
         };
 
-        // TODO: f.width()
-
-        // Write out the sign
-        match self.int_val.sign() {
-            Sign::Plus | Sign::NoSign => {
-                if f.sign_plus() {
-                    f.write_str("+")?;
-                }
-            }
-            Sign::Minus => {
-                f.write_str("-")?;
-            }
-        }
-        f.write_str(&complete)
+        let non_negative = match self.int_val.sign() {
+            Sign::Plus | Sign::NoSign => true,
+            _ => false,
+        };
+        //pad_integral does the right thing although we have a decimal
+        f.pad_integral(non_negative, "", &complete_without_sign)
     }
 }
 
@@ -1444,20 +1436,23 @@ mod bigdecimal_tests {
     #[test]
     fn test_fmt() {
         let vals = vec![
-          // b  s   ( {}        {:.1}     {:.4}    )
-            (1, 0,  (  "1",     "1.0",    "1.0000")),
-            (1, 1,  (  "0.1",   "0.1",    "0.1000")),
-            (1, 2,  (  "0.01",  "0.0",    "0.0100")),
-            (1, -2, ("100",   "100.0",  "100.0000")),
-            (-1, 0, ( "-1",    "-1.0",   "-1.0000")),
-            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000")),
-            (-1, 2, ( "-0.01", "-0.0",   "-0.0100")),
+          // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
+            (1, 0,  (  "1",     "1.0",    "1.0000",  " 1.0",  "+01.0",   "1.0 " )),
+            (1, 1,  (  "0.1",   "0.1",    "0.1000",  " 0.1",  "+00.1",   "0.1 " )),
+            (1, 2,  (  "0.01",  "0.0",    "0.0100",  " 0.0",  "+00.0",   "0.0 " )),
+            (1, -2, ("100",   "100.0",  "100.0000", "100.0", "+100.0", "100.0" )),
+            (-1, 0, ( "-1",    "-1.0",   "-1.0000",  "-1.0",  "-01.0",  "-1.0" )),
+            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000",  "-0.1",  "-00.1",  "-0.1" )),
+            (-1, 2, ( "-0.01", "-0.0",   "-0.0100",  "-0.0",  "-00.0",  "-0.0" )),
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num::BigInt::from(i), scale);
             assert_eq!(format!("{}", x), results.0);
             assert_eq!(format!("{:.1}", x), results.1);
             assert_eq!(format!("{:.4}", x), results.2);
+            assert_eq!(format!("{:4.1}", x), results.3);
+            assert_eq!(format!("{:+05.1}", x), results.4);
+            assert_eq!(format!("{:<4.1}", x), results.5);
         }
     }
 
