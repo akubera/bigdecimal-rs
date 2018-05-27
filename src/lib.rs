@@ -147,6 +147,7 @@ macro_rules! forward_val_assignop {
 #[derive(Clone, Debug, Eq)]
 pub struct BigDecimal {
     int_val: BigInt,
+    // A positive scale means a negative power of 10
     scale: i64,
 }
 
@@ -180,8 +181,8 @@ impl BigDecimal {
 
     /// Return a new BigDecimal object equivalent to self, with internal
     /// scaling set to the number specified.
-    /// If the new_scale is lower than the current value, digits will
-    /// be dropped.
+    /// If the new_scale is lower than the current value (indicating a larger
+    /// power of 10), digits will be dropped (as precision is lower)
     ///
     #[inline]
     pub fn with_scale(&self, new_scale: i64) -> BigDecimal {
@@ -221,7 +222,8 @@ impl BigDecimal {
         self.int_val.sign()
     }
 
-    /// Return the internal big integer value and an exponent
+    /// Return the internal big integer value and an exponent. Note that a positive
+    /// exponent indicates a negative power of 10.
     ///
     /// # Examples
     ///
@@ -237,7 +239,8 @@ impl BigDecimal {
         (self.int_val.clone(), self.scale)
     }
 
-    /// Convert into the internal big integer value and an exponent
+    /// Convert into the internal big integer value and an exponent. Note that a positive
+    /// exponent indicates a negative power of 10.
     ///
     /// # Examples
     ///
@@ -576,10 +579,30 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn rem(self, _: &BigDecimal) -> BigDecimal {
-        // let (_, r) = self.div_rem(other);
-        // return r;
-        self.clone()
+    fn rem(self, other: &BigDecimal) -> BigDecimal {
+        let scaled_int;
+        let num;
+        let den;
+        let rem_scale;
+
+        // Adjust the bigints to have the correct relative scale
+        if self.scale > other.scale {
+            num = &self.int_val;
+            scaled_int = &other.int_val * ten_to_the((self.scale - other.scale) as u64);
+            den = &scaled_int;
+            rem_scale = self.scale
+        } else if self.scale < other.scale {
+            scaled_int = &self.int_val * ten_to_the((other.scale - self.scale) as u64);
+            num = &scaled_int;
+            den = &other.int_val;
+            rem_scale = other.scale
+        } else {
+            num = &self.int_val;
+            den = &other.int_val;
+            rem_scale = other.scale
+        };
+
+        BigDecimal::new(num.rem(den), rem_scale)
     }
 }
 
@@ -1265,6 +1288,45 @@ mod bigdecimal_tests {
 
             let q = a / b;
             assert_eq!(q, c)
+        }
+    }
+
+    #[test]
+    fn test_rem() {
+        let vals = vec![
+            ("100", "5", "0"),
+            ("2e1", "1", "0"),
+            ("2", "1", "0"),
+            ("1", "3", "1"),
+            ("1", "0.5", "0"),
+            ("1.5", "1", "0.5"),
+            ("1", "3e-2", "1e-2"),
+            ("10", "0.003", "0.001"),
+            ("3", "2", "1"),
+            ("-3", "2", "-1"),
+            ("3", "-2", "1"),
+            ("-3", "-2", "-1"),
+            ("12.34", "1.233", "0.01"),
+        ];
+        for &(x, y, z) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            let c = BigDecimal::from_str(z).unwrap();
+            let rem = &a % &b;
+            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
+        }
+        let vals = vec![
+            (("100", -2), ("50", -1), "0"),
+            (("100", 0), ("50", -1), "0"),
+            (("100", -2), ("30", 0), "10"),
+            (("100", 0), ("30", -1), "10"),
+        ];
+        for &((x, xs), (y, ys), z) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().with_scale(xs);
+            let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
+            let c = BigDecimal::from_str(z).unwrap();
+            let rem = &a % &b;
+            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
         }
     }
 
