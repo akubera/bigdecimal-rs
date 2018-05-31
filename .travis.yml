@@ -7,4 +7,4 @@ sudo: false
 script:
   - cargo build --verbose
   - cargo test
-
+  - cargo test --features serde
