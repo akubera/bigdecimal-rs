@@ -972,7 +972,7 @@ mod bigdecimal_serde {
         where
             D: de::Deserializer<'de>,
         {
-            d.deserialize_str(BigDecimalVisitor)
+            d.deserialize_any(BigDecimalVisitor)
         }
     }
 
