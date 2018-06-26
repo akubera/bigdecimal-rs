@@ -208,13 +208,13 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// extern crate num;
+    /// extern crate num_bigint;
     /// extern crate bigdecimal;
     /// use std::str::FromStr;
     ///
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("-1").unwrap().sign(), num::bigint::Sign::Minus);
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("0").unwrap().sign(), num::bigint::Sign::NoSign);
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("1").unwrap().sign(), num::bigint::Sign::Plus);
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("-1").unwrap().sign(), num_bigint::Sign::Minus);
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("0").unwrap().sign(), num_bigint::Sign::NoSign);
+    /// assert_eq!(bigdecimal::BigDecimal::from_str("1").unwrap().sign(), num_bigint::Sign::Plus);
     /// ```
     #[inline]
     pub fn sign(&self) -> num_bigint::Sign {
@@ -227,12 +227,12 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// extern crate num;
+    /// extern crate num_bigint;
     /// extern crate bigdecimal;
     /// use std::str::FromStr;
     ///
     /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().as_bigint_and_exponent(),
-    ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
+    ///            (num_bigint::BigInt::from_str("11").unwrap(), 1));
     #[inline]
     pub fn as_bigint_and_exponent(&self) -> (BigInt, i64) {
         (self.int_val.clone(), self.scale)
@@ -244,12 +244,12 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// extern crate num;
+    /// extern crate num_bigint;
     /// extern crate bigdecimal;
     /// use std::str::FromStr;
     ///
     /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().into_bigint_and_exponent(),
-    ///            (num::bigint::BigInt::from_str("11").unwrap(), 1));
+    ///            (num_bigint::BigInt::from_str("11").unwrap(), 1));
     #[inline]
     pub fn into_bigint_and_exponent(self) -> (BigInt, i64) {
         (self.int_val, self.scale)
