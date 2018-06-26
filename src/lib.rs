@@ -40,12 +40,11 @@
 //! println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
 //! ```
 
-extern crate num;
+extern crate num_integer;
+extern crate num_bigint;
 extern crate num_traits as traits;
 #[cfg(feature = "serde")]
 extern crate serde;
-
-use num::{bigint, integer};
 
 use std::fmt;
 use std::error::Error;
@@ -56,8 +55,8 @@ use std::hash::{Hash, Hasher};
 use std::num::{ParseFloatError, ParseIntError};
 use std::ops::{Add, Div, Mul, Rem, Sub, AddAssign, MulAssign, SubAssign, Neg};
 
-use integer::Integer;
-use bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
+use num_integer::Integer;
+use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 pub use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 
 macro_rules! forward_val_val_binop {
@@ -218,7 +217,7 @@ impl BigDecimal {
     /// assert_eq!(bigdecimal::BigDecimal::from_str("1").unwrap().sign(), num::bigint::Sign::Plus);
     /// ```
     #[inline]
-    pub fn sign(&self) -> num::bigint::Sign {
+    pub fn sign(&self) -> num_bigint::Sign {
         self.int_val.sign()
     }
 
@@ -328,14 +327,14 @@ impl Hash for BigDecimal {
         let scale = self.scale;
         let zero = self.int_val.is_zero();
         if scale > 0 && !zero {
-                let mut cnt = 0;
-                dec_str = dec_str
-                    .trim_right_matches(|x| {
-                        cnt += 1;
-                        x == '0' && cnt <= scale
-                    }).to_string();
+            let mut cnt = 0;
+            dec_str = dec_str
+                .trim_right_matches(|x| {
+                    cnt += 1;
+                    x == '0' && cnt <= scale
+                }).to_string();
         } else if scale < 0 && !zero {
-                dec_str.push_str(&"0".repeat(self.scale.abs() as usize));
+            dec_str.push_str(&"0".repeat(self.scale.abs() as usize));
         }
         dec_str.hash(state);
     }
@@ -921,8 +920,8 @@ mod bigdecimal_serde {
 
     impl ser::Serialize for BigDecimal {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: ser::Serializer,
+            where
+                S: ser::Serializer,
         {
             serializer.collect_str(&self)
         }
@@ -938,30 +937,30 @@ mod bigdecimal_serde {
         }
 
         fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             use std::str::FromStr;
             BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
+            where
+                E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
@@ -969,8 +968,8 @@ mod bigdecimal_serde {
 
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
+            where
+                D: de::Deserializer<'de>,
         {
             d.deserialize_str(BigDecimalVisitor)
         }
@@ -1085,7 +1084,7 @@ mod bigdecimal_tests {
     use BigDecimal;
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
-    use num;
+    use num_bigint;
 
     #[test]
     fn test_to_i64() {
@@ -1498,7 +1497,7 @@ mod bigdecimal_tests {
     #[test]
     fn test_fmt() {
         let vals = vec![
-          // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
+            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
             (1, 0,  (  "1",     "1.0",    "1.0000",  " 1.0",  "+01.0",   "1.0 " )),
             (1, 1,  (  "0.1",   "0.1",    "0.1000",  " 0.1",  "+00.1",   "0.1 " )),
             (1, 2,  (  "0.01",  "0.0",    "0.0100",  " 0.0",  "+00.0",   "0.0 " )),
@@ -1508,7 +1507,7 @@ mod bigdecimal_tests {
             (-1, 2, ( "-0.01", "-0.0",   "-0.0100",  "-0.0",  "-00.0",  "-0.0" )),
         ];
         for (i, scale, results) in vals {
-            let x = BigDecimal::new(num::BigInt::from(i), scale);
+            let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
             assert_eq!(format!("{}", x), results.0);
             assert_eq!(format!("{:.1}", x), results.1);
             assert_eq!(format!("{:.4}", x), results.2);
