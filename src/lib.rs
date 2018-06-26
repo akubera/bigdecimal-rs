@@ -143,7 +143,7 @@ macro_rules! forward_val_assignop {
 
 /// A big decimal type.
 ///
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Eq)]
 pub struct BigDecimal {
     int_val: BigInt,
     // A positive scale means a negative power of 10
@@ -718,6 +718,12 @@ impl fmt::Display for BigDecimal {
         };
         //pad_integral does the right thing although we have a decimal
         f.pad_integral(non_negative, "", &complete_without_sign)
+    }
+}
+
+impl fmt::Debug for BigDecimal {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BigDecimal(\"{}\")", self)
     }
 }
 
@@ -1514,6 +1520,22 @@ mod bigdecimal_tests {
             assert_eq!(format!("{:4.1}", x), results.3);
             assert_eq!(format!("{:+05.1}", x), results.4);
             assert_eq!(format!("{:<4.1}", x), results.5);
+        }
+    }
+
+    #[test]
+    fn test_debug() {
+        let vals = vec![
+            ("BigDecimal(\"123.456\")", "123.456"),
+            ("BigDecimal(\"123.400\")", "123.400"),
+            ("BigDecimal(\"1.20\")", "01.20"),
+            // ("BigDecimal(\"1.2E3\")", "01.2E3"), <- ambiguous precision
+            ("BigDecimal(\"1200\")", "01.2E3"),
+        ];
+
+        for (expected, source) in vals {
+            let var = BigDecimal::from_str(source).unwrap();
+            assert_eq!(format!("{:?}", var), expected);
         }
     }
 
