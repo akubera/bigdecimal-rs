@@ -1038,7 +1038,6 @@ mod bigdecimal_serde {
         }
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_serde_deserialize_int() {
         use traits::FromPrimitive;
@@ -1085,6 +1084,7 @@ mod bigdecimal_serde {
 }
 
 
+#[cfg_attr(rustfmt, rustfmt_skip)]
 #[cfg(test)]
 mod bigdecimal_tests {
     use BigDecimal;
@@ -1268,7 +1268,6 @@ mod bigdecimal_tests {
         }
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_div() {
         let vals = vec![
@@ -1354,7 +1353,6 @@ mod bigdecimal_tests {
         }
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_not_equal() {
         let vals = vec![
@@ -1461,7 +1459,6 @@ mod bigdecimal_tests {
         }
     }
 
-    #[cfg_attr(rustfmy, rustfmt_skip)]
     #[test]
     fn test_abs() {
         let vals = vec![
@@ -1499,7 +1496,6 @@ mod bigdecimal_tests {
         }
     }
 
-    #[cfg_attr(rustfmt, rustfmt_skip)]
     #[test]
     fn test_fmt() {
         let vals = vec![
