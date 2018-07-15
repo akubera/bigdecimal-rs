@@ -263,6 +263,30 @@ impl BigDecimal {
             scale: self.scale,
         }
     }
+
+    /// Divide this efficiently by 2
+    ///
+    /// Note, if this is odd, the precision will increase by 1, regardless
+    /// of the context's limit.
+    ///
+    #[inline]
+    pub fn half(&self) -> BigDecimal {
+        if self.is_zero() {
+            self.clone()
+        }
+        else if self.int_val.is_even() {
+            BigDecimal {
+                int_val: self.int_val.clone().div(2u8),
+                scale: self.scale,
+            }
+        }
+        else {
+            BigDecimal {
+                int_val: self.int_val.clone().mul(5u8),
+                scale: self.scale + 1,
+            }
+}
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -1469,6 +1493,24 @@ mod bigdecimal_tests {
             let a = BigDecimal::from_str(x).unwrap().abs();
             let b = BigDecimal::from_str(y).unwrap();
             assert!(a == b, "{} == {}", a, b);
+        }
+    }
+
+    #[test]
+    fn test_half() {
+        let vals = vec![
+            ("100", "50"),
+            ("2", "1"),
+            (".2", ".1"),
+            ("42", "21"),
+            ("3", "1.5"),
+            ("99", "49.5"),
+            ("3.1415926536", "1.5707963268"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().half();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
         }
     }
 
