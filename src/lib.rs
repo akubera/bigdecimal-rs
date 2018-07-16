@@ -1894,18 +1894,20 @@ mod bigdecimal_tests {
     #[test]
     fn test_half() {
         let vals = vec![
-            ("100", "50"),
+            ("100", "50."),
             ("2", "1"),
             (".2", ".1"),
             ("42", "21"),
             ("3", "1.5"),
             ("99", "49.5"),
+            ("3.141592653", "1.5707963265"),
             ("3.1415926536", "1.5707963268"),
         ];
         for &(x, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().half();
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
+            assert_eq!(a.scale, b.scale);
         }
     }
 
