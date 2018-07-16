@@ -255,6 +255,19 @@ impl BigDecimal {
         (self.int_val, self.scale)
     }
 
+    /// Number of digits in the non-scaled integer representation
+    ///
+    #[inline]
+    pub fn digits(&self) -> u64 {
+        let mut result: u64 = 1;
+        let mut boundary = BigInt::from(10);
+        while boundary <= self.int_val {
+             boundary *= 10;
+             result += 1;
+        }
+        return result;
+    }
+
     /// Compute the absolute value of number
     #[inline]
     pub fn abs(&self) -> BigDecimal {
@@ -1480,6 +1493,20 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
             assert_eq!(a, b);
             assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
+        }
+    }
+
+    #[test]
+    fn test_digits() {
+        let vals = vec![
+            ("0", 1),
+            ("7", 1),
+            ("10", 2),
+            ("8934", 4),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap();
+            assert_eq!(a.digits(), y);
         }
     }
 
