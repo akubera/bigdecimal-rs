@@ -420,6 +420,18 @@ impl BigDecimal {
         }
     }
 
+    #[inline]
+    pub fn double(&self) -> BigDecimal {
+        if self.is_zero() {
+            self.clone()
+        } else {
+            BigDecimal {
+                int_val: self.int_val.clone() * 2,
+                scale: self.scale,
+            }
+        }
+    }
+
     /// Divide this efficiently by 2
     ///
     /// Note, if this is odd, the precision will increase by 1, regardless
@@ -1818,6 +1830,25 @@ mod bigdecimal_tests {
             let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn test_double() {
+        let vals = vec![
+            ("1", "2"),
+            ("1.00", "2.00"),
+            ("1.50", "3.00"),
+            ("5", "10"),
+            ("5.0", "10.0"),
+            ("5.5", "11.0"),
+            ("5.05", "10.10"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().double();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
+            assert_eq!(a.scale, b.scale);
         }
     }
 
