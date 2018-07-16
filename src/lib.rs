@@ -522,6 +522,18 @@ impl BigDecimal {
             }
         }
     }
+    
+    #[inline]
+    pub fn cube(&self) -> BigDecimal {
+        if self.is_zero() || self.is_one() {
+            self.clone()
+        } else {
+            BigDecimal {
+                int_val: self.int_val.clone() * &self.int_val * &self.int_val,
+                scale: self.scale * 3,
+            }
+        }
+    }
 
     /// Take the square root of the number
     ///
@@ -1970,6 +1982,29 @@ mod bigdecimal_tests {
         ];
         for &(x, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().square();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
+            assert_eq!(a.scale, b.scale);
+        }
+    }
+
+    #[test]
+    fn test_cube() {
+        let vals = vec![
+            ("1.00", "1.00"),
+            ("1.50", "3.375000"),
+            ("5", "125"),
+            ("5.0", "125.000"),
+            ("5.00", "125.000000"),
+            ("-5", "-125"),
+            ("-5.0", "-125.000"),
+            ("2.01", "8.120601"),
+            ("5.5", "166.375"),
+            ("0.01234", "0.000001879080904"),
+            ("3.1415926", "31.006275093569669642776"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().cube();
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
