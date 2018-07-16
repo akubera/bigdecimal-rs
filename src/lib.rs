@@ -316,6 +316,36 @@ impl BigDecimal {
         }
     }
 
+    /// Return a new BigDecimal object with precision set to new value
+    ///
+    #[inline]
+    pub fn with_prec(&self, prec: u64) -> BigDecimal {
+        let digits = self.digits();
+
+        if digits > prec {
+            let diff = digits - prec;
+
+            let (mut q, r) = self.int_val.div_rem(&ten_to_the(diff));
+
+            q += get_rounding_term(&r);
+
+            BigDecimal {
+                int_val: q,
+                scale: self.scale - diff as i64,
+            }
+        }
+        else if digits < prec {
+            let diff = prec - digits;
+            BigDecimal {
+                int_val: &self.int_val * ten_to_the(diff) ,
+                scale: self.scale + diff as i64,
+            }
+        }
+        else {
+            self.clone()
+        }
+    }
+
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
     ///
     /// # Examples
@@ -1655,6 +1685,22 @@ mod bigdecimal_tests {
             assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
         }
     }
+
+    #[test]
+    fn test_with_prec() {
+        let vals = vec![
+            ("7", 1, "7"),
+            ("7", 2, "7.0"),
+            ("895", 2, "900"),
+            ("8934", 2, "8900"),
+            ("8934", 1, "9000"),
+        ];
+        for &(x, p, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().with_prec(p);
+            assert_eq!(a, BigDecimal::from_str(y).unwrap());
+        }
+    }
+
 
     #[test]
     fn test_digits() {
