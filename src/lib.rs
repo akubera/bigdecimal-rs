@@ -441,7 +441,59 @@ impl BigDecimal {
                 int_val: self.int_val.clone().mul(5u8),
                 scale: self.scale + 1,
             }
-}
+        }
+    }
+
+    /// Take the square root of the number
+    ///
+    /// If the value is < 0, None is returned
+    ///
+    #[inline]
+    pub fn sqrt(&self) -> Option<BigDecimal> {
+        if self.is_zero() || self.is_one() {
+            return Some(self.clone());
+        }
+        if self.is_negative() {
+            return None;
+        }
+
+        // make guess
+        let guess = (self.int_val.bits() as f32 - self.scale as f32 * 3.321928094887362) / 2.0;
+        let mut result = BigDecimal::from(guess.exp2());
+
+        // // wikipedia example - use for testing the algorithm
+        // if self == &BigDecimal::from_str("125348").unwrap() {
+        //     result = BigDecimal::from(600)
+        // }
+
+        // TODO: Use context variable to set precision
+        let prec = 100;
+
+        // result has increasing precision
+        result = (self / &result + &result).half();
+
+        let mut prev_result = result.clone();
+
+        // TODO: Prove that we don't need to arbitrarily limit iterations
+        // and that convergence can be calculated
+        let max_iterations = 200;
+        for _ in 0..max_iterations {
+            result = (self / &result + &result).half();
+
+            // final_result has correct precision
+            let final_result = if result.digits() > prec { result.with_prec(prec) }
+                               else { result.clone() };
+
+            // convergence: return result
+            if prev_result == final_result {
+                return Some(final_result);
+            }
+
+            // store current result and continue
+            prev_result = final_result;
+        }
+
+        return Some(prev_result);
     }
 }
 
@@ -1742,6 +1794,28 @@ mod bigdecimal_tests {
         ];
         for &(x, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().half();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn test_sqrt() {
+        let vals = vec![
+            ("1.00", "1"),
+            ("1.001", "1.000499875062460964823258287700109753027590031219780479551442971840836093890879944856933288426795152"),
+            ("100", "10"),
+            ("49", "7"),
+            (".25", ".5"),
+            (".00400", "0.06324555320336758663997787088865437067439110278650433653715009705585188877278476442688496216758600590"),
+            (".1", "0.3162277660168379331998893544432718533719555139325216826857504852792594438639238221344248108379300295"),
+            ("2", "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573"),
+            ("125348", "354.0451948551201563108487193176101314241016013304294520812832530590100407318465590778759640828114535"),
+            ("18446744073709551616.1099511", "4294967296.000000000012799992691725492477397918722952224079252026972356303360555051219312462698703293"),
+            ("3.141592653589793115997963468544185161590576171875", "1.772453850905515992751519103139248439290428205003682302442979619028063165921408635567477284443197875"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
         }
