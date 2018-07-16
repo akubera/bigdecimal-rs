@@ -432,6 +432,63 @@ impl BigDecimal {
 
         return Some(result);
     }
+
+    /// Take the cube root of the number
+    ///
+    #[inline]
+    pub fn cbrt(&self) -> BigDecimal {
+        if self.is_zero() || self.is_one() {
+            return self.clone();
+        }
+        if self.is_negative() {
+            return -self.abs().cbrt();
+        }
+
+        // make guess
+        let guess = {
+            let log2_10 = 3.32192809488736234787031942948939018_f64;
+            let magic_guess_scale = 1.124960491619939_f64;
+            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * log2_10) / 3.0;
+            let res = magic_guess_scale * initial_guess.exp2();
+            if res.is_normal() {
+                BigDecimal::from(res)
+            } else {
+                // can't guess with float - just guess magnitude
+                let scale = (self.int_val.bits() as f64 / log2_10 - self.scale as f64).round() as i64;
+                BigDecimal::new(BigInt::from(1), -scale / 3)
+            }
+        };
+
+        // TODO: Use context variable to set precision
+        let max_precision = 100;
+
+        let three = BigDecimal::from(3);
+
+        // result has increasing precision
+        let mut running_result = (self / guess.square() + guess.double()) / &three;
+
+        let mut prev_result = BigDecimal::one();
+        let mut result = BigDecimal::zero();
+
+        // TODO: Prove that we don't need to arbitrarily limit iterations
+        // and that convergence can be calculated
+        while prev_result != result {
+
+            // store current result to test for convergence
+            prev_result = result;
+
+            running_result = (self / running_result.square() + running_result.double()) / &three;
+
+            // result has clipped precision, running_result has full precision
+            result = if running_result.digits() > max_precision {
+                running_result.with_prec(max_precision)
+            } else {
+                running_result.clone()
+            };
+        }
+
+        return result;
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -1975,6 +2032,23 @@ mod bigdecimal_tests {
 
             let sqrt = BigDecimal::new(BigInt::from_str(s).unwrap(), scale).sqrt().unwrap();
             assert_eq!(sqrt, expected);
+        }
+    }
+
+    #[test]
+    fn test_cbrt() {
+        let vals = vec![
+            ("0.00", "0"),
+            ("1.00", "1"),
+            ("1.001", "1.000333222283909495175449559955220102010284758197360454054345461242739715702641939155238095670636841"),
+            ("10", "2.154434690031883721759293566519350495259344942192108582489235506346411106648340800185441503543243276"),
+            ("-59283293e25", "-84006090355.84281237113712383191213626687332139035750444925827809487776780721673264524620270275301685"),
+            ("94213372931e-127", "2.112049945275324414051072540210070583697242797173805198575907094646677475250362108901530353886613160E-39"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().cbrt();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
         }
     }
 
