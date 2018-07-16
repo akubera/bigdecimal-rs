@@ -688,13 +688,35 @@ impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
 
 forward_all_binop_to_ref_ref!(impl Div for BigDecimal, div);
 
+macro_rules! impl_div_for_integers {
+    // (impl $imp:ident for $res:ty, $method:ident) => {
+    ($res:ty) => {
+        impl<'a> Div<$res> for &'a BigDecimal {
+            type Output = BigDecimal;
+
+            #[inline]
+            fn div(self, rhs: $res) -> Self::Output
+            {
+                self / BigDecimal::from(rhs)
+            }
+        }
+    }
+}
+
+impl_div_for_integers!(i8);
+impl_div_for_integers!(u8);
+
+
 impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     #[allow(non_snake_case)]
     fn div(self, other: &BigDecimal) -> BigDecimal {
-        let scale = self.scale - other.scale;
+        if other.is_zero() {
+            return BigDecimal::zero();
+        }
+        let mut scale = self.scale - other.scale;
         let num = &self.int_val;
         let den = &other.int_val;
         let (quotient, remainder) = num.div_rem(den);
@@ -708,6 +730,17 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
         let mut remainder = remainder * BIG_TEN;
         let mut quotient = quotient;
 
+        // denominator bigger than numerator - scale so next
+        // division will yield a nonzero number
+        if quotient.is_zero() {
+            let digit_diff = other.digits() - self.digits();
+            remainder *= ten_to_the(digit_diff);
+            scale += digit_diff as i64;
+        }
+
+        // TODO: Use a context variable to manage precision
+        // TODO: detect repetition (eg: 1/3 = 0.333...) and simply
+        //       fill in remaining precision with repeating
         let MAX_ITERATIONS = 100;
         let mut iteration_count = 0;
         while remainder != BigInt::zero() && iteration_count < MAX_ITERATIONS {
@@ -717,8 +750,20 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
 
             iteration_count += 1;
         }
-        let scale = scale + iteration_count;
-        BigDecimal::new(quotient, scale)
+
+        // round
+        if !remainder.is_zero() {
+            let q = remainder.div(den);
+            if q >= BigInt::from(5) {
+                quotient += 1;
+            }
+        }
+
+        // quotient += get_rounding_term(&remainder);
+
+        let result = BigDecimal::new(quotient, scale + iteration_count );
+        // println!(" {} / {}\n = {}\n", self, other, result);
+        return result;
     }
 }
 
@@ -1431,7 +1476,9 @@ mod bigdecimal_tests {
             ("-50", "5", "-10"),
             ("200", "5", "40."),
             ("1", "3", ".3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
+            ("2", "3", ".6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"),
             ("12.34", "1.233", "10.008110300081103000811030008110300081103000811030008110300081103000811030008110300081103000811030008"),
+            ("125348", "352.2283", "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"),
         ];
 
         for &(x, y, z) in vals.iter() {
