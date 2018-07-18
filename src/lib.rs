@@ -142,6 +142,66 @@ macro_rules! forward_val_assignop {
 }
 
 
+fn count_decimal_digits(int: &BigInt) -> u64
+{
+    // let mut result: u64 = 1;
+    // let mut boundary = BigInt::from(10);
+    // while &boundary <= int {
+    //      boundary *= 10;
+    //      result += 1;
+    // }
+    // return result;
+    let x = int.to_bytes_le().1;
+
+    // optimized lookup for values < 10000000
+    match x.len() {
+        1 => match x[0] {
+                0 ... 9 => { 1 },
+                10 ... 99 => { 2 },
+                _ => { 3 },
+        },
+
+        2 => match x[1] {
+            0 ... 2 => { 3 },
+            3 => match x[0] { 0 ... 231 => 3, _ => 4 },  // 1000
+            4 ... 38 => { 4 },
+            39 => match x[0] { 0 ... 15 => 4, _ => 5 },  // 10000
+            _ => { 5 }
+        },
+
+        3 => match x[2] {
+            0 => unreachable!(),
+            1 => match x[1] {
+                0 ... 133 => 5,
+                134 => match x[0] { 0 ... 159 => 5, _ => 6, }, // 100000
+                _ => 6, },
+            2 ...  14 => 6,
+            15 => match x[1] {
+               0 ... 65 => 6,
+               66 => match x[0] { 0 ... 63 => 6, _ => 7, },   // 1000000
+               _ => 7, },
+            16 ... 151 => 7,
+            152 => match x[1] {
+               0 ... 149 => 7,
+               150 => match x[0] { 0 ... 127 => 7, _ => 8, }, // 10000000
+               _ => 8, }
+           _ => 8,
+        },
+
+        _ => {
+            // make guess number of digits based on number of bits in UInt
+            let mut digits = (int.bits() as f64 / 3.3219280949) as u64;
+            let mut num = ten_to_the(digits);
+            while int >= &num {
+                num *= 10;
+                digits += 1;
+            }
+            digits
+        }
+    }
+}
+
+
 /// Internal function used for rounding
 ///
 /// returns 1 if most significant digit is >= 5, otherwise 0
@@ -402,13 +462,7 @@ impl BigDecimal {
     ///
     #[inline]
     pub fn digits(&self) -> u64 {
-        let mut result: u64 = 1;
-        let mut boundary = BigInt::from(10);
-        while boundary <= self.int_val {
-             boundary *= 10;
-             result += 1;
-        }
-        return result;
+        count_decimal_digits(&self.int_val)
     }
 
     /// Compute the absolute value of number
