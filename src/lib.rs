@@ -859,7 +859,6 @@ impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-forward_all_binop_to_ref_ref!(impl Div for BigDecimal, div);
 
 macro_rules! impl_div_for_integers {
     // (impl $imp:ident for $res:ty, $method:ident) => {
@@ -880,61 +879,108 @@ impl_div_for_integers!(i8);
 impl_div_for_integers!(u8);
 
 
+forward_all_binop_to_ref_ref!(impl Div for BigDecimal, div);
 impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    #[allow(non_snake_case)]
     fn div(self, other: &BigDecimal) -> BigDecimal {
         if other.is_zero() {
             return BigDecimal::zero();
         }
-        let mut scale = self.scale - other.scale;
-        let num = &self.int_val;
-        let den = &other.int_val;
-        let (quotient, remainder) = num.div_rem(den);
-
-        // no remainder - quotient is final solution
-        if remainder == BigInt::zero() {
-            return BigDecimal::new(quotient, scale);
+        // TODO: Fix setting scale
+        if other == &BigDecimal::one() {
+            return self.clone();
         }
 
-        let BIG_TEN = &BigInt::from_i8(10).unwrap();
-        let mut remainder = remainder * BIG_TEN;
-        let mut quotient = quotient;
+        let mut scale = self.scale - other.scale;
 
-        // denominator bigger than numerator - scale so next
-        // division will yield a nonzero number
-        if quotient.is_zero() {
-            let digit_diff = other.digits() - self.digits();
-            remainder *= ten_to_the(digit_diff);
-            scale += digit_diff as i64;
+        let num_int = &self.int_val;
+        let den_int = &other.int_val;
+
+        if num_int == den_int {
+            return BigDecimal {
+                int_val: 1.into(),
+                scale: scale,
+            };
+        }
+
+        // this saves us a copy when denominator is positive
+        if den_int.is_negative() {
+            return -self.div(other.neg());
+        }
+
+        match (self.is_negative(), other.is_negative()) {
+            (true, true) => return self.neg().div(other.neg()),
+            (true, false) => return -self.neg().div(other),
+            (false, true) => return -self.div(other.neg()),
+            (false, false) => (),
+        }
+
+        let mut num = num_int.clone();
+
+        // shift digits until numerator is larger than denominator (set scale appropriately)
+        while &num < den_int {
+            scale += 1;
+            num *= 10;
+
+            // Is counting + 1 multiply faster than multiple multiplying over and over?
+            //
+            // let n_digits = count_decimal_digits(&num_int);
+            // let d_digits = count_decimal_digits(&den_int);
+            // if n_digits < d_digits {
+            //     let digit_diff = d_digits - n_digits;
+            //     scale += digit_diff as i64;
+            //     num *= ten_to_the(digit_diff);
+            // } else {
+            //     scale += 1;
+            //     num *= 10;
+            // }
+        }
+
+        // first division
+        let den = den_int;
+        let (mut quotient, mut remainder) = num.div_rem(&den);
+
+        // division complete
+        if remainder.is_zero() {
+            return BigDecimal {
+                int_val: quotient,
+                scale: scale,
+            };
         }
 
         // TODO: Use a context variable to manage precision
         // TODO: detect repetition (eg: 1/3 = 0.333...) and simply
         //       fill in remaining precision with repeating
-        let MAX_ITERATIONS = 100;
-        let mut iteration_count = 0;
-        while remainder != BigInt::zero() && iteration_count < MAX_ITERATIONS {
-            let (q, r) = remainder.div_rem(den);
-            quotient = quotient * BIG_TEN + q;
-            remainder = r * BIG_TEN;
+        let max_precision = 100;
 
-            iteration_count += 1;
-        }
+        let mut precision = count_decimal_digits(&quotient);
 
-        // round
-        if !remainder.is_zero() {
-            let q = remainder.div(den);
-            if q >= BigInt::from(5) {
-                quotient += 1;
+        // shift remainder by 1 decimal;
+        // quotient will be 1 digit upon next division
+        remainder *= 10;
+
+        while !remainder.is_zero() {
+
+            let (q, r) = remainder.div_rem(&den);
+            quotient = quotient * 10 + q;
+            remainder = r * 10;
+
+            precision += 1;
+            scale += 1;
+
+            // we have hit maximum precision, remainder has next digit
+            if precision >= max_precision {
+                remainder = remainder.div(den);
+                break;
             }
         }
 
-        // quotient += get_rounding_term(&remainder);
+        // round final number with remainder
+        quotient += get_rounding_term(&remainder);
 
-        let result = BigDecimal::new(quotient, scale + iteration_count );
+        let result = BigDecimal::new(quotient, scale);
         // println!(" {} / {}\n = {}\n", self, other, result);
         return result;
     }
@@ -1640,17 +1686,27 @@ mod bigdecimal_tests {
     fn test_div() {
         let vals = vec![
             ("2", "1", "2"),
-            ("2e1", "1", "20"),
+            ("2e1", "1", "2e1"),
+            ("10", "10", "1"),
+            ("100", "10.0", "1e1"),
+            ("20.0", "200", ".1"),
+            ("4", "2", "2.0"),
+            ("15", "3", "5.0"),
             ("1", "2", "0.5"),
             ("1", "2e-2", "5e1"),
-            ("5", "4", "1.25"),
+            ("1", "0.2", "5"),
+            ("1.0", "0.02", "50"),
+            ("1", "0.020", "5e1"),
+            ("5.0", "4.00", "1.25"),
+            ("5.0", "4.000", "1.25"),
+            ("5", "4.000", "1.25"),
             ("5", "4", "125e-2"),
             ("100", "5", "20"),
             ("-50", "5", "-10"),
             ("200", "5", "40."),
             ("1", "3", ".3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
             ("2", "3", ".6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"),
-            ("12.34", "1.233", "10.008110300081103000811030008110300081103000811030008110300081103000811030008110300081103000811030008"),
+            ("12.34", "1.233", "10.00811030008110300081103000811030008110300081103000811030008110300081103000811030008110300081103001"),
             ("125348", "352.2283", "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"),
         ];
 
@@ -1661,7 +1717,8 @@ mod bigdecimal_tests {
             let c = BigDecimal::from_str(z).unwrap();
 
             let q = a / b;
-            assert_eq!(q, c)
+            assert_eq!(q, c);
+            // assert_eq!(q.scale, c.scale);
         }
     }
 
