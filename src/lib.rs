@@ -63,7 +63,7 @@ pub use traits::{Num, Zero, One, FromPrimitive, ToPrimitive, Signed};
 mod macros;
 
 
-#[inline]
+#[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
         BigInt::from(10u64.pow(pow as u32))
@@ -80,63 +80,20 @@ fn ten_to_the(pow: u64) -> BigInt {
     }
 }
 
+#[inline(always)]
 fn count_decimal_digits(int: &BigInt) -> u64
 {
-    // let mut result: u64 = 1;
-    // let mut boundary = BigInt::from(10);
-    // while &boundary <= int {
-    //      boundary *= 10;
-    //      result += 1;
-    // }
-    // return result;
-    let x = int.to_bytes_le().1;
-
-    // optimized lookup for values < 10000000
-    match x.len() {
-        1 => match x[0] {
-                0 ... 9 => { 1 },
-                10 ... 99 => { 2 },
-                _ => { 3 },
-        },
-
-        2 => match x[1] {
-            0 ... 2 => { 3 },
-            3 => match x[0] { 0 ... 231 => 3, _ => 4 },  // 1000
-            4 ... 38 => { 4 },
-            39 => match x[0] { 0 ... 15 => 4, _ => 5 },  // 10000
-            _ => { 5 }
-        },
-
-        3 => match x[2] {
-            0 => unreachable!(),
-            1 => match x[1] {
-                0 ... 133 => 5,
-                134 => match x[0] { 0 ... 159 => 5, _ => 6, }, // 100000
-                _ => 6, },
-            2 ...  14 => 6,
-            15 => match x[1] {
-               0 ... 65 => 6,
-               66 => match x[0] { 0 ... 63 => 6, _ => 7, },   // 1000000
-               _ => 7, },
-            16 ... 151 => 7,
-            152 => match x[1] {
-               0 ... 149 => 7,
-               150 => match x[0] { 0 ... 127 => 7, _ => 8, }, // 10000000
-               _ => 8, },
-           _ => 8,
-        },
-
-        _ => {
-            // make guess number of digits based on number of bits in UInt
-            let mut digits = (int.bits() as f64 / 3.3219280949) as u64;
-            let mut num = ten_to_the(digits);
-            while int >= &num {
-                num *= 10;
-                digits += 1;
-            }
-            digits
-        }
+    if int.is_zero() {
+        return 1;
     }
+    // guess number of digits based on number of bits in UInt
+    let mut digits = (int.bits() as f64 / 3.3219280949) as u64;
+    let mut num = ten_to_the(digits);
+    while int >= &num {
+        num *= 10u8;
+        digits += 1;
+    }
+    digits
 }
 
 
@@ -147,109 +104,31 @@ fn count_decimal_digits(int: &BigInt) -> u64
 /// This is used after dividing a number by a power of ten and
 /// rounding the last digit.
 ///
-#[inline]
+#[inline(always)]
 fn get_rounding_term(num: &BigInt) -> u8 {
-    // le: num = x0 + x1 * 2^8 + x2 * 2^16 + ... + xn * 2^(8n)
-    // be: num = xn + x(n-1) * 2^8 + x(n-2)* 2^16 + ... + nx
-    let x = num.to_bytes_le().1;
-
-    // optimized lookup for values < 10000000
-    match x.len() {
-        1 => match x[0] {
-                0 ... 4 => { 0 },
-                5 ... 9 => { 1 },
-                10 ... 49 => { 0 },
-                50 ... 99 => { 1 },
-                _ => { 0 },
-            },
-
-        2 => match x[1] {
-                0 => unreachable!(),
-                1 => match x[0] { 0 ... 243 => 0, _ => 1 },  // 500
-                2 => 1,
-                3 => match x[0] { 0 ... 231 => 1, _ => 0 },  // 1000
-                4 ... 18 => 0,
-                19 => match x[0] { 0 ... 135 => 0, _ => 1 }, // 5000
-                20 ... 38 => 1,
-                39 => match x[0] { 0 ... 16 => 1, _ => 0 },  // 10000
-                40 ... 194 => 0,
-                195 => match x[0] { 0 ... 79 => 0, _ => 1 }, // 50000
-                _ => 1,
-            },
-
-        3 => match x[2] {
-                0 => unreachable!(),
-                1 => match x[1] {
-                    0 ... 133 => 1,
-                    134 => match x[0] { 0 ... 159 => 1, _ => 0, }, // 100000
-                    _ => 0,
-                },
-                2 ... 6 => 0,
-                7 => match x[1] {
-                    0 ... 160 => 0,
-                    161 => match x[0] { 0 ... 31 => 0, _ => 1, },  // 500000
-                    _ => 1,
-                },
-                8 ... 14 => 1,
-                15 => match x[1] {
-                    0 ... 65 => 1,
-                    66 => match x[0] { 0 ... 63 => 1, _ => 0, },   // 1000000
-                    _ => 0,
-                },
-                16 ... 75 => 0,
-                76 => match x[1] {
-                    0 ... 74 => 0,
-                    75 => match x[0] { 0 ... 63 => 0, _ => 1, },   // 5000000
-                    _ => 1,
-                },
-                77 ... 151 => 1,
-                152 => match x[1] {
-                    0 ... 149 => 1,
-                    150 => match x[0] { 0 ... 127 => 1, _ => 0, }, // 10000000
-                    _ => 0,
-                },
-                _ => 0,
-            },
-
-        // if this is a good idea, here is how to break up next few (big-endian)
-        // 4:
-        // 50000000 -> [2, 250, 240, 128]
-        // 100000000 -> [5, 245, 225, 0]
-        // 500000000 -> [29, 205, 101, 0]
-        // 1000000000 -> [59, 154, 202, 0]
-        // 5:
-        // 5000000000 -> [1, 42, 5, 242, 0]
-        // 10000000000 -> [2, 84, 11, 228, 0]
-        // 50000000000 -> [11, 164, 59, 116, 0]
-        // 100000000000 -> [23, 72, 118, 232, 0]
-        // 500000000000 -> [116, 106, 82, 136, 0]
-        // 1000000000000 -> [232, 212, 165, 16, 0]
-        // 6:
-        // 5000000000000 -> [4, 140, 39, 57, 80, 0]
-        // 10000000000000 -> [9, 24, 78, 114, 160, 0]
-        // 50000000000000 -> [45, 121, 136, 61, 32, 0]
-        // 100000000000000 -> [90, 243, 16, 122, 64, 0]
-
-        _ => {
-            // loop-method
-            let mut n = BigInt::from(50000000);
-            loop {
-                if num < &n {
-                    return 0;
-                }
-                n *= 2;
-                if num < &n {
-                    return 1;
-                }
-                n *= 5;
-            }
-
-            // string-method
-            // let s = format!("{}", num);
-            // let high_digit = u8::from_str(&s[0..1]).unwrap();
-            // if high_digit < 5 { 0 } else { 1 }
-        }
+    if num.is_zero() {
+        return 0;
     }
+
+    let digits = (num.bits() as f64 / 3.3219280949) as u64;
+    let mut n = ten_to_the(digits);
+
+    // loop-method
+    loop {
+        if num < &n {
+            return 1;
+        }
+        n *= 5;
+        if num < &n {
+            return 0;
+        }
+        n *= 2;
+    }
+
+    // string-method
+    // let s = format!("{}", num);
+    // let high_digit = u8::from_str(&s[0..1]).unwrap();
+    // if high_digit < 5 { 0 } else { 1 }
 }
 
 /// A big decimal type.
