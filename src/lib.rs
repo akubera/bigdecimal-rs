@@ -807,36 +807,80 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
-forward_all_binop_to_ref_ref!(impl Rem for BigDecimal, rem);
+impl Rem<BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn rem(self, other: BigDecimal) -> BigDecimal {
+        let scale = std::cmp::max(self.scale, other.scale);
+
+        let num = self.take_and_scale(scale).int_val;
+        let den = other.take_and_scale(scale).int_val;
+
+        BigDecimal::new(num % den, scale)
+    }
+}
+
+impl<'a> Rem<&'a BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn rem(self, other: &BigDecimal) -> BigDecimal {
+        let scale = std::cmp::max(self.scale, other.scale);
+        let num = self.take_and_scale(scale).int_val;
+        let den = &other.int_val;
+
+        let result = if scale == other.scale {
+            num % den
+        } else {
+            num % (den * ten_to_the((scale - other.scale) as u64))
+        };
+        BigDecimal::new(result, scale)
+    }
+}
+impl<'a> Rem<BigDecimal> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn rem(self, other: BigDecimal) -> BigDecimal {
+        let scale = std::cmp::max(self.scale, other.scale);
+        let num = &self.int_val;
+        let den = other.take_and_scale(scale).int_val;
+
+        let result = if scale == self.scale {
+            num % den
+        } else {
+            let scaled_num = num * ten_to_the((scale - self.scale) as u64);
+            scaled_num % den
+        };
+
+        BigDecimal::new(result, scale)
+    }
+}
 
 impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     fn rem(self, other: &BigDecimal) -> BigDecimal {
-        let scaled_int;
-        let num;
-        let den;
-        let rem_scale;
+        let scale = std::cmp::max(self.scale, other.scale);
+        let num = &self.int_val;
+        let den = &other.int_val;
 
-        // Adjust the bigints to have the correct relative scale
-        if self.scale > other.scale {
-            num = &self.int_val;
-            scaled_int = &other.int_val * ten_to_the((self.scale - other.scale) as u64);
-            den = &scaled_int;
-            rem_scale = self.scale
-        } else if self.scale < other.scale {
-            scaled_int = &self.int_val * ten_to_the((other.scale - self.scale) as u64);
-            num = &scaled_int;
-            den = &other.int_val;
-            rem_scale = other.scale
-        } else {
-            num = &self.int_val;
-            den = &other.int_val;
-            rem_scale = other.scale
+        let result = match self.scale.cmp(&other.scale) {
+            Ordering::Equal => {
+                num % den
+            },
+            Ordering::Less => {
+                let scaled_num = num * ten_to_the((scale - self.scale) as u64);
+                scaled_num % den
+            },
+            Ordering::Greater => {
+                let scaled_den = den * ten_to_the((scale - other.scale) as u64);
+                num % scaled_den
+            },
         };
-
-        BigDecimal::new(num.rem(den), rem_scale)
+        BigDecimal::new(result, scale)
     }
 }
 
@@ -1564,7 +1608,17 @@ mod bigdecimal_tests {
             let a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
+
             let rem = &a % &b;
+            assert_eq!(rem, c, "{} [&{} % &{}] == {}", rem, a, b, c);
+
+            let rem = a.clone() % &b;
+            assert_eq!(rem, c, "{} [{} % &{}] == {}", rem, a, b, c);
+
+            let rem = &a % b.clone();
+            assert_eq!(rem, c, "{} [&{} % {}] == {}", rem, a, b, c);
+
+            let rem = a.clone() % b.clone();
             assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
         }
         let vals = vec![
