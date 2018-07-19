@@ -700,7 +700,120 @@ impl_div_for_integers!(i8);
 impl_div_for_integers!(u8);
 
 
-forward_all_binop_to_ref_ref!(impl Div for BigDecimal, div);
+#[inline(always)]
+fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal
+{
+    match (num.is_negative(), den.is_negative()) {
+        (true, true) => return impl_division(num.neg(), &den.neg(), scale, max_precision),
+        (true, false) => return -impl_division(num.neg(), den, scale, max_precision),
+        (false, true) => return -impl_division(num, &den.neg(), scale, max_precision),
+        (false, false) => (),
+    }
+
+    // shift digits until numerator is larger than denominator (set scale appropriately)
+    while &num < den {
+        scale += 1;
+        num *= 10;
+    }
+
+    // first division
+    let (mut quotient, mut remainder) = num.div_rem(den);
+
+    // division complete
+    if remainder.is_zero() {
+        return BigDecimal {
+            int_val: quotient,
+            scale: scale,
+        };
+    }
+
+    // TODO: Use a context variable to manage precision
+    // TODO: detect repetition (eg: 1/3 = 0.333...) and simply
+    //       fill in remaining precision with repeating
+    let max_precision = 100;
+
+    let mut precision = count_decimal_digits(&quotient);
+
+    // shift remainder by 1 decimal;
+    // quotient will be 1 digit upon next division
+    remainder *= 10;
+
+    while !remainder.is_zero() && precision < max_precision {
+
+        let (q, r) = remainder.div_rem(den);
+        quotient = quotient * 10 + q;
+        remainder = r * 10;
+
+        precision += 1;
+        scale += 1;
+    }
+
+    if !remainder.is_zero() {
+        // round final number with remainder
+        quotient += get_rounding_term(&remainder.div(den));
+    }
+
+    let result = BigDecimal::new(quotient, scale);
+    // println!(" {} / {}\n = {}\n", self, other, result);
+    return result;
+
+}
+
+impl Div<BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+    #[inline]
+    fn div(self, other: BigDecimal) -> BigDecimal {
+        if other.is_zero() {
+            return other;
+        }
+        if other == BigDecimal::one() {
+            return self;
+        }
+
+        let scale = self.scale - other.scale;
+
+        if &self.int_val == &other.int_val {
+            return BigDecimal {
+                int_val: 1.into(),
+                scale: scale,
+            };
+        }
+
+        let max_precision = 100;
+
+        return impl_division(self.int_val, &other.int_val, scale, max_precision);
+   }
+
+}
+
+impl<'a> Div<&'a BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+    #[inline]
+    fn div(self, other: &'a BigDecimal) -> BigDecimal {
+        if other.is_zero() {
+            return BigDecimal::zero();
+        }
+        if other == &BigDecimal::one() {
+            return self;
+        }
+
+        let scale = self.scale - other.scale;
+
+        if &self.int_val == &other.int_val {
+            return BigDecimal {
+                int_val: 1.into(),
+                scale: scale,
+            };
+        }
+
+        let max_precision = 100;
+
+        return impl_division(self.int_val, &other.int_val, scale, max_precision);
+   }
+}
+
+forward_ref_val_binop!(impl Div for BigDecimal, div);
+
 impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
 
@@ -714,7 +827,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             return self.clone();
         }
 
-        let mut scale = self.scale - other.scale;
+        let scale = self.scale - other.scale;
 
         let num_int = &self.int_val;
         let den_int = &other.int_val;
@@ -726,84 +839,9 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             };
         }
 
-        // this saves us a copy when denominator is positive
-        if den_int.is_negative() {
-            return -self.div(other.neg());
-        }
-
-        match (self.is_negative(), other.is_negative()) {
-            (true, true) => return self.neg().div(other.neg()),
-            (true, false) => return -self.neg().div(other),
-            (false, true) => return -self.div(other.neg()),
-            (false, false) => (),
-        }
-
-        let mut num = num_int.clone();
-
-        // shift digits until numerator is larger than denominator (set scale appropriately)
-        while &num < den_int {
-            scale += 1;
-            num *= 10;
-
-            // Is counting + 1 multiply faster than multiple multiplying over and over?
-            //
-            // let n_digits = count_decimal_digits(&num_int);
-            // let d_digits = count_decimal_digits(&den_int);
-            // if n_digits < d_digits {
-            //     let digit_diff = d_digits - n_digits;
-            //     scale += digit_diff as i64;
-            //     num *= ten_to_the(digit_diff);
-            // } else {
-            //     scale += 1;
-            //     num *= 10;
-            // }
-        }
-
-        // first division
-        let den = den_int;
-        let (mut quotient, mut remainder) = num.div_rem(&den);
-
-        // division complete
-        if remainder.is_zero() {
-            return BigDecimal {
-                int_val: quotient,
-                scale: scale,
-            };
-        }
-
-        // TODO: Use a context variable to manage precision
-        // TODO: detect repetition (eg: 1/3 = 0.333...) and simply
-        //       fill in remaining precision with repeating
         let max_precision = 100;
 
-        let mut precision = count_decimal_digits(&quotient);
-
-        // shift remainder by 1 decimal;
-        // quotient will be 1 digit upon next division
-        remainder *= 10;
-
-        while !remainder.is_zero() {
-
-            let (q, r) = remainder.div_rem(&den);
-            quotient = quotient * 10 + q;
-            remainder = r * 10;
-
-            precision += 1;
-            scale += 1;
-
-            // we have hit maximum precision, remainder has next digit
-            if precision >= max_precision {
-                remainder = remainder.div(den);
-                break;
-            }
-        }
-
-        // round final number with remainder
-        quotient += get_rounding_term(&remainder);
-
-        let result = BigDecimal::new(quotient, scale);
-        // println!(" {} / {}\n = {}\n", self, other, result);
-        return result;
+        return impl_division(num_int.clone(), &den_int, scale, max_precision);
     }
 }
 
