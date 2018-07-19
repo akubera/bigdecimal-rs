@@ -297,11 +297,11 @@ fn get_rounding_term(num: &BigInt) -> u8 {
             let mut n = BigInt::from(50000000);
             loop {
                 if num < &n {
-                    break 0;
+                    return 0;
                 }
                 n *= 2;
                 if num < &n {
-                    break 1;
+                    return 1;
                 }
                 n *= 5;
             }
@@ -522,7 +522,7 @@ impl BigDecimal {
             }
         }
     }
-    
+
     #[inline]
     pub fn cube(&self) -> BigDecimal {
         if self.is_zero() || self.is_one() {
