@@ -193,6 +193,25 @@ impl BigDecimal {
         }
     }
 
+    #[inline(always)]
+    fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
+
+        // let foo = bar.moved_and_scaled_to()
+        if self.int_val.is_zero() {
+            return BigDecimal::new(BigInt::zero(), new_scale);
+        }
+
+        if new_scale > self.scale {
+            self.int_val *= ten_to_the((new_scale - self.scale) as u64);
+            BigDecimal::new(self.int_val, new_scale)
+        } else if new_scale < self.scale {
+            self.int_val /= ten_to_the((self.scale - new_scale) as u64);
+            BigDecimal::new(self.int_val, new_scale)
+        } else {
+            self
+        }
+    }
+
     /// Return a new BigDecimal object with precision set to new value
     ///
     #[inline]
