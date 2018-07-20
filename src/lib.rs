@@ -385,8 +385,13 @@ impl BigDecimal {
         }
 
         // make guess
-        let guess = (self.int_val.bits() as f32 - self.scale as f32 * 3.321928094887362) / 2.0;
-        let mut result = BigDecimal::from(guess.exp2());
+        let guess = {
+            let log2_10 = 3.32192809488736234787031942948939018_f64;
+            let magic_guess_scale = 1.1951678538495576_f64;
+            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * log2_10) / 2.0;
+            (magic_guess_scale * initial_guess.exp2()).min(std::f64::MAX) // <- catch inf
+        };
+        let mut result = BigDecimal::from(guess);
 
         // // wikipedia example - use for testing the algorithm
         // if self == &BigDecimal::from_str("125348").unwrap() {
@@ -1946,6 +1951,25 @@ mod bigdecimal_tests {
             let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn test_big_sqrt() {
+        use num_bigint::BigInt;
+        let vals = vec![
+            // (("20.0", -1024), "4.472135954999579392818347337462552470881236719223051448541794490821041851275609798828828816757564550E512"),
+            (("2", -70), "141421356237309504880168872420969807.8569671875376948073176679737990732478462107038850387534327641573"),
+            (("3", -170), "17320508075688772935274463415058723669428052538103806280558069794519330169088000370811.46186757248576"),
+            (("9", -199), "9486832980505137995996680633298155601158665417975650480572514558377783315917714664032744325137900886"),
+            // (("77", -999), "2.774887385102321589347945789222237274108472863975144603565634712205045241278572813977383515072206303E+500"),
+            // (("7", -999), "8.366600265340755479781720257851874893928153692986721998111915430804187725943170098308147119649515362E+499"),
+        ];
+        for &((s, scale), e) in vals.iter() {
+            let expected = BigDecimal::from_str(e).unwrap();
+
+            let sqrt = BigDecimal::new(BigInt::from_str(s).unwrap(), scale).sqrt().unwrap();
+            assert_eq!(sqrt, expected);
         }
     }
 
