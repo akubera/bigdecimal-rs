@@ -706,8 +706,7 @@ impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
 }
 
 
-impl_div_for_integers!(i8);
-impl_div_for_integers!(u8);
+impl_div_for_primitives!();
 
 
 #[inline(always)]
