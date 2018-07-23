@@ -672,7 +672,66 @@ impl One for BigDecimal {
     }
 }
 
-forward_all_binop_to_ref_ref!(impl Add for BigDecimal, add);
+
+impl Add<BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigDecimal) -> BigDecimal {
+        let mut lhs = self;
+        let mut rhs = rhs;
+
+        match lhs.scale.cmp(&rhs.scale) {
+        Ordering::Equal => {
+            lhs.int_val += rhs.int_val;
+            lhs
+        },
+        Ordering::Less => {
+           let scaled = lhs.take_and_scale(rhs.scale);
+           rhs.int_val += scaled.int_val;
+           rhs
+        },
+        Ordering::Greater => {
+           let scaled = rhs.take_and_scale(lhs.scale);
+           lhs.int_val += scaled.int_val;
+           lhs
+        }
+    }}
+}
+
+impl<'a> Add<&'a BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: &'a BigDecimal) -> BigDecimal {
+        let mut lhs = self;
+
+        match lhs.scale.cmp(&rhs.scale) {
+        Ordering::Equal => {
+            lhs.int_val += &rhs.int_val;
+            lhs
+        },
+        Ordering::Less => {
+           let mut scaled = lhs.take_and_scale(rhs.scale);
+           scaled.int_val += &rhs.int_val;
+           scaled
+        },
+        Ordering::Greater => {
+           let mut scaled = rhs.clone().take_and_scale(lhs.scale);
+           scaled.int_val += lhs.int_val;
+           scaled
+        }
+    }}
+}
+
+impl<'a> Add<BigDecimal> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigDecimal) -> BigDecimal {
+        rhs + self
+    }
+}
 
 impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
@@ -680,15 +739,15 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     #[inline]
     fn add(self, rhs: &BigDecimal) -> BigDecimal {
         if self.scale < rhs.scale {
-            let scaled = self.with_scale(rhs.scale);
-            BigDecimal::new(scaled.int_val + &rhs.int_val, rhs.scale)
-
+            let mut scaled = self.with_scale(rhs.scale);
+            scaled.int_val += &rhs.int_val;
+            scaled
         } else if self.scale > rhs.scale {
-            let scaled = rhs.with_scale(self.scale);
-            BigDecimal::new(&self.int_val + scaled.int_val, self.scale)
-
+            let mut scaled = rhs.with_scale(self.scale);
+            scaled.int_val += &self.int_val;
+            scaled
         } else {
-            BigDecimal::new(&self.int_val + &rhs.int_val, self.scale)
+            BigDecimal::new(self.int_val.clone() + &rhs.int_val, self.scale)
         }
     }
 }
@@ -705,12 +764,10 @@ impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
 
         } else if self.scale > rhs.scale {
             let scaled = rhs.with_scale(self.scale);
-            // Whenever `rust-num` implements AddAssign on BigInt
-            // this can be simplified. More cases follow.
-            self.int_val = &self.int_val + scaled.int_val;
+            self.int_val += scaled.int_val;
 
         } else {
-            self.int_val = &self.int_val + &rhs.int_val;
+            self.int_val += &rhs.int_val;
         }
     }
 }
