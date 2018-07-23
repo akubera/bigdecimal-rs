@@ -813,7 +813,36 @@ impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-forward_all_binop_to_ref_ref!(impl Mul for BigDecimal, mul);
+impl Mul<BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: BigDecimal) -> BigDecimal {
+        self.scale += rhs.scale;
+        self.int_val *= rhs.int_val;
+        self
+    }
+}
+
+impl<'a> Mul<&'a BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
+        self.scale += rhs.scale;
+        self.int_val *= &rhs.int_val;
+        self
+    }
+}
+
+impl<'a> Mul<BigDecimal> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: BigDecimal) -> BigDecimal {
+        rhs * self
+    }
+}
 
 impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
