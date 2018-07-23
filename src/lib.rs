@@ -389,43 +389,48 @@ impl BigDecimal {
             let log2_10 = 3.32192809488736234787031942948939018_f64;
             let magic_guess_scale = 1.1951678538495576_f64;
             let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * log2_10) / 2.0;
-            (magic_guess_scale * initial_guess.exp2()).min(std::f64::MAX) // <- catch inf
+            let res = magic_guess_scale * initial_guess.exp2();
+            if res.is_normal() {
+                BigDecimal::from(res)
+            } else {
+                // can't guess with float - just guess magnitude
+                let scale = (self.int_val.bits() as f64 / -log2_10 + self.scale as f64).round() as i64;
+                BigDecimal::new(BigInt::from(1), scale / 2)
+            }
         };
-        let mut result = BigDecimal::from(guess);
 
         // // wikipedia example - use for testing the algorithm
         // if self == &BigDecimal::from_str("125348").unwrap() {
-        //     result = BigDecimal::from(600)
+        //     running_result = BigDecimal::from(600)
         // }
 
         // TODO: Use context variable to set precision
-        let prec = 100;
+        let max_precision = 100;
 
         // result has increasing precision
-        result = (self / &result + &result).half();
+        let mut running_result = (self / &guess + &guess).half();
 
-        let mut prev_result = result.clone();
+        let mut prev_result = BigDecimal::one();
+        let mut result = BigDecimal::zero();
 
         // TODO: Prove that we don't need to arbitrarily limit iterations
         // and that convergence can be calculated
-        let max_iterations = 200;
-        for _ in 0..max_iterations {
-            result = (self / &result + &result).half();
+        while prev_result != result {
 
-            // final_result has correct precision
-            let final_result = if result.digits() > prec { result.with_prec(prec) }
-                               else { result.clone() };
+            // store current result to test for convergence
+            prev_result = result;
 
-            // convergence: return result
-            if prev_result == final_result {
-                return Some(final_result);
-            }
+            running_result = (self / &running_result + &running_result).half();
 
-            // store current result and continue
-            prev_result = final_result;
+            // result has clipped precision, running_result has full precision
+            result = if running_result.digits() > max_precision {
+                running_result.with_prec(max_precision)
+            } else {
+                running_result.clone()
+            };
         }
 
-        return Some(prev_result);
+        return Some(result);
     }
 }
 
@@ -731,11 +736,6 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
             scale: scale,
         };
     }
-
-    // TODO: Use a context variable to manage precision
-    // TODO: detect repetition (eg: 1/3 = 0.333...) and simply
-    //       fill in remaining precision with repeating
-    let max_precision = 100;
 
     let mut precision = count_decimal_digits(&quotient);
 
@@ -1946,6 +1946,7 @@ mod bigdecimal_tests {
             ("125348", "354.0451948551201563108487193176101314241016013304294520812832530590100407318465590778759640828114535"),
             ("18446744073709551616.1099511", "4294967296.000000000012799992691725492477397918722952224079252026972356303360555051219312462698703293"),
             ("3.141592653589793115997963468544185161590576171875", "1.772453850905515992751519103139248439290428205003682302442979619028063165921408635567477284443197875"),
+            (".000000000089793115997963468544185161590576171875", "0.000009475922962855041517561783740144225422359796851494316346796373337470068631250135521161989831460407155"),
         ];
         for &(x, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
@@ -1958,12 +1959,17 @@ mod bigdecimal_tests {
     fn test_big_sqrt() {
         use num_bigint::BigInt;
         let vals = vec![
-            // (("20.0", -1024), "4.472135954999579392818347337462552470881236719223051448541794490821041851275609798828828816757564550E512"),
             (("2", -70), "141421356237309504880168872420969807.8569671875376948073176679737990732478462107038850387534327641573"),
             (("3", -170), "17320508075688772935274463415058723669428052538103806280558069794519330169088000370811.46186757248576"),
             (("9", -199), "9486832980505137995996680633298155601158665417975650480572514558377783315917714664032744325137900886"),
-            // (("77", -999), "2.774887385102321589347945789222237274108472863975144603565634712205045241278572813977383515072206303E+500"),
-            // (("7", -999), "8.366600265340755479781720257851874893928153692986721998111915430804187725943170098308147119649515362E+499"),
+            (("7", -200), "26457513110645905905016157536392604257102591830824501803683344592010688232302836277603928864745436110"),
+            (("777", -204), "2.787471972953270789531596912111625325974789615194854615319795902911796043681078997362635440358922503E+103"),
+            (("7", -600), "2.645751311064590590501615753639260425710259183082450180368334459201068823230283627760392886474543611E+300"),
+            (("2", -900), "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573E+450"),
+            (("7", -999), "8.366600265340755479781720257851874893928153692986721998111915430804187725943170098308147119649515362E+499"),
+            (("74908163946345982392040522594123773796", -999), "2.736935584670307552030924971360722787091742391079630976117950955395149091570790266754718322365663909E+518"),
+            (("20", -1024), "4.472135954999579392818347337462552470881236719223051448541794490821041851275609798828828816757564550E512"),
+            (("3", 1025), "5.477225575051661134569697828008021339527446949979832542268944497324932771227227338008584361638706258E-513"),
         ];
         for &((s, scale), e) in vals.iter() {
             let expected = BigDecimal::from_str(e).unwrap();
