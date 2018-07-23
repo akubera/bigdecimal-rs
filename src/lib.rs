@@ -407,8 +407,16 @@ impl BigDecimal {
         // TODO: Use context variable to set precision
         let max_precision = 100;
 
-        // result has increasing precision
-        let mut running_result = (self / &guess + &guess).half();
+	let next_iteration  = move |r: BigDecimal| {
+            // division needs to be precise to (at least) one extra digit
+	    let tmp = impl_division(self.int_val.clone(), &r.int_val, self.scale - r.scale, max_precision + 1);
+
+            // half will increase precision on each iteration
+            (tmp + r).half()
+        };
+
+        // calculate first iteration
+        let mut running_result = next_iteration(guess);
 
         let mut prev_result = BigDecimal::one();
         let mut result = BigDecimal::zero();
@@ -420,9 +428,10 @@ impl BigDecimal {
             // store current result to test for convergence
             prev_result = result;
 
-            running_result = (self / &running_result + &running_result).half();
+            // calculate next iteration
+            running_result = next_iteration(running_result);
 
-            // result has clipped precision, running_result has full precision
+            // 'result' has clipped precision, 'running_result' has full precision
             result = if running_result.digits() > max_precision {
                 running_result.with_prec(max_precision)
             } else {
@@ -464,8 +473,15 @@ impl BigDecimal {
 
         let three = BigDecimal::from(3);
 
-        // result has increasing precision
-        let mut running_result = (self / guess.square() + guess.double()) / &three;
+        let next_iteration = move |r: BigDecimal| {
+            let sqrd = r.square();
+            let tmp = impl_division(self.int_val.clone(), &sqrd.int_val, self.scale - sqrd.scale, max_precision + 1);
+            let tmp = tmp + r.double();
+            impl_division(tmp.int_val, &three.int_val, tmp.scale - three.scale, max_precision + 1)
+        };
+
+        // result initial
+        let mut running_result = next_iteration(guess);
 
         let mut prev_result = BigDecimal::one();
         let mut result = BigDecimal::zero();
@@ -477,7 +493,7 @@ impl BigDecimal {
             // store current result to test for convergence
             prev_result = result;
 
-            running_result = (self / running_result.square() + running_result.double()) / &three;
+            running_result = next_iteration(running_result);
 
             // result has clipped precision, running_result has full precision
             result = if running_result.digits() > max_precision {
@@ -1989,6 +2005,7 @@ mod bigdecimal_tests {
     #[test]
     fn test_sqrt() {
         let vals = vec![
+            ("1e-232", "1e-116"),
             ("1.00", "1"),
             ("1.001", "1.000499875062460964823258287700109753027590031219780479551442971840836093890879944856933288426795152"),
             ("100", "10"),
@@ -2003,6 +2020,9 @@ mod bigdecimal_tests {
             ("18446744073709551616.1099511", "4294967296.000000000012799992691725492477397918722952224079252026972356303360555051219312462698703293"),
             ("3.141592653589793115997963468544185161590576171875", "1.772453850905515992751519103139248439290428205003682302442979619028063165921408635567477284443197875"),
             (".000000000089793115997963468544185161590576171875", "0.000009475922962855041517561783740144225422359796851494316346796373337470068631250135521161989831460407155"),
+            ("0.7177700109762963922745342343167413624881759290454997218753321040760896053150388903350654937434826216803814031987652326749140535150336357405672040727695124057298138872112244784753994931999476811850580200000000000000000000000000000000", "0.8472130847527653667042980517799020703921106560594525833177762276594388966885185567535692987624493813"),
+            ("0.01234567901234567901234567901234567901234567901234567901234567901234567901234567901234567901234567901", "0.1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"),
+            ("0.1108890000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000444", "0.3330000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000667"),
         ];
         for &(x, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
