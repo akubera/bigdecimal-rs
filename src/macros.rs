@@ -1,6 +1,6 @@
 // \file src/macros.rs
 //! macros for
-
+/*
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
         impl $imp<$res> for $res {
@@ -12,9 +12,10 @@ macro_rules! forward_val_val_binop {
                 $imp::$method(self, &other)
             }
         }
-    }
+    };
 }
 
+*/
 macro_rules! forward_ref_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
         impl<'a> $imp<$res> for &'a $res {
@@ -26,9 +27,10 @@ macro_rules! forward_ref_val_binop {
                 $imp::$method(self, &other)
             }
         }
-    }
+    };
 }
 
+/*
 macro_rules! forward_val_ref_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
         impl<'a> $imp<&'a $res> for $res {
@@ -40,9 +42,8 @@ macro_rules! forward_val_ref_binop {
                 $imp::$method(&self, other)
             }
         }
-    }
+    };
 }
-
 
 // Forward everything to ref-ref, when reusing storage is not helpful
 macro_rules! forward_all_binop_to_ref_ref {
@@ -52,6 +53,7 @@ macro_rules! forward_all_binop_to_ref_ref {
         forward_ref_val_binop!(impl $imp for $res, $method);
     };
 }
+*/
 
 macro_rules! forward_val_assignop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -62,8 +64,9 @@ macro_rules! forward_val_assignop {
                 $imp::$method(self, &other)
             }
         }
-    }
+    };
 }
+
 
 macro_rules! impl_div_for_uint_primitive {
     // (impl $imp:ident for $res:ty, $method:ident) => {
@@ -72,8 +75,7 @@ macro_rules! impl_div_for_uint_primitive {
             type Output = BigDecimal;
 
             #[inline]
-            fn div(self, den: $res) -> Self::Output
-            {
+            fn div(self, den: $res) -> Self::Output {
                 if den == 1 {
                     self.clone()
                 } else if den == 2 {
@@ -88,8 +90,7 @@ macro_rules! impl_div_for_uint_primitive {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: &'a BigDecimal) -> Self::Output
-            {
+            fn div(self, den: &'a BigDecimal) -> Self::Output {
                 BigDecimal::from(self) / den
             }
         }
@@ -98,12 +99,11 @@ macro_rules! impl_div_for_uint_primitive {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: BigDecimal) -> Self::Output
-            {
+            fn div(self, den: BigDecimal) -> Self::Output {
                 BigDecimal::from(self) / den
             }
         }
-    }
+    };
 }
 
 macro_rules! impl_div_for_int_primitive {
@@ -113,8 +113,7 @@ macro_rules! impl_div_for_int_primitive {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: $res) -> Self::Output
-            {
+            fn div(self, den: $res) -> Self::Output {
                 if den < 0 {
                     -Div::div(self, -den)
                 } else if den == 1 {
@@ -131,8 +130,7 @@ macro_rules! impl_div_for_int_primitive {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: $res) -> Self::Output
-            {
+            fn div(self, den: $res) -> Self::Output {
                 if den < 0 {
                     -Div::div(self, -den)
                 } else if den == 1 {
@@ -145,12 +143,11 @@ macro_rules! impl_div_for_int_primitive {
             }
         }
 
-        impl<'a> Div<&'a BigDecimal> for $res{
+        impl<'a> Div<&'a BigDecimal> for $res {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: &'a BigDecimal) -> Self::Output
-            {
+            fn div(self, den: &'a BigDecimal) -> Self::Output {
                 match (self < 0, den.is_negative()) {
                     (true, true) => -self / -den,
                     (true, false) => (-self / den).neg(),
@@ -160,12 +157,11 @@ macro_rules! impl_div_for_int_primitive {
             }
         }
 
-        impl Div<BigDecimal> for $res{
+        impl Div<BigDecimal> for $res {
             type Output = BigDecimal;
 
             #[inline(always)]
-            fn div(self, den: BigDecimal) -> Self::Output
-            {
+            fn div(self, den: BigDecimal) -> Self::Output {
                 match (self < 0, den.is_negative()) {
                     (true, true) => -self / -den,
                     (true, false) => (-self / den).neg(),
@@ -174,7 +170,7 @@ macro_rules! impl_div_for_int_primitive {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! impl_div_for_float_primitive {
@@ -184,8 +180,7 @@ macro_rules! impl_div_for_float_primitive {
             type Output = BigDecimal;
 
             #[inline]
-            fn div(self, den: $res) -> Self::Output
-            {
+            fn div(self, den: $res) -> Self::Output {
                 if den.is_nan() {
                     BigDecimal::zero()
                 } else if den == 1.0 {
@@ -207,8 +202,7 @@ macro_rules! impl_div_for_float_primitive {
         impl<'a> Div<&'a BigDecimal> for $res {
             type Output = BigDecimal;
             #[inline(always)]
-            fn div(self, den: &'a BigDecimal) -> Self::Output
-            {
+            fn div(self, den: &'a BigDecimal) -> Self::Output {
                 if self.is_nan() {
                     BigDecimal::zero()
                 } else {
@@ -220,8 +214,7 @@ macro_rules! impl_div_for_float_primitive {
         impl Div<BigDecimal> for $res {
             type Output = BigDecimal;
             #[inline(always)]
-            fn div(self, den: BigDecimal) -> Self::Output
-            {
+            fn div(self, den: BigDecimal) -> Self::Output {
                 if self.is_nan() {
                     BigDecimal::zero()
                 } else {
@@ -229,7 +222,7 @@ macro_rules! impl_div_for_float_primitive {
                 }
             }
         }
-    }
+    };
 }
 
 macro_rules! forward_primitive_types {
@@ -256,5 +249,5 @@ macro_rules! impl_div_for_primitives {
         forward_primitive_types!(floats => impl_div_for_float_primitive);
         forward_primitive_types!(ints => impl_div_for_int_primitive);
         forward_primitive_types!(uints => impl_div_for_uint_primitive);
-    }
+    };
 }
