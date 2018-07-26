@@ -1717,8 +1717,11 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let s = a.clone() + b.clone();
-            assert_eq!(s, c);
+            assert_eq!(a.clone() + b.clone(), c);
+
+            assert_eq!(a.clone() + &b, c);
+            assert_eq!(&a + b.clone(), c);
+            assert_eq!(&a + &b, c);
 
             a += b;
             assert_eq!(a, c);
@@ -1739,8 +1742,11 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let d = a.clone() - b.clone();
-            assert_eq!(d, c);
+            assert_eq!(a.clone() - b.clone(), c);
+
+            assert_eq!(a.clone() - &b, c);
+            assert_eq!(&a - b.clone(), c);
+            assert_eq!(&a - &b, c);
 
             a -= b;
             assert_eq!(a, c);
@@ -1765,8 +1771,10 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let p = a.clone() * b.clone();
-            assert_eq!(p, c);
+            assert_eq!(a.clone() * b.clone(), c);
+            assert_eq!(a.clone() * &b, c);
+            assert_eq!(&a * b.clone(), c);
+            assert_eq!(&a * &b, c);
 
             a *= b;
             assert_eq!(a, c);
@@ -1807,9 +1815,15 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             let c = BigDecimal::from_str(z).unwrap();
 
-            let q = a / b;
-            assert_eq!(q, c);
+            assert_eq!(a.clone() / b.clone(), c);
+            assert_eq!(a.clone() / &b, c);
+            assert_eq!(&a / b.clone(), c);
+            assert_eq!(&a / &b, c);
             // assert_eq!(q.scale, c.scale);
+
+            // let mut q = a;
+            // q /= b;
+            // assert_eq!(q, c);
         }
     }
 
