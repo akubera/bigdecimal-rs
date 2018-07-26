@@ -679,24 +679,16 @@ impl Add<BigDecimal> for BigDecimal {
     #[inline]
     fn add(self, rhs: BigDecimal) -> BigDecimal {
         let mut lhs = self;
-        let mut rhs = rhs;
 
         match lhs.scale.cmp(&rhs.scale) {
-        Ordering::Equal => {
-            lhs.int_val += rhs.int_val;
-            lhs
-        },
-        Ordering::Less => {
-           let scaled = lhs.take_and_scale(rhs.scale);
-           rhs.int_val += scaled.int_val;
-           rhs
-        },
-        Ordering::Greater => {
-           let scaled = rhs.take_and_scale(lhs.scale);
-           lhs.int_val += scaled.int_val;
-           lhs
+            Ordering::Equal => {
+                lhs.int_val += rhs.int_val;
+                lhs
+            },
+            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
+            Ordering::Greater => rhs.take_and_scale(lhs.scale) + lhs,
         }
-    }}
+    }
 }
 
 impl<'a> Add<&'a BigDecimal> for BigDecimal {
@@ -707,21 +699,14 @@ impl<'a> Add<&'a BigDecimal> for BigDecimal {
         let mut lhs = self;
 
         match lhs.scale.cmp(&rhs.scale) {
-        Ordering::Equal => {
-            lhs.int_val += &rhs.int_val;
-            lhs
-        },
-        Ordering::Less => {
-           let mut scaled = lhs.take_and_scale(rhs.scale);
-           scaled.int_val += &rhs.int_val;
-           scaled
-        },
-        Ordering::Greater => {
-           let mut scaled = rhs.clone().take_and_scale(lhs.scale);
-           scaled.int_val += lhs.int_val;
-           scaled
+            Ordering::Equal => {
+                lhs.int_val += &rhs.int_val;
+                lhs
+            },
+            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
+            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
         }
-    }}
+    }
 }
 
 impl<'a> Add<BigDecimal> for &'a BigDecimal {
@@ -738,16 +723,13 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn add(self, rhs: &BigDecimal) -> BigDecimal {
+        let lhs = self;
         if self.scale < rhs.scale {
-            let mut scaled = self.with_scale(rhs.scale);
-            scaled.int_val += &rhs.int_val;
-            scaled
+            lhs.with_scale(rhs.scale) + rhs
         } else if self.scale > rhs.scale {
-            let mut scaled = rhs.with_scale(self.scale);
-            scaled.int_val += &self.int_val;
-            scaled
+            rhs.with_scale(lhs.scale) + lhs
         } else {
-            BigDecimal::new(self.int_val.clone() + &rhs.int_val, self.scale)
+            BigDecimal::new(lhs.int_val.clone() + &rhs.int_val, lhs.scale)
         }
     }
 }
