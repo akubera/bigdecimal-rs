@@ -754,7 +754,52 @@ impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-forward_all_binop_to_ref_ref!(impl Sub for BigDecimal, sub);
+impl Sub<BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: BigDecimal) -> BigDecimal {
+        let mut lhs = self;
+        let scale = std::cmp::max(lhs.scale, rhs.scale);
+
+        match lhs.scale.cmp(&rhs.scale) {
+            Ordering::Equal => {
+                lhs.int_val -= rhs.int_val;
+                lhs
+            },
+            Ordering::Less => lhs.take_and_scale(scale) - rhs,
+            Ordering::Greater => lhs - rhs.take_and_scale(scale),
+        }
+    }
+}
+
+impl<'a> Sub<&'a BigDecimal> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: &'a BigDecimal) -> BigDecimal {
+        let mut lhs = self;
+        let scale = std::cmp::max(lhs.scale, rhs.scale);
+
+        match lhs.scale.cmp(&rhs.scale) {
+            Ordering::Equal => {
+                lhs.int_val -= &rhs.int_val;
+                lhs
+            },
+            Ordering::Less => lhs.take_and_scale(rhs.scale) - rhs,
+            Ordering::Greater => lhs - rhs.with_scale(scale),
+        }
+    }
+}
+
+impl<'a> Sub<BigDecimal> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: BigDecimal) -> BigDecimal {
+        -(rhs - self)
+    }
+}
 
 impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
@@ -762,12 +807,11 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
     #[inline]
     fn sub(self, rhs: &BigDecimal) -> BigDecimal {
         if self.scale < rhs.scale {
-            let scaled = self.with_scale(rhs.scale);
-            BigDecimal::new(scaled.int_val - &rhs.int_val, rhs.scale)
+            self.with_scale(rhs.scale) - rhs
 
         } else if self.scale > rhs.scale {
-            let scaled = rhs.with_scale(self.scale);
-            BigDecimal::new(&self.int_val - scaled.int_val, self.scale)
+            let rhs = rhs.with_scale(self.scale);
+            self - rhs
 
         } else {
             BigDecimal::new(&self.int_val - &rhs.int_val, self.scale)
@@ -781,13 +825,12 @@ impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn sub_assign(&mut self, rhs: &BigDecimal) {
         if self.scale < rhs.scale {
-            let scaled = self.with_scale(rhs.scale);
-            self.int_val = scaled.int_val - &rhs.int_val;
+            let lhs = self.with_scale(rhs.scale);
+            self.int_val = lhs.int_val - &rhs.int_val;
             self.scale = rhs.scale;
 
         } else if self.scale > rhs.scale {
-            let scaled = rhs.with_scale(self.scale);
-            self.int_val = &self.int_val - scaled.int_val;
+            self.int_val -= rhs.with_scale(self.scale).int_val;
 
         } else {
             self.int_val = &self.int_val - &rhs.int_val;
