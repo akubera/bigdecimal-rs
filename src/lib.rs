@@ -927,6 +927,11 @@ impl_div_for_primitives!();
 
 #[inline(always)]
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
+    // quick zero check
+    if num.is_zero() {
+        return BigDecimal::new(num, 0);
+    }
+
     match (num.is_negative(), den.is_negative()) {
         (true, true) => return impl_division(num.neg(), &den.neg(), scale, max_precision),
         (true, false) => return -impl_division(num.neg(), den, scale, max_precision),
@@ -983,7 +988,7 @@ impl Div<BigDecimal> for BigDecimal {
         if other.is_zero() {
             return other;
         }
-        if other == BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self;
         }
 
@@ -1009,7 +1014,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
         if other.is_zero() {
             return BigDecimal::zero();
         }
-        if other == &BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self;
         }
 
@@ -1039,7 +1044,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             return BigDecimal::zero();
         }
         // TODO: Fix setting scale
-        if other == &BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self.clone();
         }
 
@@ -1808,6 +1813,8 @@ mod bigdecimal_tests {
     #[test]
     fn test_div() {
         let vals = vec![
+            ("0", "1", "0"),
+            ("0", "10", "0"),
             ("2", "1", "2"),
             ("2e1", "1", "2e1"),
             ("10", "10", "1"),
