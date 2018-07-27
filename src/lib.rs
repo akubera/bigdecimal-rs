@@ -515,6 +515,36 @@ impl BigDecimal {
 
         return result;
     }
+
+    /// Evaluate the natural-exponential function $e^x$
+    ///
+    #[inline]
+    pub fn exp(&self) -> BigDecimal {
+        if self.is_zero() {
+            return BigDecimal::one();
+        }
+
+        let precision = self.digits();
+
+        let mut term = self.clone();
+        let mut result = self.clone() + BigDecimal::one();
+        let mut prev_result = result.clone();
+        let mut factorial = BigInt::one();
+
+        for n in 2.. {
+            term *= self;
+            factorial *= n;
+            // ∑ term=x^n/n!
+            result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
+
+            let trimmed_result = result.with_prec(105);
+            if prev_result == trimmed_result {
+                return trimmed_result.with_prec(100);
+            }
+            prev_result = trimmed_result;
+        }
+        return result.with_prec(100);
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -897,6 +927,11 @@ impl_div_for_primitives!();
 
 #[inline(always)]
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
+    // quick zero check
+    if num.is_zero() {
+        return BigDecimal::new(num, 0);
+    }
+
     match (num.is_negative(), den.is_negative()) {
         (true, true) => return impl_division(num.neg(), &den.neg(), scale, max_precision),
         (true, false) => return -impl_division(num.neg(), den, scale, max_precision),
@@ -953,7 +988,7 @@ impl Div<BigDecimal> for BigDecimal {
         if other.is_zero() {
             return other;
         }
-        if other == BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self;
         }
 
@@ -979,7 +1014,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
         if other.is_zero() {
             return BigDecimal::zero();
         }
-        if other == &BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self;
         }
 
@@ -1009,7 +1044,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             return BigDecimal::zero();
         }
         // TODO: Fix setting scale
-        if other == &BigDecimal::one() {
+        if self.is_zero() || other.is_one() {
             return self.clone();
         }
 
@@ -1778,6 +1813,8 @@ mod bigdecimal_tests {
     #[test]
     fn test_div() {
         let vals = vec![
+            ("0", "1", "0"),
+            ("0", "10", "0"),
             ("2", "1", "2"),
             ("2e1", "1", "2e1"),
             ("10", "10", "1"),
@@ -2252,6 +2289,29 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
+        }
+    }
+
+    #[test]
+    fn test_exp() {
+        let vals = vec![
+            ("0", "1"),
+            ("1", "2.718281828459045235360287471352662497757247093699959574966967627724076630353547594571382178525166427"),
+            ("1.01", "2.745601015016916493989776316660387624073750819595962291667398087987297168243899027802501018008905180"),
+            ("0.5", "1.648721270700128146848650787814163571653776100710148011575079311640661021194215608632776520056366643"),
+            ("-1", "0.3678794411714423215955237701614608674458111310317678345078368016974614957448998033571472743459196437"),
+            ("-0.01", "0.9900498337491680535739059771800365577720790812538374668838787452931477271687452950182155307793838110"),
+            ("-10.04", "0.00004361977305405268676261569570537884674661515701779752139657120453194647205771372804663141467275928595"),
+            //("-1000.04", "4.876927702336787390535723208392195312680380995235400234563172353460484039061383367037381490416091595E-435"),
+            ("-20.07", "1.921806899438469499721914055500607234723811054459447828795824348465763824284589956630853464778332349E-9"),
+            ("10", "22026.46579480671651695790064528424436635351261855678107423542635522520281857079257519912096816452590"),
+            ("20", "485165195.4097902779691068305415405586846389889448472543536108003159779961427097401659798506527473494"),
+            //("777.7", "5.634022488451236612534495413455282583175841288248965283178668787259870456538271615076138061788051442E+337"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap().exp();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a, b);
         }
     }
 
