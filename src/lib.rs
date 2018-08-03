@@ -79,8 +79,8 @@ fn ten_to_the(pow: u64) -> BigInt {
             x
         } else {
             x * ten_to_the(rem)
+        }
     }
-}
 }
 
 #[inline(always)]
@@ -535,7 +535,12 @@ impl BigDecimal {
             term *= self;
             factorial *= n;
             // ∑ term=x^n/n!
-            result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
+            result += impl_division(
+                term.int_val.clone(),
+                &factorial,
+                term.scale,
+                117 + precision,
+            );
 
             let trimmed_result = result.with_prec(105);
             if prev_result == trimmed_result {
@@ -774,6 +779,66 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+impl Add<BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigInt) -> BigDecimal {
+        let mut lhs = self;
+
+        match lhs.scale.cmp(&0) {
+            Ordering::Equal => {
+                lhs.int_val += rhs;
+                lhs
+            }
+            Ordering::Greater => {
+                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
+                lhs
+            }
+            Ordering::Less => lhs.take_and_scale(0) + rhs,
+        }
+    }
+}
+
+impl<'a> Add<&'a BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: &BigInt) -> BigDecimal {
+        let mut lhs = self;
+
+        match lhs.scale.cmp(&0) {
+            Ordering::Equal => {
+                lhs.int_val += rhs;
+                lhs
+            }
+            Ordering::Greater => {
+                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
+                lhs
+            }
+            Ordering::Less => lhs.take_and_scale(0) + rhs,
+        }
+    }
+}
+
+impl<'a> Add<BigInt> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigInt) -> BigDecimal {
+        BigDecimal::new(rhs, 0) + self
+    }
+}
+
+impl<'a, 'b> Add<&'a BigInt> for &'b BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: &BigInt) -> BigDecimal {
+        self.with_scale(0) + rhs
+    }
+}
+
 forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
 
 impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
@@ -788,6 +853,39 @@ impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
             self.int_val += scaled.int_val;
         } else {
             self.int_val += &rhs.int_val;
+        }
+    }
+}
+
+impl<'a> AddAssign<BigInt> for BigDecimal {
+    #[inline]
+    fn add_assign(&mut self, rhs: BigInt) {
+        *self += BigDecimal::new(rhs, 0)
+    }
+}
+
+impl<'a> AddAssign<&'a BigInt> for BigDecimal {
+    #[inline]
+    fn add_assign(&mut self, rhs: &BigInt) {
+        /* // which one looks best?
+        if self.scale == 0 {
+            self.int_val += rhs;
+        } else if self.scale > 0 {
+            self.int_val += rhs * ten_to_the(self.scale as u64);
+        } else {
+            self.int_val *= ten_to_the((-self.scale) as u64);
+            self.int_val += rhs;
+            self.scale = 0;
+        }
+         */
+        match self.scale.cmp(&0) {
+            Ordering::Equal => self.int_val += rhs,
+            Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
+            Ordering::Less =>  { // *self += BigDecimal::new(rhs, 0)
+                self.int_val *= ten_to_the((-self.scale) as u64);
+                self.int_val += rhs;
+                self.scale = 0;
+            }
         }
     }
 }
@@ -815,7 +913,7 @@ impl<'a> Sub<&'a BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn sub(self, rhs: &'a BigDecimal) -> BigDecimal {
+    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
         let mut lhs = self;
         let scale = std::cmp::max(lhs.scale, rhs.scale);
 
@@ -855,6 +953,66 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+impl Sub<BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: BigInt) -> BigDecimal {
+        let mut lhs = self;
+
+        match lhs.scale.cmp(&0) {
+            Ordering::Equal => {
+                lhs.int_val -= rhs;
+                lhs
+            }
+            Ordering::Greater => {
+                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
+                lhs
+            }
+            Ordering::Less => lhs.take_and_scale(0) - rhs,
+        }
+    }
+}
+
+impl<'a> Sub<&'a BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: &BigInt) -> BigDecimal {
+        let mut lhs = self;
+
+        match lhs.scale.cmp(&0) {
+            Ordering::Equal => {
+                lhs.int_val -= rhs;
+                lhs
+            }
+            Ordering::Greater => {
+                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
+                lhs
+            }
+            Ordering::Less => lhs.take_and_scale(0) - rhs,
+        }
+    }
+}
+
+impl<'a> Sub<BigInt> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: BigInt) -> BigDecimal {
+        BigDecimal::new(rhs, 0) - self
+    }
+}
+
+impl<'a, 'b> Sub<&'a BigInt> for &'b BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: &BigInt) -> BigDecimal {
+        self.with_scale(0) - rhs
+    }
+}
+
 forward_val_assignop!(impl SubAssign for BigDecimal, sub_assign);
 
 impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
@@ -868,6 +1026,28 @@ impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
             self.int_val -= rhs.with_scale(self.scale).int_val;
         } else {
             self.int_val = &self.int_val - &rhs.int_val;
+        }
+    }
+}
+
+impl<'a> SubAssign<BigInt> for BigDecimal {
+    #[inline(always)]
+    fn sub_assign(&mut self, rhs: BigInt) {
+        *self -= BigDecimal::new(rhs, 0)
+    }
+}
+
+impl<'a> SubAssign<&'a BigInt> for BigDecimal {
+    #[inline(always)]
+    fn sub_assign(&mut self, rhs: &BigInt) {
+        match self.scale.cmp(&0) {
+            Ordering::Equal => SubAssign::sub_assign(&mut self.int_val, rhs),
+            Ordering::Greater => SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64)),
+            Ordering::Less => { 
+                self.int_val *= ten_to_the((-self.scale) as u64);
+                SubAssign::sub_assign(&mut self.int_val, rhs);
+                self.scale = 0;
+            }
         }
     }
 }
@@ -889,7 +1069,7 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
         self.scale += rhs.scale;
-        self.int_val *= &rhs.int_val;
+        MulAssign::mul_assign(&mut self.int_val, &rhs.int_val);
         self
     }
 }
@@ -912,6 +1092,48 @@ impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
         BigDecimal::new(&self.int_val * &rhs.int_val, scale)
     }
 }
+
+impl Mul<BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: BigInt) -> BigDecimal {
+        self.int_val *= rhs;
+        self
+    }
+}
+
+impl<'a> Mul<&'a BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: &BigInt) -> BigDecimal {
+        self.int_val *= rhs;
+        self
+    }
+}
+
+impl<'a> Mul<BigInt> for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, mut rhs: BigInt) -> BigDecimal {
+        rhs *= &self.int_val;
+        BigDecimal::new(rhs, self.scale)
+    }
+}
+
+impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: &BigInt) -> BigDecimal {
+        let value = &self.int_val * rhs;
+        BigDecimal::new(value, self.scale)
+    }
+}
+
+
 
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
@@ -1004,7 +1226,7 @@ impl Div<BigDecimal> for BigDecimal {
         let max_precision = 100;
 
         return impl_division(self.int_val, &other.int_val, scale, max_precision);
-   }
+    }
 }
 
 impl<'a> Div<&'a BigDecimal> for BigDecimal {
@@ -1030,7 +1252,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
         let max_precision = 100;
 
         return impl_division(self.int_val, &other.int_val, scale, max_precision);
-   }
+    }
 }
 
 forward_ref_val_binop!(impl Div for BigDecimal, div);
@@ -1460,8 +1682,8 @@ mod bigdecimal_serde {
 
     impl ser::Serialize for BigDecimal {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: ser::Serializer,
+        where
+            S: ser::Serializer,
         {
             serializer.collect_str(&self)
         }
@@ -1477,30 +1699,30 @@ mod bigdecimal_serde {
         }
 
         fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
             use std::str::FromStr;
             BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
         fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
-            where
-                E: de::Error,
+        where
+            E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
@@ -1508,8 +1730,8 @@ mod bigdecimal_serde {
 
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
-            where
-                D: de::Deserializer<'de>,
+        where
+            D: de::Deserializer<'de>,
         {
             d.deserialize_any(BigDecimalVisitor)
         }
@@ -1576,14 +1798,7 @@ mod bigdecimal_serde {
     fn test_serde_deserialize_int() {
         use traits::FromPrimitive;
 
-        let vals = vec![
-            0,
-            1,
-            81516161,
-            -370,
-            -8,
-            -99999999999,
-        ];
+        let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
         for n in vals {
             let expected = BigDecimal::from_i64(n).unwrap();
             let value: BigDecimal =
