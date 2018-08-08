@@ -516,7 +516,68 @@ impl BigDecimal {
         return result;
     }
 
-    /// Evaluate the natural-exponential function $e^x$
+    /// Compute the reciprical of the number: x<sup>-1</sup>
+    #[inline]
+    pub fn inverse(&self) -> BigDecimal {
+        if self.is_zero() || self.is_one() {
+            return self.clone();
+        }
+        if self.is_negative() {
+            return self.abs().inverse().neg();
+        }
+        let guess = {
+            let bits = self.int_val.bits() as f64;
+            let scale = self.scale as f64;
+
+            let log2_10 = 3.32192809488736234787031942948939018_f64;
+            let magic_factor = 0.721507597259061_f64;
+            let initial_guess = scale * log2_10 - bits;
+            let res = magic_factor * initial_guess.exp2();
+
+            if res.is_normal() {
+                BigDecimal::from(res)
+            } else {
+                // can't guess with float - just guess magnitude
+                let scale = (bits / log2_10 + scale).round() as i64;
+                BigDecimal::new(BigInt::from(1), -scale)
+            }
+        };
+
+        let max_precision = 100;
+        let next_iteration = move |r: BigDecimal| {
+            let two = BigDecimal::from(2);
+            let tmp = two - self * &r;
+
+            r * tmp
+        };
+
+        // calculate first iteration
+        let mut running_result = next_iteration(guess);
+
+        let mut prev_result = BigDecimal::one();
+        let mut result = BigDecimal::zero();
+
+        // TODO: Prove that we don't need to arbitrarily limit iterations
+        // and that convergence can be calculated
+        while prev_result != result {
+            // store current result to test for convergence
+            prev_result = result;
+
+            // calculate next iteration
+            running_result = next_iteration(running_result).with_prec(max_precision);
+
+            // 'result' has clipped precision, 'running_result' has full precision
+            result = if running_result.digits() > max_precision {
+                running_result.with_prec(max_precision)
+            } else {
+                running_result.clone()
+            };
+        }
+
+        return result;
+    }
+
+    /// Evaluate the natural-exponential function e<sup>x</sup>
     ///
     #[inline]
     pub fn exp(&self) -> BigDecimal {
@@ -1043,7 +1104,7 @@ impl<'a> SubAssign<&'a BigInt> for BigDecimal {
         match self.scale.cmp(&0) {
             Ordering::Equal => SubAssign::sub_assign(&mut self.int_val, rhs),
             Ordering::Greater => SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64)),
-            Ordering::Less => { 
+            Ordering::Less => {
                 self.int_val *= ten_to_the((-self.scale) as u64);
                 SubAssign::sub_assign(&mut self.int_val, rhs);
                 self.scale = 0;
@@ -2370,6 +2431,25 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
+        }
+    }
+
+    #[test]
+    fn test_inverse() {
+        let vals = vec![
+            ("100", "0.01"),
+            ("2", "0.5"),
+            (".2", "5"),
+            ("3.141592653", "0.3183098862435492205742690218851870990799646487459493049686604293188738877535183744268834079171116523"),
+        ];
+        for &(x, y) in vals.iter() {
+            let a = BigDecimal::from_str(x).unwrap();
+            let i = a.inverse();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(i, b);
+            assert_eq!(BigDecimal::from(1)/&a, b);
+            assert_eq!(i.inverse(), a);
+            // assert_eq!(a.scale, b.scale, "scale mismatch ({} != {}", a, b);
         }
     }
 
