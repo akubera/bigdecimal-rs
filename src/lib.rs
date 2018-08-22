@@ -1269,7 +1269,7 @@ impl Div<BigDecimal> for BigDecimal {
     #[inline]
     fn div(self, other: BigDecimal) -> BigDecimal {
         if other.is_zero() {
-            return other;
+            panic!("Division by zero");
         }
         if self.is_zero() || other.is_one() {
             return self;
@@ -1295,7 +1295,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn div(self, other: &'a BigDecimal) -> BigDecimal {
         if other.is_zero() {
-            return BigDecimal::zero();
+            panic!("Division by zero");
         }
         if self.is_zero() || other.is_one() {
             return self;
@@ -1324,7 +1324,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     #[inline]
     fn div(self, other: &BigDecimal) -> BigDecimal {
         if other.is_zero() {
-            return BigDecimal::zero();
+            panic!("Division by zero");
         }
         // TODO: Fix setting scale
         if self.is_zero() || other.is_one() {
@@ -2132,6 +2132,21 @@ mod bigdecimal_tests {
             // q /= b;
             // assert_eq!(q, c);
         }
+    }
+
+    #[test]
+    #[should_panic(expected = "Division by zero")]
+    fn test_division_by_zero_panics() {
+        let x = BigDecimal::from_str("3.14").unwrap();
+        let _r = x / 0;
+    }
+
+    #[test]
+    #[should_panic(expected = "Division by zero")]
+    fn test_division_by_zero_panics_v2() {
+        use traits::Zero;
+        let x = BigDecimal::from_str("3.14").unwrap();
+        let _r = x / BigDecimal::zero();
     }
 
     #[test]
