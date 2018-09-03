@@ -219,10 +219,13 @@ impl BigDecimal {
 
         if digits > prec {
             let diff = digits - prec;
+            let p = ten_to_the(diff);
+            let (mut q, r) = self.int_val.div_rem(&p);
 
-            let (mut q, r) = self.int_val.div_rem(&ten_to_the(diff));
-
-            q += get_rounding_term(&r);
+            // check for "leading zero" in remainder term; otherwise round
+            if p < 10 * &r {
+              q += get_rounding_term(&r);
+            }
 
             BigDecimal {
                 int_val: q,
@@ -2331,6 +2334,11 @@ mod bigdecimal_tests {
             ("895", 2, "900"),
             ("8934", 2, "8900"),
             ("8934", 1, "9000"),
+            ("1.0001", 5, "1.0001"),
+            ("1.0001", 4, "1"),
+            ("1.00009", 6, "1.00009"),
+            ("1.00009", 5, "1.0001"),
+            ("1.00009", 4, "1.000"),
         ];
         for &(x, p, y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap().with_prec(p);
