@@ -40,6 +40,11 @@
 //! println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
 //! ```
 
+
+// #![cfg_attr(feature="nightly", feature(test))]
+#![feature(test)]
+// #![cfg_attr(test, feature(test)]
+
 extern crate num_bigint;
 extern crate num_integer;
 extern crate num_traits as traits;
@@ -1893,6 +1898,207 @@ mod bigdecimal_serde {
         }
     }
 }
+
+// #[cfg_attr(feature = "nightly", cfg(test))]
+extern crate test;
+
+
+// use std::test;
+
+// #[cfg_attr(rustfmt, rustfmt_skip)]
+// #[cfg(test)]
+// mod benchmarks {
+
+    use test::Bencher;
+
+    #[bench]
+    fn parse(b: &mut Bencher) {
+        let s = "12.34";
+        b.iter(|| BigDecimal::from_str(&s).unwrap());
+    }
+
+    #[bench]
+    fn parses_2(b: &mut Bencher) {
+        let s = "12.3429829840101048335729348473249";
+        b.iter(|| BigDecimal::from_str(&s).unwrap());
+    }
+
+    #[bench]
+    fn add_1(b: &mut Bencher) {
+        let x = BigDecimal::from_str("12.34").unwrap();
+        let y = BigDecimal::from_str("31.3").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+    #[bench]
+    fn add_2(b: &mut Bencher) {
+        let x = BigDecimal::from_str("775.3900103123").unwrap();
+        let y = BigDecimal::from_str("31848.37404").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+    #[bench]
+    fn add_3(b: &mut Bencher) {
+        let x = BigDecimal::from_str("151238.1041").unwrap();
+        let y = BigDecimal::from_str("849070.9772").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+    #[bench]
+    fn add_4(b: &mut Bencher) {
+        let x = BigDecimal::from_str("2958613395118569426041211.552").unwrap();
+        let y = BigDecimal::from_str("8629346236227712486962786.102").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+    #[bench]
+    fn add_5a(b: &mut Bencher) {
+        let x = BigDecimal::from_str("82.4314435588491785341963185323360687631335497072").unwrap();
+        let y = BigDecimal::from_str("31.3936157942907762592810822521702204014881457116").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+    #[bench]
+    fn add_5b(b: &mut Bencher) {
+        let x = BigDecimal::from_str("8243144355884917853419631853233606876313354970.72").unwrap();
+        let y = BigDecimal::from_str("31.3936157942907762592810822521702204014881457116").unwrap();
+        b.iter(|| &x + &y);
+    }
+
+
+    #[bench]
+    fn sub_1(b: &mut Bencher) {
+        let x = BigDecimal::from_str("12.3429829840101048335729348473249").unwrap();
+        let y = BigDecimal::from_str("31848.37404").unwrap();
+        b.iter(|| &x - &y);
+    }
+
+    #[bench]
+    fn sub_2(b: &mut Bencher) {
+        let x = BigDecimal::from_str("775.3900103123").unwrap();
+        let y = BigDecimal::from_str("31848.37404").unwrap();
+        b.iter(|| &x - &y);
+    }
+
+    #[bench]
+    fn mul_1(b: &mut Bencher) {
+        let x = BigDecimal::from_str("6041211.552").unwrap();
+        let y = BigDecimal::from_str("6962786.102").unwrap();
+        b.iter(|| &x * &y);
+    }
+
+    #[bench]
+    fn mul_2(b: &mut Bencher) {
+        let x = BigDecimal::from_str("775.3900103123").unwrap();
+        let y = BigDecimal::from_str("31848.37404").unwrap();
+        b.iter(|| &x * &y);
+    }
+
+    #[bench]
+    fn mul_3a(b: &mut Bencher) {
+        let x = BigDecimal::from_str("29586133916107074824593414992293730651185694239166054662277124.8426595286").unwrap();
+        let y = BigDecimal::from_str("86293462312307724543001269862019663439418847932957741910444253.9940942720").unwrap();
+        b.iter(|| &x * &y);
+    }
+
+    #[bench]
+    fn mul_3b(b: &mut Bencher) {
+        let x = BigDecimal::from_str("2958613.39161070748245934149922937306511856942391660546622771248426595286").unwrap();
+        let y = BigDecimal::from_str("86293462312307724543001269862019663439418847932957741910444253.9940942720").unwrap();
+        b.iter(|| &x * &y);
+    }
+
+    #[bench]
+    fn div_1(b: &mut Bencher) {
+        let x = BigDecimal::from_str("22").unwrap();
+        let y = BigDecimal::from_str("7").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+    #[bench]
+    fn div_2(b: &mut Bencher) {
+        let x = BigDecimal::from_str("122451").unwrap();
+        let y = BigDecimal::from_str("7").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+
+    #[bench]
+    fn div_3(b: &mut Bencher) {
+        let x = BigDecimal::from_str("775.3900103123").unwrap();
+        let y = BigDecimal::from_str("31848.37404").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+    #[bench]
+    fn div_4(b: &mut Bencher) {
+        let x = BigDecimal::from_str("6041211.552").unwrap();
+        let y = BigDecimal::from_str("6962786.102").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+    #[bench]
+    fn div_5a(b: &mut Bencher) {
+        let x = BigDecimal::from_str("29586133916107074824593414992293730651185694239166054662277124.8426595286").unwrap();
+        let y = BigDecimal::from_str("86293462312307724543001269862019663439418847932957741910444253.9940942720").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+    #[bench]
+    fn div_5b(b: &mut Bencher) {
+        let x = BigDecimal::from_str("2958613.39161070748245934149922937306511856942391660546622771248426595286").unwrap();
+        let y = BigDecimal::from_str("86293462312307724543001269862019663439418847932957741910444253.9940942720").unwrap();
+        b.iter(|| &x / &y);
+    }
+
+    #[bench]
+    fn sqrt_one(b: &mut Bencher) {
+        let x = BigDecimal::from(1);
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_two(b: &mut Bencher) {
+        let x = BigDecimal::from(2);
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_1(b: &mut Bencher) {
+        let x = BigDecimal::from(9);
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_2(b: &mut Bencher) {
+        let x = BigDecimal::from_str("775.3900103123").unwrap();
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_3(b: &mut Bencher) {
+        let x = BigDecimal::from_str("3391610707482459341499229373.065").unwrap();
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_4(b: &mut Bencher) {
+        let x = BigDecimal::from_str("33.91610707482459341499229373065").unwrap();
+        b.iter(|| x.sqrt());
+    }
+
+    #[bench]
+    fn sqrt_5(b: &mut Bencher) {
+        let x = BigDecimal::from_str(".02958613391610707482459341499229373065").unwrap();
+        b.iter(|| x.sqrt());
+    }
+
+
+
+
+
+// }
+
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 #[cfg(test)]
