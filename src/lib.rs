@@ -714,7 +714,6 @@ impl One for BigDecimal {
     }
 }
 
-
 impl Add<BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
