@@ -53,6 +53,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::num::{ParseFloatError, ParseIntError};
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+use std::iter::Sum;
 use std::str::{self, FromStr};
 
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
@@ -1198,6 +1199,20 @@ impl Signed for BigDecimal {
     }
 }
 
+impl Sum for BigDecimal {
+    #[inline]
+    fn sum<I: Iterator<Item=BigDecimal>>(iter: I) -> BigDecimal {
+        iter.fold(Zero::zero(), |a, b| a + b)
+    }
+}
+
+impl<'a> Sum<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn sum<I: Iterator<Item=&'a BigDecimal>>(iter: I) -> BigDecimal {
+        iter.fold(Zero::zero(), |a, b| a + b)
+    }
+}
+
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Aquire the absolute integer as a decimal string
@@ -1625,6 +1640,20 @@ mod bigdecimal_tests {
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num_bigint;
+
+    #[test]
+    fn test_sum() {
+        let vals = vec![
+            BigDecimal::from_f32(2.5).unwrap(),
+            BigDecimal::from_f32(0.3).unwrap(),
+            BigDecimal::from_f32(0.001).unwrap(),
+        ];
+
+        let expected_sum = BigDecimal::from_f32(2.801).unwrap();
+        let sum = vals.iter().sum::<BigDecimal>();
+
+        assert_eq!(expected_sum, sum);
+    }
 
     #[test]
     fn test_to_i64() {
