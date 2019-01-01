@@ -161,7 +161,7 @@ impl BigDecimal {
     /// use bigdecimal::{BigDecimal, Zero};
     ///
     /// assert_eq!(BigDecimal::parse_bytes(b"0", 10).unwrap(), BigDecimal::zero());
-    /// // assert_eq!(BigDecimal::parse_bytes(b"f", 16), BigDecimal::parse_bytes(b"16", 10));
+    /// assert_eq!(BigDecimal::parse_bytes(b"f", 16), BigDecimal::parse_bytes(b"15", 10));
     /// ```
     #[inline]
     pub fn parse_bytes(buf: &[u8], radix: u32) -> Option<BigDecimal> {
