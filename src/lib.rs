@@ -1521,12 +1521,23 @@ mod bigdecimal_serde {
         }
     }
 
+    #[cfg(not(feature = "string-only"))]
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
             where
                 D: de::Deserializer<'de>,
         {
             d.deserialize_any(BigDecimalVisitor)
+        }
+    }
+
+    #[cfg(feature = "string-only")]
+    impl<'de> de::Deserialize<'de> for BigDecimal {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+            where
+                D: de::Deserializer<'de>,
+        {
+            d.deserialize_str(BigDecimalVisitor)
         }
     }
 
@@ -1588,6 +1599,7 @@ mod bigdecimal_serde {
     }
 
     #[test]
+    #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_int() {
         use traits::FromPrimitive;
 
@@ -1608,6 +1620,7 @@ mod bigdecimal_serde {
     }
 
     #[test]
+    #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_f64() {
         use traits::FromPrimitive;
 
