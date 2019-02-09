@@ -1668,6 +1668,16 @@ impl From<(BigInt, i64)> for BigDecimal {
     }
 }
 
+impl From<BigInt> for BigDecimal {
+    #[inline]
+    fn from(int_val: BigInt) -> Self {
+        BigDecimal {
+            int_val: int_val,
+            scale: 0,
+        }
+    }
+}
+
 macro_rules! impl_from_type {
     ($FromType:ty, $AsType:ty) => {
         impl From<$FromType> for BigDecimal {
