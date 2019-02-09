@@ -581,6 +581,18 @@ impl BigDecimal {
         return result;
     }
 
+    /// Return true if this number has zero fractional part (is equal
+    /// to an integer)
+    ///
+    #[inline]
+    pub fn is_integer(&self) -> bool {
+        if self.scale <= 0 {
+            true
+        } else {
+           (self.int_val.clone() % ten_to_the(self.scale as u64)).is_zero()
+        }
+    }
+
     /// Evaluate the natural-exponential function e<sup>x</sup>
     ///
     #[inline]
@@ -2494,6 +2506,37 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
+        }
+    }
+
+    #[test]
+    fn test_is_integer() {
+        let true_vals = vec![
+            "100",
+            "100.00",
+            "1724e4",
+            "31.47e8",
+            "-31.47e8",
+            "-0.0",
+        ];
+
+        let false_vals = vec![
+            "100.1",
+            "0.001",
+            "3147e-3",
+            "3147e-8",
+            "-0.01",
+            "-1e-3",
+        ];
+
+        for s in true_vals {
+            let d = BigDecimal::from_str(&s).unwrap();
+            assert!(d.is_integer());
+        }
+
+        for s in false_vals {
+            let d = BigDecimal::from_str(&s).unwrap();
+            assert!(!d.is_integer());
         }
     }
 
