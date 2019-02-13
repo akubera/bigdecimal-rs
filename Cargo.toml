@@ -15,5 +15,8 @@ num-integer = "0.1.39"
 num-traits = "0.2"
 serde = { version = "1.0", optional = true }
 
-[dev-dependencies.serde_json]
-version = "1.0"
+[dev-dependencies.serde_yaml]
+version = "0.8"
+
+[features]
+i128 = ["num-bigint/i128", "num-integer/i128", "num-traits/i128"]

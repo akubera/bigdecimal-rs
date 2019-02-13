@@ -1639,9 +1639,27 @@ impl ToPrimitive for BigDecimal {
             Sign::NoSign => Some(0),
         }
     }
+
+    #[cfg(feature = "i128")]
+    fn to_i128(&self) -> Option<i128> {
+        match self.sign() {
+            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i128(),
+            Sign::NoSign => Some(0),
+        }
+    }
+
     fn to_u64(&self) -> Option<u64> {
         match self.sign() {
             Sign::Plus => self.with_scale(0).int_val.to_u64(),
+            Sign::NoSign => Some(0),
+            Sign::Minus => None,
+        }
+    }
+
+    #[cfg(feature = "i128")]
+    fn to_u128(&self) -> Option<u128> {
+        match self.sign() {
+            Sign::Plus => self.with_scale(0).int_val.to_u128(),
             Sign::NoSign => Some(0),
             Sign::Minus => None,
         }
@@ -1667,6 +1685,28 @@ impl From<i64> for BigDecimal {
 impl From<u64> for BigDecimal {
     #[inline]
     fn from(n: u64) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0,
+        }
+    }
+}
+
+#[cfg(feature = "i128")]
+impl From<i128> for BigDecimal {
+    #[inline]
+    fn from(n: i128) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0,
+        }
+    }
+}
+
+#[cfg(feature = "i128")]
+impl From<u128> for BigDecimal {
+    #[inline]
+    fn from(n: u128) -> Self {
         BigDecimal {
             int_val: BigInt::from(n),
             scale: 0,
@@ -1742,7 +1782,19 @@ impl FromPrimitive for BigDecimal {
     }
 
     #[inline]
+    #[cfg(feature = "i128")]
+    fn from_i128(n: i128) -> Option<Self> {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
     fn from_u64(n: u64) -> Option<Self> {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    #[cfg(feature = "i128")]
+    fn from_u128(n: u128) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 
@@ -1803,7 +1855,23 @@ mod bigdecimal_serde {
             Ok(BigDecimal::from(value))
         }
 
+        #[cfg(feature = "i128")]
+        fn visit_u128<E>(self, value: u128) -> Result<BigDecimal, E>
+        where
+            E: de::Error,
+        {
+            Ok(BigDecimal::from(value))
+        }
+
         fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
+        where
+            E: de::Error,
+        {
+            Ok(BigDecimal::from(value))
+        }
+
+        #[cfg(feature = "i128")]
+        fn visit_i128<E>(self, value: i128) -> Result<BigDecimal, E>
         where
             E: de::Error,
         {
@@ -1828,7 +1896,7 @@ mod bigdecimal_serde {
     }
 
     #[cfg(test)]
-    extern crate serde_json;
+    extern crate serde_yaml;
 
     #[test]
     fn test_serde_serialize() {
@@ -1851,8 +1919,8 @@ mod bigdecimal_serde {
             ("12.0010", "12.0010"),
         ];
         for (s, v) in vals {
-            let expected = format!("\"{}\"", v);
-            let value = serde_json::to_string(&BigDecimal::from_str(s).unwrap()).unwrap();
+            let expected = format!("---\n\"{}\"", v);
+            let value = serde_yaml::to_string(&BigDecimal::from_str(s).unwrap()).unwrap();
             assert_eq!(expected, value);
         }
     }
@@ -1879,20 +1947,48 @@ mod bigdecimal_serde {
         ];
         for (s, v) in vals {
             let expected = BigDecimal::from_str(v).unwrap();
-            let value: BigDecimal = serde_json::from_str(&format!("\"{}\"", s)).unwrap();
+            let value: BigDecimal = serde_yaml::from_str(&format!("\"{}\"", s)).unwrap();
             assert_eq!(expected, value);
         }
     }
 
     #[test]
-    fn test_serde_deserialize_int() {
+    fn test_serde_deserialize_i64() {
         use traits::FromPrimitive;
 
         let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
         for n in vals {
             let expected = BigDecimal::from_i64(n).unwrap();
             let value: BigDecimal =
-                serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+                serde_yaml::from_str(&serde_yaml::to_string(&n).unwrap()).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    #[test]
+    fn test_serde_deserialize_i128() {
+        use std::i128;
+        use traits::FromPrimitive;
+
+        let vals = vec![0, 1, 81516161, -370, i128::MIN, i128::MAX];
+        for n in vals {
+            let expected = BigDecimal::from_i128(n).unwrap();
+            let value: BigDecimal =
+                serde_yaml::from_str(&serde_yaml::to_string(&n).unwrap()).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    #[test]
+    fn test_serde_deserialize_u128() {
+        use std::u128;
+        use traits::FromPrimitive;
+
+        let vals = vec![0, 1, 81516161, u128::MAX];
+        for n in vals {
+            let expected = BigDecimal::from_u128(n).unwrap();
+            let value: BigDecimal =
+                serde_yaml::from_str(&serde_yaml::to_string(&n).unwrap()).unwrap();
             assert_eq!(expected, value);
         }
     }
@@ -1917,7 +2013,7 @@ mod bigdecimal_serde {
         for n in vals {
             let expected = BigDecimal::from_f64(n).unwrap();
             let value: BigDecimal =
-                serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+                serde_yaml::from_str(&serde_yaml::to_string(&n).unwrap()).unwrap();
             assert_eq!(expected, value);
         }
     }
@@ -1950,14 +2046,71 @@ mod bigdecimal_tests {
         let vals = vec![
             ("12.34", 12),
             ("3.14", 3),
+            ("-3.14", -3),
             ("50", 50),
             ("50000", 50000),
             ("0.001", 0),
+            ("-0.001", 0),
             // TODO: Is the desired behaviour to round?
             //("0.56", 1),
         ];
         for (s, ans) in vals {
             let calculated = BigDecimal::from_str(s).unwrap().to_i64().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
+    fn test_to_i128() {
+        use std::i128;
+
+        let i128_min_str = i128::MIN.to_string();
+        let i128_max_str = i128::MAX.to_string();
+        let i128_min_with_decimal_part_str = i128_min_str.clone() + ".01";
+
+        let vals = vec![
+            ("12.34", 12),
+            ("3.14", 3),
+            ("-3.14", -3),
+            ("50", 50),
+            ("50000", 50000),
+            ("0.001", 0),
+            ("-0.001", 0),
+            (&i128_min_str, i128::MIN),
+            (&i128_max_str, i128::MAX),
+            (&i128_min_with_decimal_part_str, i128::MIN),
+            // TODO: Is the desired behaviour to round?
+            //("0.56", 1),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_i128().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
+    fn test_to_u128() {
+        use std::u128;
+
+        let u128_max_str = u128::MAX.to_string();
+        let u128_max_with_decimal_part_str = u128_max_str.clone() + ".01";
+
+        let vals = vec![
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),
+            ("50000", 50000),
+            ("0.001", 0),
+            (&u128_max_str, u128::MAX),
+            (&u128_max_with_decimal_part_str, u128::MAX),
+            // TODO: Is the desired behaviour to round?
+            //("0.56", 1),
+        ];
+        for (s, ans) in vals {
+            println!("s: {}, ans: {}", s, ans);
+            let calculated = BigDecimal::from_str(s).unwrap().to_u128().unwrap();
 
             assert_eq!(ans, calculated);
         }
@@ -1999,6 +2152,49 @@ mod bigdecimal_tests {
     }
 
     #[test]
+    fn test_from_i128() {
+        use std::i128;
+
+        let i128_min_str = i128::MIN.to_string();
+        let i128_max_str = i128::MAX.to_string();
+
+        let vals = vec![
+            ("0", 0),
+            ("1", 1),
+            ("12", 12),
+            ("-13", -13),
+            ("111", 111),
+            (&i128_min_str, i128::MIN),
+            (&i128_max_str, i128::MAX),
+        ];
+        for (s, n) in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let value = BigDecimal::from_i128(n).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    #[test]
+    fn test_from_u128() {
+        use std::u128;
+
+        let u128_max_str = u128::MAX.to_string();
+
+        let vals = vec![
+            ("0", 0),
+            ("1", 1),
+            ("12", 12),
+            ("111", 111),
+            (&u128_max_str, u128::MAX),
+        ];
+        for (s, n) in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let value = BigDecimal::from_u128(n).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    #[test]
     fn test_from_f32() {
         let vals = vec![
             ("1.0", 1.0),
@@ -2023,6 +2219,7 @@ mod bigdecimal_tests {
         }
 
     }
+
     #[test]
     fn test_from_f64() {
         let vals = vec![
