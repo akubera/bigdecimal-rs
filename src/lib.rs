@@ -1968,6 +1968,7 @@ mod bigdecimal_serde {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_serde_deserialize_i128() {
         use std::i128;
@@ -1982,6 +1983,7 @@ mod bigdecimal_serde {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_serde_deserialize_u128() {
         use std::u128;
@@ -2064,6 +2066,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_to_i128() {
         use std::i128;
@@ -2093,6 +2096,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_to_u128() {
         use std::u128;
@@ -2154,6 +2158,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_from_i128() {
         use std::i128;
@@ -2177,6 +2182,7 @@ mod bigdecimal_tests {
         }
     }
 
+    #[cfg(feature = "i128")]
     #[test]
     fn test_from_u128() {
         use std::u128;

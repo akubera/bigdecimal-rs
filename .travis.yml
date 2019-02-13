@@ -13,6 +13,14 @@ script:
   - cargo build --verbose
   - cargo test
   - cargo test --features serde
+  - |
+    if [ $TRAVIS_RUST_VERSION != "1.16.0" && $TRAVIS_RUST_VERSION != "1.22.0" ]; then
+      cargo test --features i128
+    fi
+  - |
+    if [ $TRAVIS_RUST_VERSION != "1.16.0" && $TRAVIS_RUST_VERSION != "1.22.0" ]; then
+      cargo test --features serde,i128
+    fi
 
 matrix:
   allow_failures:
