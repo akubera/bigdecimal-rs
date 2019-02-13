@@ -51,9 +51,9 @@ use std::default::Default;
 use std::error::Error;
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::iter::Sum;
 use std::num::{ParseFloatError, ParseIntError};
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use std::iter::Sum;
 use std::str::{self, FromStr};
 
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
@@ -225,7 +225,7 @@ impl BigDecimal {
 
             // check for "leading zero" in remainder term; otherwise round
             if p < 10 * &r {
-              q += get_rounding_term(&r);
+                q += get_rounding_term(&r);
             }
 
             BigDecimal {
@@ -673,7 +673,7 @@ impl FromStr for BigDecimal {
     }
 }
 
-#[allow(deprecated)]  // trim_right_match -> trim_end_match
+#[allow(deprecated)] // trim_right_match -> trim_end_match
 impl Hash for BigDecimal {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut dec_str = self.int_val.to_str_radix(10).to_string();
@@ -947,7 +947,8 @@ impl<'a> AddAssign<&'a BigInt> for BigDecimal {
         match self.scale.cmp(&0) {
             Ordering::Equal => self.int_val += rhs,
             Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
-            Ordering::Less =>  { // *self += BigDecimal::new(rhs, 0)
+            Ordering::Less => {
+                // *self += BigDecimal::new(rhs, 0)
                 self.int_val *= ten_to_the((-self.scale) as u64);
                 self.int_val += rhs;
                 self.scale = 0;
@@ -1108,7 +1109,9 @@ impl<'a> SubAssign<&'a BigInt> for BigDecimal {
     fn sub_assign(&mut self, rhs: &BigInt) {
         match self.scale.cmp(&0) {
             Ordering::Equal => SubAssign::sub_assign(&mut self.int_val, rhs),
-            Ordering::Greater => SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64)),
+            Ordering::Greater => {
+                SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64))
+            }
             Ordering::Less => {
                 self.int_val *= ten_to_the((-self.scale) as u64);
                 SubAssign::sub_assign(&mut self.int_val, rhs);
@@ -1198,8 +1201,6 @@ impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
         BigDecimal::new(value, self.scale)
     }
 }
-
-
 
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
@@ -1488,14 +1489,14 @@ impl Signed for BigDecimal {
 
 impl Sum for BigDecimal {
     #[inline]
-    fn sum<I: Iterator<Item=BigDecimal>>(iter: I) -> BigDecimal {
+    fn sum<I: Iterator<Item = BigDecimal>>(iter: I) -> BigDecimal {
         iter.fold(Zero::zero(), |a, b| a + b)
     }
 }
 
 impl<'a> Sum<&'a BigDecimal> for BigDecimal {
     #[inline]
-    fn sum<I: Iterator<Item=&'a BigDecimal>>(iter: I) -> BigDecimal {
+    fn sum<I: Iterator<Item = &'a BigDecimal>>(iter: I) -> BigDecimal {
         iter.fold(Zero::zero(), |a, b| a + b)
     }
 }
@@ -1760,7 +1761,8 @@ impl From<f32> for BigDecimal {
             "{:.PRECISION$e}",
             n,
             PRECISION = ::std::f32::DIGITS as usize
-        )).unwrap()
+        ))
+        .unwrap()
     }
 }
 
@@ -1771,7 +1773,8 @@ impl From<f64> for BigDecimal {
             "{:.PRECISION$e}",
             n,
             PRECISION = ::std::f64::DIGITS as usize
-        )).unwrap()
+        ))
+        .unwrap()
     }
 }
 
