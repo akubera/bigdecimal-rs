@@ -1958,6 +1958,20 @@ mod bigdecimal_tests {
     }
 
     #[test]
+    fn test_sum1() {
+        let vals = vec![
+            BigDecimal::from_f32(0.1).unwrap(),
+            BigDecimal::from_f32(0.2).unwrap(),
+            // BigDecimal::from_f32(0.001).unwrap(),
+        ];
+
+        let expected_sum = BigDecimal::from_f32(0.3).unwrap();
+        let sum = vals.iter().sum::<BigDecimal>();
+
+        assert_eq!(expected_sum, sum);
+    }
+
+    #[test]
     fn test_to_i64() {
         let vals = vec![
             ("12.34", 12),
