@@ -4,9 +4,9 @@ bigdecimal-rs
 
 |travis-badge| |codecov-badge| |gitter-badge|
 
-Documenation_
+Documentation_
 
-Arbitrary precision decimal numbers implemented for rust.
+Arbitrary-precision decimal numbers implemented for rust.
 
 
 About
