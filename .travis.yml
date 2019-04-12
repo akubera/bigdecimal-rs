@@ -2,7 +2,7 @@ language: rust
 rust:
   - 1.16.0
   - 1.22.0
-  - 1.26.0
+  - 1.30.0
   - stable
   - beta
   - nightly
@@ -39,4 +39,3 @@ after_success: |
   for file in target/debug/bigdecimal-*[^\.d]; do mkdir -p "target/cov/$(basename $file)"; $HOME/bin/kcov --exclude-pattern=/.cargo,/usr/lib --verify "target/cov/$(basename $file)" "$file"; done &&
   bash <(curl -s https://codecov.io/bash) &&
   echo "Uploaded code coverage"
-
