@@ -1941,6 +1941,7 @@ mod bigdecimal_tests {
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num_bigint;
+    use std::ops::Neg;
 
     #[test]
     fn test_sum() {
@@ -2490,6 +2491,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_half() {
+        use traits::Zero;
         let vals = vec![
             ("100", "50."),
             ("2", "1"),
@@ -2506,6 +2508,8 @@ mod bigdecimal_tests {
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
         }
+        let zero = BigDecimal::zero();
+        assert_eq!(zero.half(), zero);
     }
 
     #[test]
@@ -2560,6 +2564,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_sqrt() {
+        use traits::One;
         let vals = vec![
             ("1e-232", "1e-116"),
             ("1.00", "1"),
@@ -2585,6 +2590,8 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
         }
+        let one = BigDecimal::one().neg();
+        assert!(one.sqrt().is_none());
     }
 
     #[test]
@@ -2630,6 +2637,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_double() {
+        use traits::Zero;
         let vals = vec![
             ("1", "2"),
             ("1.00", "2.00"),
@@ -2645,6 +2653,8 @@ mod bigdecimal_tests {
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
         }
+        let zero = BigDecimal::zero();
+        assert_eq!(zero.double(), zero);
     }
 
     #[test]
