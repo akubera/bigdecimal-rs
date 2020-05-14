@@ -627,6 +627,19 @@ impl BigDecimal {
         }
         result.with_prec(100)
     }
+
+    pub fn normalize(&self) -> BigDecimal {
+        let (_, mut digits) = self.int_val.to_u32_digits();
+        let mut digits_iter = digits.iter().rev();
+        let mut trailing_count = 0;
+        while digits_iter.next() == Some(&0) {
+            trailing_count += 1;
+        }
+        digits.truncate(digits.len() - trailing_count as usize);
+        let int_val = BigInt::new(self.sign(), digits);
+        let scale = self.scale - trailing_count;
+        BigDecimal::new(int_val, scale)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -1829,12 +1842,23 @@ mod bigdecimal_serde {
         }
     }
 
+    #[cfg(not(feature = "string-only"))]
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
         where
             D: de::Deserializer<'de>,
         {
             d.deserialize_any(BigDecimalVisitor)
+        }
+    }
+
+    #[cfg(feature = "string-only")]
+    impl<'de> de::Deserialize<'de> for BigDecimal {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+            where
+                D: de::Deserializer<'de>,
+        {
+            d.deserialize_str(BigDecimalVisitor)
         }
     }
 
@@ -1896,6 +1920,7 @@ mod bigdecimal_serde {
     }
 
     #[test]
+    #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_int() {
         use traits::FromPrimitive;
 
@@ -1909,6 +1934,7 @@ mod bigdecimal_serde {
     }
 
     #[test]
+    #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_f64() {
         use traits::FromPrimitive;
 
@@ -2797,6 +2823,28 @@ mod bigdecimal_tests {
         assert!(BigDecimal::one().is_positive());
         assert!((-BigDecimal::one()).is_negative());
         assert!((-BigDecimal::one()).abs().is_positive());
+    }
+
+    #[test]
+    fn test_normalize() {
+        use num_bigint::BigInt;
+
+        let vals = vec![
+            (BigDecimal::new(BigInt::from(10), 2),
+            BigDecimal::new(BigInt::from(1), 1),
+            "0.1"),
+            (BigDecimal::new(BigInt::from(132400), -4),
+            BigDecimal::new(BigInt::from(1324), -6),
+            "1324000000"),
+            (BigDecimal::new(BigInt::from(1_900_000), 3),
+            BigDecimal::new(BigInt::from(19), -2),
+            "1900"),
+        ];
+
+        for (not_normalized, normalized, string) in vals {
+            assert_eq!(not_normalized.normalize(), normalized);
+            assert_eq!(normalized.to_string(), string);
+        }
     }
 
     #[test]
