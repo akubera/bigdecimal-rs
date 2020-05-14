@@ -149,7 +149,7 @@ impl BigDecimal {
     pub fn new(digits: BigInt, scale: i64) -> BigDecimal {
         BigDecimal {
             int_val: digits,
-            scale: scale,
+            scale,
         }
     }
 
@@ -443,7 +443,7 @@ impl BigDecimal {
             };
         }
 
-        return Some(result);
+        Some(result)
     }
 
     /// Take the cube root of the number
@@ -517,7 +517,7 @@ impl BigDecimal {
             };
         }
 
-        return result;
+        result
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
@@ -578,7 +578,7 @@ impl BigDecimal {
             };
         }
 
-        return result;
+        result
     }
 
     /// Return true if this number has zero fractional part (is equal
@@ -625,7 +625,7 @@ impl BigDecimal {
             }
             prev_result = trimmed_result;
         }
-        return result.with_prec(100);
+        result.with_prec(100)
     }
 
     pub fn normalize(&self) -> BigDecimal {
@@ -1265,7 +1265,7 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
     if remainder.is_zero() {
         return BigDecimal {
             int_val: quotient,
-            scale: scale,
+            scale,
         };
     }
 
@@ -1289,9 +1289,8 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
         quotient += get_rounding_term(&remainder.div(den));
     }
 
-    let result = BigDecimal::new(quotient, scale);
+    BigDecimal::new(quotient, scale)
     // println!(" {} / {}\n = {}\n", self, other, result);
-    return result;
 }
 
 impl Div<BigDecimal> for BigDecimal {
@@ -1307,16 +1306,16 @@ impl Div<BigDecimal> for BigDecimal {
 
         let scale = self.scale - other.scale;
 
-        if &self.int_val == &other.int_val {
+        if self.int_val == other.int_val {
             return BigDecimal {
                 int_val: 1.into(),
-                scale: scale,
+                scale,
             };
         }
 
         let max_precision = 100;
 
-        return impl_division(self.int_val, &other.int_val, scale, max_precision);
+        impl_division(self.int_val, &other.int_val, scale, max_precision)
     }
 }
 
@@ -1333,16 +1332,16 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
 
         let scale = self.scale - other.scale;
 
-        if &self.int_val == &other.int_val {
+        if self.int_val == other.int_val {
             return BigDecimal {
                 int_val: 1.into(),
-                scale: scale,
+                scale,
             };
         }
 
         let max_precision = 100;
 
-        return impl_division(self.int_val, &other.int_val, scale, max_precision);
+        impl_division(self.int_val, &other.int_val, scale, max_precision)
     }
 }
 
@@ -1369,13 +1368,13 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
         if num_int == den_int {
             return BigDecimal {
                 int_val: 1.into(),
-                scale: scale,
+                scale,
             };
         }
 
         let max_precision = 100;
 
-        return impl_division(num_int.clone(), &den_int, scale, max_precision);
+        impl_division(num_int.clone(), &den_int, scale, max_precision)
     }
 }
 
@@ -1621,7 +1620,7 @@ impl Num for BigDecimal {
                     _ => exp,
                 };
 
-                (base, try!(i64::from_str(exp)))
+                (base, i64::from_str(exp)?)
             }
         };
 
@@ -1651,7 +1650,7 @@ impl Num for BigDecimal {
         };
 
         let scale = decimal_offset - exponent_value;
-        let big_int = try!(BigInt::from_str_radix(&digits, radix));
+        let big_int = BigInt::from_str_radix(&digits, radix)?;
 
         Ok(BigDecimal::new(big_int, scale))
     }
@@ -1703,8 +1702,8 @@ impl From<(BigInt, i64)> for BigDecimal {
     #[inline]
     fn from((int_val, scale): (BigInt, i64)) -> Self {
         BigDecimal {
-            int_val: int_val,
-            scale: scale,
+            int_val,
+            scale,
         }
     }
 }
@@ -1713,7 +1712,7 @@ impl From<BigInt> for BigDecimal {
     #[inline]
     fn from(int_val: BigInt) -> Self {
         BigDecimal {
-            int_val: int_val,
+            int_val,
             scale: 0,
         }
     }
@@ -1813,22 +1812,14 @@ mod bigdecimal_serde {
             write!(formatter, "a number or formatted decimal string")
         }
 
-        fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            use std::str::FromStr;
-            BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
-        }
-
-        fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
+        fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
         where
             E: de::Error,
         {
             Ok(BigDecimal::from(value))
         }
 
-        fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
+        fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
         where
             E: de::Error,
         {
@@ -1840,6 +1831,14 @@ mod bigdecimal_serde {
             E: de::Error,
         {
             Ok(BigDecimal::from(value))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
+        where
+            E: de::Error,
+        {
+            use std::str::FromStr;
+            BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
         }
     }
 
@@ -1961,13 +1960,14 @@ mod bigdecimal_serde {
     }
 }
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 #[cfg(test)]
 mod bigdecimal_tests {
     use BigDecimal;
     use traits::{ToPrimitive, FromPrimitive};
     use std::str::FromStr;
     use num_bigint;
+    use std::ops::Neg;
 
     #[test]
     fn test_sum() {
@@ -2517,6 +2517,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_half() {
+        use traits::Zero;
         let vals = vec![
             ("100", "50."),
             ("2", "1"),
@@ -2533,6 +2534,8 @@ mod bigdecimal_tests {
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
         }
+        let zero = BigDecimal::zero();
+        assert_eq!(zero.half(), zero);
     }
 
     #[test]
@@ -2587,6 +2590,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_sqrt() {
+        use traits::One;
         let vals = vec![
             ("1e-232", "1e-116"),
             ("1.00", "1"),
@@ -2612,6 +2616,8 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
         }
+        let one = BigDecimal::one().neg();
+        assert!(one.sqrt().is_none());
     }
 
     #[test]
@@ -2657,6 +2663,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_double() {
+        use traits::Zero;
         let vals = vec![
             ("1", "2"),
             ("1.00", "2.00"),
@@ -2672,6 +2679,8 @@ mod bigdecimal_tests {
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
         }
+        let zero = BigDecimal::zero();
+        assert_eq!(zero.double(), zero);
     }
 
     #[test]
