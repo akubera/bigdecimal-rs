@@ -1798,6 +1798,7 @@ impl ToBigInt for BigDecimal {
 mod bigdecimal_serde {
     use super::BigDecimal;
     use serde::{de, ser};
+    use std::convert::TryFrom;
     use std::fmt;
 
     impl ser::Serialize for BigDecimal {
@@ -1844,7 +1845,7 @@ mod bigdecimal_serde {
         where
             E: de::Error,
         {
-            Ok(BigDecimal::from(value))
+            BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
         }
     }
 
