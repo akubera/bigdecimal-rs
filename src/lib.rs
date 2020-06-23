@@ -582,7 +582,6 @@ impl BigDecimal {
     }
 
     /// Return number rounded to round_digits precision after the decimal point
-    /// panic if self.digits() > 16
     fn round(&self, round_digits: i64) -> BigDecimal {
         let (bigint, decimal_part_digits) = self.as_bigint_and_exponent();
         let need_to_round_digits = decimal_part_digits - round_digits;
@@ -590,19 +589,19 @@ impl BigDecimal {
             return self.clone();
         }
 
-        let mut number = bigint.to_i64().unwrap();
-        // avoid -1555 / 10 = -156
+        let mut number = bigint.to_i128().unwrap();
         if number < 0 {
             number = -number;
         }
-        for _ in 0..(need_to_round_digits-1) {
+        for _ in 0..(need_to_round_digits - 1) {
             number /= 10;
         }
         let digit = number % 10;
+
         if digit <= 4 {
             self.with_scale(round_digits)
         } else {
-            if bigint.sign() == Sign::Minus {
+            if bigint.is_negative() {
                 self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
             } else {
                 self.with_scale(round_digits) + BigDecimal::new(BigInt::from(1), round_digits)
@@ -2583,6 +2582,7 @@ mod bigdecimal_tests {
             ("-1.4499999999", 1, "-1.4"),
             ("1.449999999", 1, "1.4"),
             ("-9999.444455556666", 10, "-9999.4444555567"),
+            ("-12345678987654321.123456789", 8, "-12345678987654321.12345679"),
         ];
         for &(x, digits, y) in test_cases.iter() {
             let a = BigDecimal::from_str(x).unwrap();
