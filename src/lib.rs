@@ -600,12 +600,10 @@ impl BigDecimal {
 
         if digit <= 4 {
             self.with_scale(round_digits)
+        } else if bigint.is_negative() {
+            self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
         } else {
-            if bigint.is_negative() {
-                self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
-            } else {
-                self.with_scale(round_digits) + BigDecimal::new(BigInt::from(1), round_digits)
-            }
+            self.with_scale(round_digits) + BigDecimal::new(BigInt::from(1), round_digits)
         }
     }
 
