@@ -2095,10 +2095,11 @@ mod bigdecimal_tests {
             // assert_eq!(expected, n);
         }
     }
+
     #[test]
     fn test_nan_float() {
-        assert!(BigDecimal::try_from(f32::NAN).is_err());
-        assert!(BigDecimal::try_from(f64::NAN).is_err());
+        assert!(BigDecimal::try_from(std::f32::NAN).is_err());
+        assert!(BigDecimal::try_from(std::f64::NAN).is_err());
     }
 
     #[test]
