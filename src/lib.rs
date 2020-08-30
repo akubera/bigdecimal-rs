@@ -629,19 +629,17 @@ impl BigDecimal {
         return result.with_prec(100);
     }
 
-    pub fn normalize(&self) -> BigDecimal {
-        let (_, mut digits) = self.int_val.to_u32_digits();
-        let mut trailing_count = 0;
-        {
-            let mut digits_iter = digits.iter().rev();
-            while digits_iter.next() == Some(&0) {
-                trailing_count += 1;
-            }
+    #[must_use]
+    pub fn normalized(&self) -> BigDecimal {
+        if self == &BigDecimal::zero() {
+            return BigDecimal::zero()
         }
+        let (sign, mut digits) = self.int_val.to_radix_be(10);
+        let trailing_count = digits.iter().rev().take_while(|i| **i == 0).count();
         let trunc_to = digits.len() - trailing_count as usize;
         digits.truncate(trunc_to);
-        let int_val = BigInt::new(self.sign(), digits);
-        let scale = self.scale - trailing_count;
+        let int_val = BigInt::from_radix_be(sign, &digits, 10).unwrap();
+        let scale = self.scale - trailing_count as i64;
         BigDecimal::new(int_val, scale)
     }
 }
@@ -1974,7 +1972,7 @@ mod bigdecimal_serde {
 #[cfg(test)]
 mod bigdecimal_tests {
     use BigDecimal;
-    use traits::{ToPrimitive, FromPrimitive};
+    use traits::{ToPrimitive, FromPrimitive, Zero};
     use std::convert::TryFrom;
     use std::str::FromStr;
     use num_bigint;
@@ -2846,10 +2844,17 @@ mod bigdecimal_tests {
             (BigDecimal::new(BigInt::from(1_900_000), 3),
             BigDecimal::new(BigInt::from(19), -2),
             "1900"),
+            (BigDecimal::new(BigInt::from(0), -3),
+            BigDecimal::zero(),
+            "0"),
+            (BigDecimal::new(BigInt::from(0), 5),
+            BigDecimal::zero(),
+            "0"),
         ];
 
         for (not_normalized, normalized, string) in vals {
-            assert_eq!(not_normalized.normalize(), normalized);
+            assert_eq!(not_normalized.normalized(), normalized);
+            assert_eq!(not_normalized.normalized().to_string(), string);
             assert_eq!(normalized.to_string(), string);
         }
     }
