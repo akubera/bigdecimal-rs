@@ -631,12 +631,15 @@ impl BigDecimal {
 
     pub fn normalize(&self) -> BigDecimal {
         let (_, mut digits) = self.int_val.to_u32_digits();
-        let mut digits_iter = digits.iter().rev();
         let mut trailing_count = 0;
-        while digits_iter.next() == Some(&0) {
-            trailing_count += 1;
+        {
+            let mut digits_iter = digits.iter().rev();
+            while digits_iter.next() == Some(&0) {
+                trailing_count += 1;
+            }
         }
-        digits.truncate(digits.len() - trailing_count as usize);
+        let trunc_to = digits.len() - trailing_count as usize;
+        digits.truncate(trunc_to);
         let int_val = BigInt::new(self.sign(), digits);
         let scale = self.scale - trailing_count;
         BigDecimal::new(int_val, scale)
