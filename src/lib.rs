@@ -47,6 +47,7 @@ extern crate num_traits as traits;
 extern crate serde;
 
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::default::Default;
 use std::error::Error;
 use std::fmt;
@@ -390,7 +391,7 @@ impl BigDecimal {
             let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * log2_10) / 2.0;
             let res = magic_guess_scale * initial_guess.exp2();
             if res.is_normal() {
-                BigDecimal::from(res)
+                BigDecimal::try_from(res).unwrap()
             } else {
                 // can't guess with float - just guess magnitude
                 let scale =
@@ -464,7 +465,7 @@ impl BigDecimal {
             let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * log2_10) / 3.0;
             let res = magic_guess_scale * initial_guess.exp2();
             if res.is_normal() {
-                BigDecimal::from(res)
+                BigDecimal::try_from(res).unwrap()
             } else {
                 // can't guess with float - just guess magnitude
                 let scale =
@@ -539,7 +540,7 @@ impl BigDecimal {
             let res = magic_factor * initial_guess.exp2();
 
             if res.is_normal() {
-                BigDecimal::from(res)
+                BigDecimal::try_from(res).unwrap()
             } else {
                 // can't guess with float - just guess magnitude
                 let scale = (bits / log2_10 + scale).round() as i64;
@@ -1621,7 +1622,7 @@ impl Num for BigDecimal {
                     _ => exp,
                 };
 
-                (base, try!(i64::from_str(exp)))
+                (base, i64::from_str(exp)?)
             }
         };
 
@@ -1651,7 +1652,7 @@ impl Num for BigDecimal {
         };
 
         let scale = decimal_offset - exponent_value;
-        let big_int = try!(BigInt::from_str_radix(&digits, radix));
+        let big_int = BigInt::from_str_radix(&digits, radix)?;
 
         Ok(BigDecimal::new(big_int, scale))
     }
@@ -1738,25 +1739,29 @@ impl_from_type!(i8, i64);
 impl_from_type!(i16, i64);
 impl_from_type!(i32, i64);
 
-impl From<f32> for BigDecimal {
+impl TryFrom<f32> for BigDecimal {
+    type Error = ParseBigDecimalError;
+
     #[inline]
-    fn from(n: f32) -> Self {
+    fn try_from(n: f32) -> Result<Self, Self::Error> {
         BigDecimal::from_str(&format!(
             "{:.PRECISION$e}",
             n,
             PRECISION = ::std::f32::DIGITS as usize
-        )).unwrap()
+        ))
     }
 }
 
-impl From<f64> for BigDecimal {
+impl TryFrom<f64> for BigDecimal {
+    type Error = ParseBigDecimalError;
+
     #[inline]
-    fn from(n: f64) -> Self {
+    fn try_from(n: f64) -> Result<Self, Self::Error> {
         BigDecimal::from_str(&format!(
             "{:.PRECISION$e}",
             n,
             PRECISION = ::std::f64::DIGITS as usize
-        )).unwrap()
+        ))
     }
 }
 
@@ -1773,12 +1778,12 @@ impl FromPrimitive for BigDecimal {
 
     #[inline]
     fn from_f32(n: f32) -> Option<Self> {
-        Some(BigDecimal::from(n))
+        BigDecimal::try_from(n).ok()
     }
 
     #[inline]
     fn from_f64(n: f64) -> Option<Self> {
-        Some(BigDecimal::from(n))
+        BigDecimal::try_from(n).ok()
     }
 }
 
@@ -1793,6 +1798,7 @@ impl ToBigInt for BigDecimal {
 mod bigdecimal_serde {
     use super::BigDecimal;
     use serde::{de, ser};
+    use std::convert::TryFrom;
     use std::fmt;
 
     impl ser::Serialize for BigDecimal {
@@ -1839,7 +1845,7 @@ mod bigdecimal_serde {
         where
             E: de::Error,
         {
-            Ok(BigDecimal::from(value))
+            BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
         }
     }
 
@@ -1966,6 +1972,7 @@ mod bigdecimal_serde {
 mod bigdecimal_tests {
     use BigDecimal;
     use traits::{ToPrimitive, FromPrimitive};
+    use std::convert::TryFrom;
     use std::str::FromStr;
     use num_bigint;
 
@@ -2084,6 +2091,11 @@ mod bigdecimal_tests {
             assert_eq!(expected, value);
             // assert_eq!(expected, n);
         }
+    }
+    #[test]
+    fn test_nan_float() {
+        assert!(BigDecimal::try_from(f32::NAN).is_err());
+        assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
     #[test]
