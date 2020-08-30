@@ -47,7 +47,7 @@ This code is dual-licensed under the permissive MIT_ & `Apache 2.0`_ licenses.
       :alt: Gitter
 
 .. |badge-rust-min-version|
-    image:: https://img.shields.io/badge/rustc-1.31+-red.svg
+    image:: https://img.shields.io/badge/rustc-1.34+-red.svg
       :target: https://rust-lang.github.io/rfcs/2495-min-rust-version.html
-      :alt: minimum rustc 1.31
+      :alt: minimum rustc 1.34
 
