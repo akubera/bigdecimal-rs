@@ -9,6 +9,12 @@ rust:
 sudo: false
 
 script:
+  - |
+    if [[ $TRAVIS_RUST_VERSION == *stable* ]]
+    then
+      rustup component add rustfmt
+      cargo fmt --all -- --check
+    fi
   - cargo build --verbose
   - cargo test
   - cargo test --features serde
