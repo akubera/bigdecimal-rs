@@ -582,6 +582,32 @@ impl BigDecimal {
         return result;
     }
 
+    /// Return number rounded to round_digits precision after the decimal point
+    fn round(&self, round_digits: i64) -> BigDecimal {
+        let (bigint, decimal_part_digits) = self.as_bigint_and_exponent();
+        let need_to_round_digits = decimal_part_digits - round_digits;
+        if round_digits >= 0 && need_to_round_digits <= 0 {
+            return self.clone();
+        }
+
+        let mut number = bigint.to_i128().unwrap();
+        if number < 0 {
+            number = -number;
+        }
+        for _ in 0..(need_to_round_digits - 1) {
+            number /= 10;
+        }
+        let digit = number % 10;
+
+        if digit <= 4 {
+            self.with_scale(round_digits)
+        } else if bigint.is_negative() {
+            self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
+        } else {
+            self.with_scale(round_digits) + BigDecimal::new(BigInt::from(1), round_digits)
+        }
+    }
+
     /// Return true if this number has zero fractional part (is equal
     /// to an integer)
     ///
@@ -2546,6 +2572,34 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
             assert_eq!(a.scale, b.scale);
+        }
+    }
+
+    #[test]
+    fn test_round() {
+        let test_cases = vec![
+            ("1.45", 1, "1.5"),
+            ("1.444445", 1, "1.4"),
+            ("1.44", 1, "1.4"),
+            ("0.444", 2, "0.44"),
+            ("0.0045", 2, "0.00"),
+            ("-1.555", 2, "-1.56"),
+            ("-1.555", 99, "-1.555"),
+            ("5.5", 0, "6"),
+            ("-1", -1, "0"),
+            ("5", -1, "10"),
+            ("44", -1, "40"),
+            ("44", -99, "0"),
+            ("1.4499999999", 1, "1.4"),
+            ("-1.4499999999", 1, "-1.4"),
+            ("1.449999999", 1, "1.4"),
+            ("-9999.444455556666", 10, "-9999.4444555567"),
+            ("-12345678987654321.123456789", 8, "-12345678987654321.12345679"),
+        ];
+        for &(x, digits, y) in test_cases.iter() {
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            assert_eq!(a.round(digits), b);
         }
     }
 
