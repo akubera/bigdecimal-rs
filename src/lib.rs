@@ -156,13 +156,16 @@ impl BigDecimal {
 
     /// Creates and initializes a `BigDecimal`.
     ///
+    /// Decodes using `str::from_utf8` and forwards to `BigDecimal::from_str_radix`.
+    /// Only base-10 is supported.
+    ///
     /// # Examples
     ///
     /// ```
     /// use bigdecimal::{BigDecimal, Zero};
     ///
     /// assert_eq!(BigDecimal::parse_bytes(b"0", 10).unwrap(), BigDecimal::zero());
-    /// // assert_eq!(BigDecimal::parse_bytes(b"f", 16), BigDecimal::parse_bytes(b"16", 10));
+    /// assert_eq!(BigDecimal::parse_bytes(b"13", 10).unwrap(), BigDecimal::from(13));
     /// ```
     #[inline]
     pub fn parse_bytes(buf: &[u8], radix: u32) -> Option<BigDecimal> {
