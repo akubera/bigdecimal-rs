@@ -586,7 +586,7 @@ impl BigDecimal {
     }
 
     /// Return number rounded to round_digits precision after the decimal point
-    fn round(&self, round_digits: i64) -> BigDecimal {
+    pub fn round(&self, round_digits: i64) -> BigDecimal {
         let (bigint, decimal_part_digits) = self.as_bigint_and_exponent();
         let need_to_round_digits = decimal_part_digits - round_digits;
         if round_digits >= 0 && need_to_round_digits <= 0 {
