@@ -193,7 +193,8 @@ macro_rules! impl_div_for_float_primitive {
                 } else if den < 0.0 && self.is_positive() {
                     -(self / -den)
                 } else {
-                    self / BigDecimal::from(den)
+                    // Unwrap is safe, because `is_nan` checked above
+                    self / BigDecimal::try_from(den).unwrap()
                 }
             }
         }
@@ -205,7 +206,7 @@ macro_rules! impl_div_for_float_primitive {
                 if self.is_nan() {
                     BigDecimal::zero()
                 } else {
-                    BigDecimal::from(self) / den
+                    BigDecimal::try_from(self).unwrap() / den
                 }
             }
         }
@@ -217,7 +218,7 @@ macro_rules! impl_div_for_float_primitive {
                 if self.is_nan() {
                     BigDecimal::zero()
                 } else {
-                    BigDecimal::from(self) / den
+                    BigDecimal::try_from(self).unwrap() / den
                 }
             }
         }
