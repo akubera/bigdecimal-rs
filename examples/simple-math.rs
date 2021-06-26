@@ -9,11 +9,13 @@ Input (0.8) with 10 decimals: 0.8 vs 0.8)
 square 0.64
 From Prim: 3.300000000000000
 match test 33.90000000000000
-sum: 58.00000000000000
-components: 24.00000000000000, 34.00000000000000
+24.00000000000000 + 34.00000000000000 = 58.00000000000000
 sum mut: 48.00000000000000
 0.000000000000000 IS equal to zero
-divide: 24.00000000000000
+24.00000000000000 / 1.000000000000000 = 24.00000000000000
+24.0 / 1.000000000000000 = 24.0
+24.0 / 1.5 = 16
+24.000 / 1.50 = 16.0
 */
 
 fn main() {
@@ -35,10 +37,9 @@ fn main() {
     };
     println!("match test {}", bd_match);
 
-    let bd_add1 = BigDecimal::from_f64(24.0).unwrap();
-    let bd_add2 = BigDecimal::from_f64(34.0).unwrap();
-    println!("sum: {}", &bd_add1 + &bd_add2);
-    println!("components: {}, {}", bd_add1, bd_add2);
+    let bd_add1 = &BigDecimal::from_f64(24.0).unwrap();
+    let bd_add2 = &BigDecimal::from_f64(34.0).unwrap();
+    print_sum(bd_add1, bd_add2);
 
     let mut bd_add3 = BigDecimal::from_f64(24.0).unwrap();
     let bd_add4 = BigDecimal::from_f64(24.0).unwrap();
@@ -52,12 +53,28 @@ fn main() {
         println!("{} IS equal to zero", &bd_nez);
     }
 
-    let bd_div1 = BigDecimal::from_f64(24.0).unwrap();
-    let bd_div2 = BigDecimal::from_f64(1.0).unwrap();
-    if bd_div2.ne(&BigDecimal::zero()) {
-        let bd_div3: BigDecimal = bd_div1 / bd_div2;
-        println!("divide: {}", bd_div3);
-    } else {
-        println!("cannot divide by zero");
-    }
+    let bd_div1 = &BigDecimal::from_f64(24.0).unwrap();
+    let bd_div2 = &BigDecimal::from_f64(1.0).unwrap();
+    print_division(bd_div1, bd_div2);
+
+    let bd_div1 = &BigDecimal::from_str("24.0").unwrap();
+    print_division(bd_div1, bd_div2);
+
+    let bd_num = &BigDecimal::from_str("24.0").unwrap();
+    let bd_den = &BigDecimal::from_str("1.5").unwrap();
+    print_division(bd_num, bd_den);
+
+    let bd_num = &BigDecimal::from_str("24.000").unwrap();
+    let bd_den = &BigDecimal::from_str("1.50").unwrap();
+    print_division(bd_num, bd_den);
+}
+
+fn print_sum(a: &BigDecimal, b: &BigDecimal) {
+    let sum = a + b;
+    println!("{} + {} = {}", a, b, sum);
+}
+
+fn print_division(num: &BigDecimal, den: &BigDecimal) {
+    let quotient = num / den;
+    println!("{} / {} = {}", num, den, quotient);
 }
