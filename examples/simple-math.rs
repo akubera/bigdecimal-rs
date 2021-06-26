@@ -2,6 +2,20 @@ extern crate bigdecimal;
 use bigdecimal::*;
 use std::str::FromStr;
 
+/* Default example output:
+
+Hello, Big Decimals!
+Input (0.8) with 10 decimals: 0.8 vs 0.8)
+square 0.64
+From Prim: 3.300000000000000
+match test 33.90000000000000
+sum: 58.00000000000000
+components: 24.00000000000000, 34.00000000000000
+sum mut: 48.00000000000000
+0.000000000000000 IS equal to zero
+divide: 24.00000000000000
+*/
+
 fn main() {
     println!("Hello, Big Decimals!");
     let input = "0.8";
