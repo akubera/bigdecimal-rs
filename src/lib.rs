@@ -98,7 +98,7 @@ fn count_decimal_digits(int: &BigInt) -> u64 {
         return 1;
     }
     // guess number of digits based on number of bits in UInt
-    let mut digits = (int.bits() as f64 / 3.3219280949) as u64;
+    let mut digits = (int.bits() as f64 / LOG2_10) as u64;
     let mut num = ten_to_the(digits);
     while *int >= num {
         num *= 10u8;
@@ -120,7 +120,7 @@ fn get_rounding_term(num: &BigInt) -> u8 {
         return 0;
     }
 
-    let digits = (num.bits() as f64 / 3.3219280949) as u64;
+    let digits = (num.bits() as f64 / LOG2_10) as u64;
     let mut n = ten_to_the(digits);
 
     // loop-method
