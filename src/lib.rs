@@ -229,7 +229,7 @@ impl BigDecimal {
 
             // check for "leading zero" in remainder term; otherwise round
             if p < 10 * &r {
-              q += get_rounding_term(&r);
+                q += get_rounding_term(&r);
             }
 
             BigDecimal {
@@ -397,8 +397,7 @@ impl BigDecimal {
                 BigDecimal::try_from(res).unwrap()
             } else {
                 // can't guess with float - just guess magnitude
-                let scale =
-                    (self.int_val.bits() as f64 / -log2_10 + self.scale as f64).round() as i64;
+                let scale = (self.int_val.bits() as f64 / -log2_10 + self.scale as f64).round() as i64;
                 BigDecimal::new(BigInt::from(1), scale / 2)
             }
         };
@@ -471,8 +470,7 @@ impl BigDecimal {
                 BigDecimal::try_from(res).unwrap()
             } else {
                 // can't guess with float - just guess magnitude
-                let scale =
-                    (self.int_val.bits() as f64 / log2_10 - self.scale as f64).round() as i64;
+                let scale = (self.int_val.bits() as f64 / log2_10 - self.scale as f64).round() as i64;
                 BigDecimal::new(BigInt::from(1), -scale / 3)
             }
         };
@@ -491,12 +489,7 @@ impl BigDecimal {
                 max_precision + 1,
             );
             let tmp = tmp + r.double();
-            impl_division(
-                tmp.int_val,
-                &three.int_val,
-                tmp.scale - three.scale,
-                max_precision + 1,
-            )
+            impl_division(tmp.int_val, &three.int_val, tmp.scale - three.scale, max_precision + 1)
         };
 
         // result initial
@@ -619,7 +612,7 @@ impl BigDecimal {
         if self.scale <= 0 {
             true
         } else {
-           (self.int_val.clone() % ten_to_the(self.scale as u64)).is_zero()
+            (self.int_val.clone() % ten_to_the(self.scale as u64)).is_zero()
         }
     }
 
@@ -642,12 +635,7 @@ impl BigDecimal {
             term *= self;
             factorial *= n;
             // ∑ term=x^n/n!
-            result += impl_division(
-                term.int_val.clone(),
-                &factorial,
-                term.scale,
-                117 + precision,
-            );
+            result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
 
             let trimmed_result = result.with_prec(105);
             if prev_result == trimmed_result {
@@ -661,7 +649,7 @@ impl BigDecimal {
     #[must_use]
     pub fn normalized(&self) -> BigDecimal {
         if self == &BigDecimal::zero() {
-            return BigDecimal::zero()
+            return BigDecimal::zero();
         }
         let (sign, mut digits) = self.int_val.to_radix_be(10);
         let trailing_count = digits.iter().rev().take_while(|i| **i == 0).count();
@@ -729,7 +717,7 @@ impl FromStr for BigDecimal {
     }
 }
 
-#[allow(deprecated)]  // trim_right_match -> trim_end_match
+#[allow(deprecated)] // trim_right_match -> trim_end_match
 impl Hash for BigDecimal {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let mut dec_str = self.int_val.to_str_radix(10).to_string();
@@ -1003,7 +991,8 @@ impl<'a> AddAssign<&'a BigInt> for BigDecimal {
         match self.scale.cmp(&0) {
             Ordering::Equal => self.int_val += rhs,
             Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
-            Ordering::Less =>  { // *self += BigDecimal::new(rhs, 0)
+            Ordering::Less => {
+                // *self += BigDecimal::new(rhs, 0)
                 self.int_val *= ten_to_the((-self.scale) as u64);
                 self.int_val += rhs;
                 self.scale = 0;
@@ -1254,8 +1243,6 @@ impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
         BigDecimal::new(value, self.scale)
     }
 }
-
-
 
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
@@ -1544,14 +1531,14 @@ impl Signed for BigDecimal {
 
 impl Sum for BigDecimal {
     #[inline]
-    fn sum<I: Iterator<Item=BigDecimal>>(iter: I) -> BigDecimal {
+    fn sum<I: Iterator<Item = BigDecimal>>(iter: I) -> BigDecimal {
         iter.fold(Zero::zero(), |a, b| a + b)
     }
 }
 
 impl<'a> Sum<&'a BigDecimal> for BigDecimal {
     #[inline]
-    fn sum<I: Iterator<Item=&'a BigDecimal>>(iter: I) -> BigDecimal {
+    fn sum<I: Iterator<Item = &'a BigDecimal>>(iter: I) -> BigDecimal {
         iter.fold(Zero::zero(), |a, b| a + b)
     }
 }
@@ -1704,9 +1691,7 @@ impl ToPrimitive for BigDecimal {
     }
 
     fn to_f64(&self) -> Option<f64> {
-        self.int_val
-            .to_f64()
-            .map(|x| x * 10f64.powi(-self.scale as i32))
+        self.int_val.to_f64().map(|x| x * 10f64.powi(-self.scale as i32))
     }
 }
 
@@ -1774,11 +1759,7 @@ impl TryFrom<f32> for BigDecimal {
 
     #[inline]
     fn try_from(n: f32) -> Result<Self, Self::Error> {
-        BigDecimal::from_str(&format!(
-            "{:.PRECISION$e}",
-            n,
-            PRECISION = ::std::f32::DIGITS as usize
-        ))
+        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION = ::std::f32::DIGITS as usize))
     }
 }
 
@@ -1787,11 +1768,7 @@ impl TryFrom<f64> for BigDecimal {
 
     #[inline]
     fn try_from(n: f64) -> Result<Self, Self::Error> {
-        BigDecimal::from_str(&format!(
-            "{:.PRECISION$e}",
-            n,
-            PRECISION = ::std::f64::DIGITS as usize
-        ))
+        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION = ::std::f64::DIGITS as usize))
     }
 }
 
@@ -1892,8 +1869,8 @@ mod bigdecimal_serde {
     #[cfg(feature = "string-only")]
     impl<'de> de::Deserialize<'de> for BigDecimal {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
-            where
-                D: de::Deserializer<'de>,
+        where
+            D: de::Deserializer<'de>,
         {
             d.deserialize_str(BigDecimalVisitor)
         }
@@ -1964,8 +1941,7 @@ mod bigdecimal_serde {
         let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
         for n in vals {
             let expected = BigDecimal::from_i64(n).unwrap();
-            let value: BigDecimal =
-                serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
             assert_eq!(expected, value);
         }
     }
@@ -1990,8 +1966,7 @@ mod bigdecimal_serde {
         ];
         for n in vals {
             let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal =
-                serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
             assert_eq!(expected, value);
         }
     }
