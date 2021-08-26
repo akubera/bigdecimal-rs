@@ -193,34 +193,37 @@ impl BigDecimal {
             return BigDecimal::new(BigInt::zero(), new_scale);
         }
 
-        if new_scale > self.scale {
-            let scale_diff = new_scale - self.scale;
-            let int_val = &self.int_val * ten_to_the(scale_diff as u64);
-            BigDecimal::new(int_val, new_scale)
-        } else if new_scale < self.scale {
-            let scale_diff = self.scale - new_scale;
-            let int_val = &self.int_val / ten_to_the(scale_diff as u64);
-            BigDecimal::new(int_val, new_scale)
-        } else {
-            self.clone()
+        match new_scale.cmp(&self.scale) {
+            Ordering::Greater => {
+                let scale_diff = new_scale - self.scale;
+                let int_val = &self.int_val * ten_to_the(scale_diff as u64);
+                BigDecimal::new(int_val, new_scale)
+            }
+            Ordering::Less => {
+                let scale_diff = self.scale - new_scale;
+                let int_val = &self.int_val / ten_to_the(scale_diff as u64);
+                BigDecimal::new(int_val, new_scale)
+            }
+            Ordering::Equal => self.clone(),
         }
     }
 
     #[inline(always)]
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
-        // let foo = bar.moved_and_scaled_to()
         if self.int_val.is_zero() {
             return BigDecimal::new(BigInt::zero(), new_scale);
         }
 
-        if new_scale > self.scale {
-            self.int_val *= ten_to_the((new_scale - self.scale) as u64);
-            BigDecimal::new(self.int_val, new_scale)
-        } else if new_scale < self.scale {
-            self.int_val /= ten_to_the((self.scale - new_scale) as u64);
-            BigDecimal::new(self.int_val, new_scale)
-        } else {
-            self
+        match new_scale.cmp(&self.scale) {
+            Ordering::Greater => {
+                self.int_val *= ten_to_the((new_scale - self.scale) as u64);
+                BigDecimal::new(self.int_val, new_scale)
+            }
+            Ordering::Less => {
+                self.int_val /= ten_to_the((self.scale - new_scale) as u64);
+                BigDecimal::new(self.int_val, new_scale)
+            }
+            Ordering::Equal => self,
         }
     }
 
@@ -230,28 +233,30 @@ impl BigDecimal {
     pub fn with_prec(&self, prec: u64) -> BigDecimal {
         let digits = self.digits();
 
-        if digits > prec {
-            let diff = digits - prec;
-            let p = ten_to_the(diff);
-            let (mut q, r) = self.int_val.div_rem(&p);
+        match digits.cmp(&prec) {
+            Ordering::Greater => {
+                let diff = digits - prec;
+                let p = ten_to_the(diff);
+                let (mut q, r) = self.int_val.div_rem(&p);
 
-            // check for "leading zero" in remainder term; otherwise round
-            if p < 10 * &r {
-                q += get_rounding_term(&r);
-            }
+                // check for "leading zero" in remainder term; otherwise round
+                if p < 10 * &r {
+                    q += get_rounding_term(&r);
+                }
 
-            BigDecimal {
-                int_val: q,
-                scale: self.scale - diff as i64,
+                BigDecimal {
+                    int_val: q,
+                    scale: self.scale - diff as i64,
+                }
             }
-        } else if digits < prec {
-            let diff = prec - digits;
-            BigDecimal {
-                int_val: &self.int_val * ten_to_the(diff),
-                scale: self.scale + diff as i64,
+            Ordering::Less => {
+                let diff = prec - digits;
+                BigDecimal {
+                    int_val: &self.int_val * ten_to_the(diff),
+                    scale: self.scale + diff as i64,
+                }
             }
-        } else {
-            self.clone()
+            Ordering::Equal => self.clone(),
         }
     }
 
@@ -1649,7 +1654,7 @@ impl Num for BigDecimal {
         };
 
         // TEMPORARY: Test for emptiness - remove once BigInt supports similar error
-        if base_part == "" {
+        if base_part.is_empty() {
             return Err(ParseBigDecimalError::Empty);
         }
 
