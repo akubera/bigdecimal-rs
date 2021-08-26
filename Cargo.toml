@@ -10,7 +10,7 @@ keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floati
 license = "MIT/Apache-2.0"
 
 [dependencies]
-num-bigint = "0.3"
+num-bigint = "0.4"
 num-integer = "0.1"
 num-traits = "0.2"
 serde = { version = "1.0", optional = true }
