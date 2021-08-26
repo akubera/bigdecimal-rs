@@ -1813,6 +1813,9 @@ mod bigdecimal_serde {
     use serde::{de, ser};
     use std::convert::TryFrom;
     use std::fmt;
+    use std::str::FromStr;
+    #[allow(unused_imports)]
+    use num_traits::FromPrimitive;
 
     impl ser::Serialize for BigDecimal {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -1836,7 +1839,6 @@ mod bigdecimal_serde {
         where
             E: de::Error,
         {
-            use std::str::FromStr;
             BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
         }
 
@@ -1942,8 +1944,6 @@ mod bigdecimal_serde {
     #[test]
     #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_int() {
-        use traits::FromPrimitive;
-
         let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
         for n in vals {
             let expected = BigDecimal::from_i64(n).unwrap();
