@@ -2,7 +2,7 @@
 bigdecimal-rs
 =============
 
-|travis-badge| |codecov-badge| |gitter-badge| |badge-rust-min-version|
+|ci-badge| |codecov-badge| |gitter-badge| |badge-rust-min-version|
 
 Documentation_
 
@@ -31,10 +31,10 @@ This code is dual-licensed under the permissive MIT_ & `Apache 2.0`_ licenses.
 .. _Apache 2.0: https://opensource.org/licenses/Apache-2.0
 
 
-.. |travis-badge|
-    image:: https://travis-ci.org/akubera/bigdecimal-rs.svg?branch=master
-      :target: https://travis-ci.org/akubera/bigdecimal-rs
-      :alt: Travis-Ci
+.. |ci-badge|
+    image:: https://circleci.com/gh/akubera/bigdecimal-rs/tree/master.svg?style=shield
+      :target: https://circleci.com/gh/akubera/bigdecimal-rs//?branch=master
+      :alt: Circle-Ci Badge
 
 .. |codecov-badge|
     image:: https://codecov.io/gh/akubera/bigdecimal-rs/branch/master/graph/badge.svg
@@ -50,4 +50,3 @@ This code is dual-licensed under the permissive MIT_ & `Apache 2.0`_ licenses.
     image:: https://img.shields.io/badge/rustc-1.34+-red.svg
       :target: https://rust-lang.github.io/rfcs/2495-min-rust-version.html
       :alt: minimum rustc 1.34
-
