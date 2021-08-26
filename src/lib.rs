@@ -45,9 +45,10 @@
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
 
-extern crate num_bigint;
+pub extern crate num_bigint;
+pub extern crate num_traits;
 extern crate num_integer;
-extern crate num_traits as traits;
+
 #[cfg(feature = "serde")]
 extern crate serde;
 
@@ -63,8 +64,8 @@ use std::iter::Sum;
 use std::str::{self, FromStr};
 
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
-use num_integer::Integer;
-pub use traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
+use num_integer::Integer as IntegerTrait;
+pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
 const LOG2_10: f64 = 3.321928094887362_f64;
 
@@ -1954,8 +1955,6 @@ mod bigdecimal_serde {
     #[test]
     #[cfg(not(feature = "string-only"))]
     fn test_serde_deserialize_f64() {
-        use traits::FromPrimitive;
-
         let vals = vec![
             1.0,
             0.5,
@@ -1981,7 +1980,7 @@ mod bigdecimal_serde {
 #[cfg(test)]
 mod bigdecimal_tests {
     use BigDecimal;
-    use traits::{ToPrimitive, FromPrimitive, Zero};
+    use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use std::convert::TryFrom;
     use std::str::FromStr;
     use num_bigint;
@@ -2262,7 +2261,6 @@ mod bigdecimal_tests {
     #[test]
     #[should_panic(expected = "Division by zero")]
     fn test_division_by_zero_panics_v2() {
-        use traits::Zero;
         let x = BigDecimal::from_str("3.14").unwrap();
         let _r = x / BigDecimal::zero();
     }
@@ -2872,7 +2870,6 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_signed() {
-        use traits::{One, Signed, Zero};
         assert!(!BigDecimal::zero().is_positive());
         assert!(!BigDecimal::one().is_negative());
 

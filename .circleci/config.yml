@@ -70,7 +70,7 @@ jobs:
       - checkout
       - rust/build
       - rust/format
-      - rust/clippy
+      # - rust/clippy
       - rust/test
       - run:
           name: Build examples
