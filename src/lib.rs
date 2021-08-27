@@ -591,8 +591,8 @@ impl BigDecimal {
             return self.clone();
         }
 
-        let mut number = bigint.to_i128().unwrap();
-        if number < 0 {
+        let mut number = bigint.clone();
+        if number < BigInt::zero() {
             number = -number;
         }
         for _ in 0..(need_to_round_digits - 1) {
@@ -600,7 +600,7 @@ impl BigDecimal {
         }
         let digit = number % 10;
 
-        if digit <= 4 {
+        if digit <= BigInt::from(4) {
             self.with_scale(round_digits)
         } else if bigint.is_negative() {
             self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
@@ -2590,6 +2590,7 @@ mod bigdecimal_tests {
             ("1.449999999", 1, "1.4"),
             ("-9999.444455556666", 10, "-9999.4444555567"),
             ("-12345678987654321.123456789", 8, "-12345678987654321.12345679"),
+            ("0.33333333333333333333333333333333333333333333333333333333333333333333333333333333333333", 0, "0"),
         ];
         for &(x, digits, y) in test_cases.iter() {
             let a = BigDecimal::from_str(x).unwrap();
