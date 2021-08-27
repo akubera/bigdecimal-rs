@@ -802,14 +802,16 @@ impl PartialEq for BigDecimal {
     #[inline]
     fn eq(&self, rhs: &BigDecimal) -> bool {
         // fix scale and test equality
-        if self.scale > rhs.scale {
-            let scaled_int_val = &rhs.int_val * ten_to_the((self.scale - rhs.scale) as u64);
-            self.int_val == scaled_int_val
-        } else if self.scale < rhs.scale {
-            let scaled_int_val = &self.int_val * ten_to_the((rhs.scale - self.scale) as u64);
-            scaled_int_val == rhs.int_val
-        } else {
-            self.int_val == rhs.int_val
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Greater => {
+                let scaled_int_val = &rhs.int_val * ten_to_the((self.scale - rhs.scale) as u64);
+                self.int_val == scaled_int_val
+            }
+            Ordering::Less => {
+                let scaled_int_val = &self.int_val * ten_to_the((rhs.scale - self.scale) as u64);
+                scaled_int_val == rhs.int_val
+            }
+            Ordering::Equal => self.int_val == rhs.int_val,
         }
     }
 }
@@ -891,12 +893,10 @@ impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
     #[inline]
     fn add(self, rhs: &BigDecimal) -> BigDecimal {
         let lhs = self;
-        if self.scale < rhs.scale {
-            lhs.with_scale(rhs.scale) + rhs
-        } else if self.scale > rhs.scale {
-            rhs.with_scale(lhs.scale) + lhs
-        } else {
-            BigDecimal::new(lhs.int_val.clone() + &rhs.int_val, lhs.scale)
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Less => lhs.with_scale(rhs.scale) + rhs,
+            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
+            Ordering::Equal => BigDecimal::new(lhs.int_val.clone() + &rhs.int_val, lhs.scale),
         }
     }
 }
@@ -966,15 +966,19 @@ forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
 impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: &BigDecimal) {
-        if self.scale < rhs.scale {
-            let scaled = self.with_scale(rhs.scale);
-            self.int_val = scaled.int_val + &rhs.int_val;
-            self.scale = rhs.scale;
-        } else if self.scale > rhs.scale {
-            let scaled = rhs.with_scale(self.scale);
-            self.int_val += scaled.int_val;
-        } else {
-            self.int_val += &rhs.int_val;
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Less => {
+                let scaled = self.with_scale(rhs.scale);
+                self.int_val = scaled.int_val + &rhs.int_val;
+                self.scale = rhs.scale;
+            }
+            Ordering::Greater => {
+                let scaled = rhs.with_scale(self.scale);
+                self.int_val += scaled.int_val;
+            }
+            Ordering::Equal => {
+                self.int_val += &rhs.int_val;
+            }
         }
     }
 }
@@ -989,17 +993,6 @@ impl<'a> AddAssign<BigInt> for BigDecimal {
 impl<'a> AddAssign<&'a BigInt> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: &BigInt) {
-        /* // which one looks best?
-        if self.scale == 0 {
-            self.int_val += rhs;
-        } else if self.scale > 0 {
-            self.int_val += rhs * ten_to_the(self.scale as u64);
-        } else {
-            self.int_val *= ten_to_the((-self.scale) as u64);
-            self.int_val += rhs;
-            self.scale = 0;
-        }
-         */
         match self.scale.cmp(&0) {
             Ordering::Equal => self.int_val += rhs,
             Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
@@ -1065,13 +1058,13 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.scale < rhs.scale {
-            self.with_scale(rhs.scale) - rhs
-        } else if self.scale > rhs.scale {
-            let rhs = rhs.with_scale(self.scale);
-            self - rhs
-        } else {
-            BigDecimal::new(&self.int_val - &rhs.int_val, self.scale)
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Greater => {
+                let rhs = rhs.with_scale(self.scale);
+                self - rhs
+            }
+            Ordering::Less => self.with_scale(rhs.scale) - rhs,
+            Ordering::Equal => BigDecimal::new(&self.int_val - &rhs.int_val, self.scale),
         }
     }
 }
@@ -1141,14 +1134,18 @@ forward_val_assignop!(impl SubAssign for BigDecimal, sub_assign);
 impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn sub_assign(&mut self, rhs: &BigDecimal) {
-        if self.scale < rhs.scale {
-            let lhs = self.with_scale(rhs.scale);
-            self.int_val = lhs.int_val - &rhs.int_val;
-            self.scale = rhs.scale;
-        } else if self.scale > rhs.scale {
-            self.int_val -= rhs.with_scale(self.scale).int_val;
-        } else {
-            self.int_val = &self.int_val - &rhs.int_val;
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Less => {
+                let lhs = self.with_scale(rhs.scale);
+                self.int_val = lhs.int_val - &rhs.int_val;
+                self.scale = rhs.scale;
+            }
+            Ordering::Greater => {
+                self.int_val -= rhs.with_scale(self.scale).int_val;
+            }
+            Ordering::Equal => {
+                self.int_val = &self.int_val - &rhs.int_val;
+            }
         }
     }
 }
