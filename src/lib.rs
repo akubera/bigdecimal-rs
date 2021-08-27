@@ -44,6 +44,7 @@
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
+#![allow(clippy::match_like_matches_macro)] // requires Rust 1.42.0
 
 pub extern crate num_bigint;
 pub extern crate num_traits;
