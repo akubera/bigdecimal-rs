@@ -1306,6 +1306,7 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
         return BigDecimal {
             int_val: quotient,
             scale: scale,
+            context: Context::default(),
         };
     }
 
@@ -1412,6 +1413,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             return BigDecimal {
                 int_val: 1.into(),
                 scale: scale,
+                context: Context::default(),
             };
         }
 
@@ -1758,6 +1760,7 @@ impl From<BigInt> for BigDecimal {
         BigDecimal {
             int_val: int_val,
             scale: 0,
+            context: Context::default(),
         }
     }
 }
