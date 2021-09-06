@@ -179,6 +179,7 @@ macro_rules! impl_div_for_float_primitive {
             type Output = BigDecimal;
 
             #[inline]
+            #[allow(clippy::float_cmp)]
             fn div(self, den: $res) -> Self::Output {
                 if den.is_nan() {
                     BigDecimal::zero()

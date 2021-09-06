@@ -1,0 +1,110 @@
+version: 2.1
+orbs:
+#   codecov: codecov/codecov@3.0.0
+  rust: circleci/rust@1.5.0
+
+jobs:
+  build-and-test:
+    parameters:
+      rust-version:
+        type: string
+      debian-version:
+        type: string
+        default: "buster"
+      rust-features:
+        type: string
+        default: "''"
+    docker:
+      - image: rust:<< parameters.rust-version >>-<< parameters.debian-version >>
+    environment:
+      RUSTFLAGS: '-D warnings'
+    steps:
+      - checkout
+      - run:
+          name: Rust Version
+          command: rustc --version; cargo --version
+      - restore_cache:
+          keys:
+            - bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
+            - bigdecimal-cargo-
+      - run:
+          name: Check
+          command: cargo check
+      - save_cache:
+          paths:
+            - /usr/local/cargo
+          key: bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
+      - run:
+          name: Build
+          command: cargo build
+      - run:
+          name: Test
+          command: cargo test --features=<< parameters.rust-features >>
+
+  upload-coverage:
+    parameters:
+      rust-version:
+        type: string
+      debian-version:
+        type: string
+        default: "buster"
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Generate Coverage
+          command: >
+              docker run
+              --security-opt seccomp=unconfined
+              -v "${PWD}:/home"
+              -e CI=true
+              $(bash <(curl -s https://codecov.io/env))
+              akubera/rust-codecov:<< parameters.rust-version >>-<< parameters.debian-version >>
+              sh -c 'cargo test -q && kcov-rust && upload-kcov-results-to-codecov'
+      - store_artifacts:
+          path: target/cov
+      - store_test_results:
+          path: target/cov
+
+  lint-check:
+    docker:
+      - image: cimg/rust:1.54.0
+    steps:
+      - checkout
+      - rust/build
+      - rust/format
+      # - rust/clippy
+      - rust/test
+      - run:
+          name: Build examples
+          command: cargo build --examples
+
+workflows:
+  version: 2
+  build-and-test:
+    jobs:
+    - build-and-test:
+        name: build-and-test-1.34.0
+        rust-version: "1.34.0"
+        debian-version: "stretch"
+    - build-and-test:
+        matrix:
+          parameters:
+            rust-version:
+            - "1.40.0"
+            - "1.50.0"
+            - "1.54.0"
+    - build-and-test:
+        matrix:
+          parameters:
+            rust-version:
+            - "1.50.0"
+            - "1.54.0"
+            rust-features:
+            - "'serde'"
+            - "'serde,string-only'"
+    - upload-coverage:
+        rust-version: "1.54.0"
+        requires:
+          - build-and-test-1.54.0
+    - lint-check

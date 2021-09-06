@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Andrew Kubera"]
 description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
@@ -10,8 +10,8 @@ keywords = ["mathematics", "numerics", "decimal", "arbitrary-precision", "floati
 license = "MIT/Apache-2.0"
 
 [dependencies]
-num-bigint = "0.3"
-num-integer = "0.1.43"
+num-bigint = "0.4"
+num-integer = "0.1"
 num-traits = "0.2"
 serde = { version = "1.0", optional = true }
 
