@@ -1,5 +1,6 @@
 // \file src/macros.rs
 //! macros for
+
 /*
 macro_rules! forward_val_val_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -251,4 +252,85 @@ macro_rules! impl_div_for_primitives {
         forward_primitive_types!(ints => impl_div_for_int_primitive);
         forward_primitive_types!(uints => impl_div_for_uint_primitive);
     };
+}
+
+macro_rules! do_mul_and_add_into {
+    ( $value:expr, $factor:expr, $dest:ident, $limit:expr; $t1:ty, $t2:ty) => {{
+        use num_integer::div_rem;
+
+        let factors = $factor;
+        $dest.resize(factors.len(), 0);
+
+        let mut carry = 0;
+        for (&factor, out) in factors.iter().zip($dest.iter_mut()) {
+            let tmp = ($value as $t2 * factor as $t2) + carry + *out as $t2;
+            let (high, low) = div_rem(tmp, $limit);
+            *out = low as $t1;
+            carry = high;
+        }
+
+        while carry != 0 {
+            $dest.push((carry % $limit) as $t1);
+            carry /= $limit;
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! change_base {
+//   ( $base_vec:expr => $dest:ident; ($in_base:ident $in_type:ty) => ($out_base:ident $out_type:ty; $other_out_type:ty)) => {{
+//   ($base_vec:ident)
+
+  ( $base_vec:expr => $dest:ident; ($in_base:ident $in_type:ty) => ($out_base:ident $out_type:ty; $other_out_type:ty)) => {{
+    let mut dec_digits = Vec::with_capacity($dest.capacity());
+    dec_digits.push(1);
+    $dest.push(0);
+
+    for value in $base_vec {
+      if *value != 0 {
+        do_mul_and_add_into!(*value, &dec_digits, $dest, $out_base; $other_out_type, $in_type)
+      }
+      change_base!( SHIFT-BASIS dec_digits ($in_base $in_type) ($out_base $out_type));
+    }
+
+  }};
+
+  ( SHIFT-BASIS $base_vec:ident ($in_base:ident $in_type:ty) ($out_base:ident $out_type:ty) ) => {{
+    let mut carry = 0;
+    for digit in $base_vec.iter_mut() {
+      let tmp = *digit as $in_type * $in_base as $in_type + carry;
+      carry = tmp / $out_base;
+      *digit = (tmp % $out_base) as $out_type;
+    }
+
+    while carry != 0 {
+      $base_vec.push((carry % $out_base) as $out_type);
+      carry /= $out_base;
+    }
+  }};
+
+  ( DEC $dec_var:ident => ($dest:ident $out_base:literal) ) => {{
+    let mut dec_digits = Vec::<BigDigitBaseDouble>::with_capacity($dest.capacity());
+    dec_digits.push(1);
+    $dest.push(0);
+
+    for value in $dec_var.data.iter().map(|bd| bd.0) {
+      if value != 0 {
+        do_mul_and_add_into!(value, &dec_digits, $dest, $out_base; BigDigitBaseDouble, BigDigitBaseDouble);
+      }
+      // change_base!( SHIFT-BASIS dec_digits ( BigDigitBaseDouble) ($out_base $out_type));
+
+      let mut carry = 0;
+      for digit in dec_digits.iter_mut() {
+        let tmp = *digit as BigDigitBaseDouble * BIG_DIGIT_RADIX + carry;
+        carry = tmp / $out_base;
+        *digit = tmp % $out_base;
+      }
+
+      while carry != 0 {
+        dec_digits.push(carry % $out_base);
+        carry /= $out_base;
+      }
+    }
+  }}
 }

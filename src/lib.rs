@@ -53,6 +53,14 @@ extern crate num_integer;
 #[cfg(feature = "serde")]
 extern crate serde;
 
+#[cfg(test)]
+#[macro_use]
+extern crate lazy_static;
+
+#[cfg(test)]
+#[macro_use]
+extern crate paste;
+
 use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::default::Default;
@@ -64,6 +72,7 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::iter::Sum;
 use std::str::{self, FromStr};
 
+mod arithmetic;
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
@@ -73,6 +82,8 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 
 #[macro_use]
 mod macros;
+
+mod bigdigit;
 
 mod context;
 pub use context::{Context, RoundingMode};
@@ -683,6 +694,11 @@ impl BigDecimal {
         let int_val = BigInt::from_radix_be(sign, &digits, 10).unwrap();
         let scale = self.scale - trailing_count as i64;
         BigDecimal::new(int_val, scale)
+    }
+
+    /// Iterate over little-endian digits
+    pub(crate) fn iter_u64_digits(&self) -> num_bigint::U64Digits {
+        self.int_val.iter_u64_digits()
     }
 }
 
@@ -2010,6 +2026,7 @@ mod bigdecimal_tests {
     use std::str::FromStr;
     use num_bigint;
 
+
     #[test]
     fn test_sum() {
         let vals = vec![
@@ -2156,6 +2173,7 @@ mod bigdecimal_tests {
             ("1234e-6", "1234e6", "1234000000.001234"),
             ("18446744073709551616.0", "1", "18446744073709551617"),
             ("184467440737e3380", "0", "184467440737e3380"),
+            ("1", "9.89926206011252E-14", "1.0000000000000989926206011252"),
         ];
 
         for &(x, y, z) in vals.iter() {
