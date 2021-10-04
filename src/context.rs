@@ -279,7 +279,7 @@ mod test_get_rounding_digit_pair {
                 BigInt::from_str("8013663911278000000000000000")
                     .unwrap()
                     .iter_u64_digits(),
-                u64::MAX as u128 + 1
+                std::u64::MAX as u128 + 1
             );
         }
 
@@ -289,12 +289,12 @@ mod test_get_rounding_digit_pair {
         test_case!(8; 0, 0, true);
         test_case!(9; 0, 0, true);
         test_case!(10; 0, 0, true);
-        test_case!(14; 8, 0, true);
-        test_case!(15; 7, 8, true);
-        test_case!(16; 2, 7, false);
-        test_case!(18; 1, 1, false);
-        test_case!(26; 8, 0, false);
-        test_case!(27; 0, 8, false);
+        test_case!(15; 8, 0, true);
+        test_case!(16; 7, 8, true);
+        test_case!(17; 2, 7, false);
+        test_case!(19; 1, 1, false);
+        test_case!(27; 8, 0, false);
+        test_case!(28; 0, 8, false);
     }
 
     mod case_5825884393831776092094971288 {
@@ -305,25 +305,27 @@ mod test_get_rounding_digit_pair {
                 BigInt::from_str("5825884393831776092094971288")
                     .unwrap()
                     .iter_u64_digits(),
-                u64::MAX as u128 + 1
+                std::u64::MAX as u128 + 1
             );
         }
 
-        test_case!(0; 8, 8, 0, 0, true);
-        test_case!(1; 2, 8, 0, 1);
-        test_case!(2; 1, 2);
-        test_case!(3; 7, 1);
-        test_case!(8; 2, 0);
-        test_case!(9; 9, 2);
-        test_case!(10; 0, 9);
-        test_case!(11; 6, 0);
-        test_case!(17; 3, 8);
-        test_case!(18; 9, 3);
-        test_case!(19; 3, 9);
-        test_case!(25; 8, 2);
-        test_case!(26; 5, 8);
-        test_case!(27; 0, 5);
-        test_case!(28; 0, 0);
+        test_case!(0; 8, 0, 0, 0, true);
+        test_case!(1; 8, 8, 0, 1, true);
+        test_case!(2; 2, 8, 0, 2);
+        test_case!(3; 1, 2);
+        test_case!(4; 7, 1);
+        test_case!(7; 9, 4);
+        test_case!(8; 0, 9);
+        test_case!(9; 2, 0);
+        test_case!(10; 9, 2);
+        test_case!(12; 6, 0);
+        test_case!(18; 3, 8);
+        test_case!(19; 9, 3);
+        test_case!(20; 3, 9);
+        test_case!(26; 8, 2);
+        test_case!(27; 5, 8);
+        test_case!(28; 0, 5);
+        test_case!(29; 0, 0);
     }
 
     macro_rules! make_test_case {
@@ -349,13 +351,13 @@ mod test_get_rounding_digit_pair {
         assert_eq!(r, 2);
     }
 
-    mod _case_12345678900 {
+    mod case_12345678900 {
         use super::*;
 
         lazy_static! {
             static ref DIGITS: Vec<BigDigitBase> = bigdigit::to_bigdigit_vec(
                 BigInt::from_str("12345678900").unwrap().iter_u64_digits(),
-                u64::MAX as u128 + 1
+                crate::MAX_BIG_DIGIT_BASE_DOUBLE
             );
         }
 
@@ -374,20 +376,20 @@ mod test_get_rounding_digit_pair {
                 BigInt::from_str("6394267984578837493714331685623619705438")
                     .unwrap()
                     .iter_u64_digits(),
-                u64::MAX as u128 + 1
+                crate::MAX_BIG_DIGIT_BASE_DOUBLE
             );
         }
         make_test_case!(33; 6, 7);
         make_test_case!(34; 2, 6);
     }
 
-    mod _case_639426798457883776 {
+    mod case_639426798457883776 {
         use super::*;
 
         lazy_static! {
             static ref DIGITS: Vec<BigDigitBase> = bigdigit::to_bigdigit_vec(
                 BigInt::from_str("639426798457883776").unwrap().iter_u64_digits(),
-                u64::MAX as u128 + 1
+                std::u64::MAX as u128 + 1
             );
         }
 
@@ -406,7 +408,7 @@ mod test_get_rounding_digit_pair {
         make_test_case!(19; 0, 0);
     }
 
-    mod _case_5825884393831776092094988288 {
+    mod case_5825884393831776092094988288 {
         use super::*;
 
         lazy_static! {
@@ -414,7 +416,7 @@ mod test_get_rounding_digit_pair {
                 BigInt::from_str("5825884393831776092094988288")
                     .unwrap()
                     .iter_u64_digits(),
-                u64::MAX as u128 + 1
+                std::u64::MAX as u128 + 1
             );
         }
 
