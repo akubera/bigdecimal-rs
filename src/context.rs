@@ -8,6 +8,7 @@
 
 #![allow(unreachable_code)]
 
+use num_integer::Integer;
 use num_integer::div_mod_floor;
 use num_integer::div_rem;
 
@@ -124,27 +125,26 @@ struct RoundingInfo {
     pub offset: u8,
     /// true if all trailing decimals following rounding point are zero
     pub suffix_zeros: bool,
+    /// power of ten used to mask digits (10^(offset-1))
+    pub digit_mask: u64,
 }
 
 impl RoundingInfo {
     #[inline]
     pub fn from(digit_vec: &[BigDigitBase], rounding_point: usize) -> RoundingInfo {
         if rounding_point == 0 {
-            let (higher_digits, first_digit) = div_rem(digit_vec[0], 10);
-
             return RoundingInfo {
-                left: (higher_digits % 10) as u8,
-                right: first_digit as u8,
+                left: (digit_vec[0] % 10) as u8,
+                right: 0,
                 index: 0,
                 offset: 0,
                 suffix_zeros: true,
+                digit_mask: 1,
             };
         }
 
-        let get_ten_to_pow = |n| ten_to_pow!(n);
-
         let (digit_index, digit_offset) = div_rem(rounding_point, MAX_DIGITS_PER_BIGDIGIT);
-        dbg!(rounding_point);
+        let digit_mask = ten_to_pow!(digit_offset.saturating_sub(1));
 
         if digit_index >= digit_vec.len() {
             return RoundingInfo {
@@ -152,35 +152,26 @@ impl RoundingInfo {
                 right: 0,
                 index: digit_index,
                 offset: digit_offset as u8,
-                suffix_zeros: digit_vec.iter().all(|d| d == &0),
+                suffix_zeros: digit_vec.iter().all(|&d| d == 0),
+                digit_mask: digit_mask,
             };
         }
 
         debug_assert!(digit_index < digit_vec.len());
 
-        #[rustfmt::skip]
-        let (left_digit, right_digit) = match (digit_index, digit_offset) {
-            (0, 0) => {
-                unreachable!()
-            }
-            (idx, 0) => {
-                ((digit_vec[idx] / 10) % 10, digit_vec[idx] % 10)
-            }
-            (idx, 8) if (idx+1) == digit_vec.len() => {
-                (0, digit_vec[idx] / (BIG_DIGIT_RADIX / 10) as BigDigitBase)
-            }
-            (idx, 8) => {
-                (digit_vec[idx + 1] % 10, digit_vec[idx] / (BIG_DIGIT_RADIX / 10) as BigDigitBase)
-            }
-            (idx, off) => {
-                let pow_ten = get_ten_to_pow(off);
-                let shifted_digits = digit_vec[idx] / pow_ten;
-                ((shifted_digits / 10) % 10, shifted_digits % 10)
-            }
+        let (left_digit, right_digit) = if digit_offset == 0 {
+            let high = digit_vec[digit_index] % 10;
+            let low = digit_vec[digit_index - 1] / 100000000;
+            (high, low)
+        } else {
+            let shifted_digits = digit_vec[digit_index] as u64 / digit_mask;
+            let high = ((shifted_digits / 10) % 10) as u32;
+            let low = (shifted_digits % 10) as u32;
+            (high, low)
         };
 
-        let trailing_zeros = digit_vec[..digit_index].iter().all(|d| d == &0)
-            && (digit_vec[digit_index] % ten_to_pow!(digit_offset)) == 0;
+        let trailing_zeros =
+            (digit_vec[digit_index] as u64 % digit_mask) == 0 && digit_vec[..digit_index].iter().all(|d| *d == 0);
 
         return RoundingInfo {
             left: left_digit as u8,
@@ -188,6 +179,7 @@ impl RoundingInfo {
             index: digit_index,
             offset: digit_offset as u8,
             suffix_zeros: trailing_zeros,
+            digit_mask: digit_mask,
         };
     }
 }
@@ -261,6 +253,7 @@ mod test_get_rounding_digit_pair {
                         index: $index,
                         offset: $offset,
                         suffix_zeros: $suffix_zeros,
+                        digit_mask: ten_to_pow!( ($offset as u8).saturating_sub(1) ),
                     };
 
                     assert_eq!(rounding_info, expected);
