@@ -471,23 +471,51 @@ impl Context {
         // |------[decimal_digit_count = 40]-------|
         //    |----------[scale = 38]--------------|
         // 63.94267984578837493714331685623619705438
-        //         ^-----[rounding_point = 33]-----|  (if n_digits = 5)
-        //    ^----------[rounding_point = 38]-----|  (if n_digits = 0)
+        //        ^------[rounding_point = 33]-----|  (if n_digits = 5)
+        //  ^------------[rounding_point = 38]-----|  (if n_digits = 0)
         //                  [rounding_point = 0]---^  (if n_digits = 38)
         //
-        let rounding_point = decimal.scale - n_digits - 1;
+        let rounding_point = decimal.scale - n_digits;
 
         // no rounding to do, just clone the decimal
-        if rounding_point == -1 {
+        if rounding_point == 0 {
             return decimal.clone();
         }
+
+        let digit_vec: Vec<BigDigitBase> = IntoBigDigitVec::into(&decimal.int_val);
 
         // we are extending precision of the decimal (to the right),
         // increase bigint and set 'ndigits' as the scale
         if rounding_point < 0 {
             // TODO: check if precision should play a part here
-            let exp = -(rounding_point + 1) as u32;
-            let int_val = &decimal.int_val * 10u64.pow(exp);
+            let trailing_zeros = (-rounding_point) as usize;
+
+            let (zero_bigdigit_count, offset) = div_rem(trailing_zeros, MAX_DIGITS_PER_BIGDIGIT);
+
+            let mut new_digits = Vec::with_capacity(digit_vec.len() + 1 + zero_bigdigit_count);
+            new_digits.resize(zero_bigdigit_count, 0);
+
+            if offset == 0 {
+                new_digits.extend_from_slice(&digit_vec);
+            } else {
+                let digit_splitter = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT - offset);
+                let digit_shifter = ten_to_pow!(offset);
+
+                // let mut i = new_digits.len() - 1;
+
+                new_digits.push(0);
+                for (&digit, i) in digit_vec.iter().zip(new_digits.len() - 1..) {
+                    let (high, low) = div_rem(digit, digit_splitter);
+                    // *new_digits.last_mut().unwrap() += low * digit_shifter;
+                    new_digits[i] += low * digit_shifter;
+                    new_digits.push(high);
+                    // i += 1;
+                }
+            }
+
+            let new_digits = crate::bigdigit::convert_to_base_u32_vec(&new_digits);
+            let int_val = crate::BigInt::new(decimal.sign(), new_digits);
+
             return BigDecimal {
                 int_val: int_val,
                 scale: n_digits,
@@ -495,10 +523,7 @@ impl Context {
             };
         }
 
-        let digit_vec: Vec<BigDigitBase> = IntoBigDigitVec::into(&decimal.int_val);
-        dbg!(&digit_vec);
-
-        // at this point, rounding_point >= 0
+        // at this point, rounding_point > 0
         let rounding_point = rounding_point as usize;
         let rounding_info = RoundingInfo::from(&digit_vec, rounding_point);
         dbg!(&rounding_info);
@@ -514,7 +539,8 @@ impl Context {
             (_, _, left, 0, true) => left,
             // Towards +∞
             (RoundingMode::Ceiling, Sign::Plus, left, _, _) => left + 1,
-            (RoundingMode::Ceiling, Sign::Minus | Sign::NoSign, left, _, _) => left,
+            (RoundingMode::Ceiling, Sign::NoSign, left, _, _) => left,
+            (RoundingMode::Ceiling, Sign::Minus, left, _, _) => left,
             // Away from 0
             (RoundingMode::Up, _, left, _, _) => left + 1,
             // Handle rounding-point = 5
@@ -533,13 +559,12 @@ impl Context {
 
         dbg!(&rounded_digit);
 
-        let digit_shifter = ten_to_pow!(rounding_info.offset + 1);
-        let digit_booster = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT as u8 - rounding_info.offset - 1);
-        dbg!(digit_shifter);
-        dbg!(digit_booster);
+        let digit_shifter = ten_to_pow!(rounding_info.offset);
+        let digit_booster = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT as u8 - rounding_info.offset);
 
+        // rounding to the left of the decimal point
         if n_digits < 0 {
-            if digit_vec.len() - rounding_info.index == 1 {
+            if digit_vec.len() == rounding_info.index + 1 {
                 let number = digit_vec[rounding_info.index] as BigDigitBaseDouble;
                 let shifted_number = number / digit_shifter;
                 let new_digit_number = (shifted_number - shifted_number % 10) + rounded_digit;
@@ -554,17 +579,27 @@ impl Context {
         }
 
         if digit_vec.len() < rounding_info.index {
-            return match self.rounding_mode {
-                RoundingMode::Up => BigDecimal {
-                    int_val: crate::BigInt::new(decimal.sign(), vec![1]),
-                    scale: n_digits,
-                    context: decimal.context.clone(),
-                },
-                _ => BigDecimal::zero(),
+            let digit = match (decimal.sign(), self.rounding_mode) {
+                (_, RoundingMode::Up) => 1,
+                (Sign::Minus, RoundingMode::Ceiling) => 0,
+                (Sign::NoSign, RoundingMode::Ceiling) => 0,
+                (Sign::Plus, RoundingMode::Ceiling) => 1,
+                (_, RoundingMode::Down) => 0,
+                (Sign::Minus, RoundingMode::Floor) => 1,
+                (Sign::NoSign, RoundingMode::Floor) => 0,
+                (Sign::Plus, RoundingMode::Floor) => 0,
+                (_, RoundingMode::HalfUp) => 0,
+                (_, RoundingMode::HalfDown) => 0,
+                (_, RoundingMode::HalfEven) => 0,
+            };
+
+            return BigDecimal {
+                int_val: crate::BigInt::new(decimal.sign(), vec![digit]),
+                scale: n_digits,
+                context: decimal.context.clone(),
             };
         }
 
-        dbg!(digit_vec.len() - rounding_info.index);
         // only process one digit
         if digit_vec.len() - rounding_info.index == 1 {
             let number = digit_vec[rounding_info.index] as BigDigitBaseDouble;
@@ -572,24 +607,6 @@ impl Context {
             let new_digit_number = (shifted_number - shifted_number % 10) + rounded_digit;
             let new_digits = digit_vec![ (FROM-BASE-TEN) new_digit_number ];
 
-            return BigDecimal {
-                int_val: crate::BigInt::new(decimal.sign(), new_digits),
-                scale: n_digits,
-                context: decimal.context.clone(),
-            };
-        }
-
-        dbg!(rounding_info.index);
-        if rounding_info.index >= digit_vec.len() {
-            let new_digits = match (self.rounding_mode, decimal.sign()) {
-                (RoundingMode::Up, _) => vec![1],
-                (RoundingMode::Down, _) => vec![0],
-                (RoundingMode::Ceiling, Sign::Plus) => vec![1],
-                (RoundingMode::Ceiling, Sign::Minus | Sign::NoSign) => vec![0],
-                (RoundingMode::Floor, Sign::Plus | Sign::NoSign) => vec![0],
-                (RoundingMode::Floor, Sign::Minus) => vec![1],
-                _ => vec![0],
-            };
             return BigDecimal {
                 int_val: crate::BigInt::new(decimal.sign(), new_digits),
                 scale: n_digits,
