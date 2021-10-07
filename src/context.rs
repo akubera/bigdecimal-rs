@@ -578,7 +578,7 @@ impl Context {
             }
         }
 
-        if digit_vec.len() < rounding_info.index {
+        if digit_vec.len() <= rounding_info.index {
             let digit = match (decimal.sign(), self.rounding_mode) {
                 (_, RoundingMode::Up) => 1,
                 (Sign::Minus, RoundingMode::Ceiling) => 0,
