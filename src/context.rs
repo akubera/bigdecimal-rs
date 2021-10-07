@@ -636,21 +636,23 @@ impl Context {
                 v.push(next_digit as BigDigitBase);
 
                 let mut index = rounding_info.index + 1;
-
-                // let mut it = digit_vec[..].iter();
-                while carry != 0 {
-                    if index == digit_vec.len() {
-                        v.push(carry as BigDigitBase);
-                        carry = 0;
-                    } else {
-                        let (high, low) = div_rem(digit_vec[index] as BigDigitBaseDouble + 1, BIG_DIGIT_RADIX);
-                        v.push(low as BigDigitBase);
-                        carry = high;
-                        index += 1;
+                let needs_copy = loop {
+                    let shifted_digit = digit_vec[index] as BigDigitBaseDouble + 1;
+                    index += 1;
+                    if shifted_digit < BIG_DIGIT_RADIX {
+                        v.push(shifted_digit as BigDigitBase);
+                        break true;
                     }
-                }
+                    v.push((shifted_digit - BIG_DIGIT_RADIX) as BigDigitBase);
+                    if index == digit_vec.len() {
+                        v.push(1);
+                        break false;
+                    }
+                };
 
-                v.extend_from_slice(&digit_vec[index..]);
+                if needs_copy {
+                    v.extend_from_slice(&digit_vec[index..]);
+                }
                 v
             };
 
