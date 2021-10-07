@@ -553,7 +553,8 @@ impl Context {
             // Towards 0
             (RoundingMode::Down, _, left, _, _) => left,
             // Towards -∞
-            (RoundingMode::Floor, Sign::Plus | Sign::NoSign, left, _, _) => left,
+            (RoundingMode::Floor, Sign::Plus, left, _, _) => left,
+            (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
             (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
         } as BigDigitBaseDouble;
 
