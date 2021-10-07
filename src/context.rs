@@ -619,39 +619,38 @@ impl Context {
             let x = number / digit_shifter;
             x - x % 10 + rounded_digit
         };
-        dbg!(d0);
 
-        if rounding_info.offset == MAX_DIGITS_PER_BIGDIGIT as u8 - 1 {
-            let tmp = digit_vec[rounding_info.index + 1] as BigDigitBaseDouble;
-            let next_digit = tmp - tmp % 10 + d0;
-            let result = if next_digit >= BIG_DIGIT_RADIX {
+        // handle crossing bigdigit boundary
+        // [_____x] [y_______] ->
+        if rounding_info.offset == 0 {
+            let result = if digit_0 < BIG_DIGIT_RADIX {
                 let mut v = Vec::with_capacity(digit_vec.len() - rounding_info.index);
-                v.push(next_digit as BigDigitBase);
-                v.extend_from_slice(&digit_vec[rounding_info.index + 2..]);
+                v.push(digit_0 as BigDigitBase);
+                v.extend_from_slice(&digit_vec[rounding_info.index + 1..]);
                 v
             } else {
-                let (mut carry, x) = div_rem(next_digit, BIG_DIGIT_RADIX);
+                let mut carry = 1;
+                let next_digit = digit_0 - BIG_DIGIT_RADIX;
+
                 let mut v = Vec::with_capacity(digit_vec.len() - rounding_info.index + 1);
-                v.push(x as BigDigitBase);
-                let mut it = digit_vec[rounding_info.index + 2..].iter();
+                v.push(next_digit as BigDigitBase);
+
+                let mut index = rounding_info.index + 1;
+
+                // let mut it = digit_vec[..].iter();
                 while carry != 0 {
-                    match it.next() {
-                        None => {
-                            v.push(carry as BigDigitBase);
-                            carry = 0;
-                        }
-                        Some(&next_digit) => {
-                            let (crry, x) = div_rem(next_digit as BigDigitBaseDouble + carry, BIG_DIGIT_RADIX);
-                            v.push(x as BigDigitBase);
-                            carry = crry;
-                        }
+                    if index == digit_vec.len() {
+                        v.push(carry as BigDigitBase);
+                        carry = 0;
+                    } else {
+                        let (high, low) = div_rem(digit_vec[index] as BigDigitBaseDouble + 1, BIG_DIGIT_RADIX);
+                        v.push(low as BigDigitBase);
+                        carry = high;
+                        index += 1;
                     }
                 }
 
-                for next_digit in it {
-                    v.push(*next_digit);
-                }
-
+                v.extend_from_slice(&digit_vec[index..]);
                 v
             };
 
@@ -672,24 +671,17 @@ impl Context {
         let approx_bigdigit_count = (digit_vec.len() * MAX_DIGITS_PER_BIGDIGIT)
             .saturating_sub(rounding_point)
             .max(1);
-        dbg!(approx_bigdigit_count);
         // let approx_bigdigit_count = estimate_dec_digit_count(digit_vec.len(), 100000);
 
         let mut result = Vec::with_capacity(approx_bigdigit_count);
 
         let d_i = digit_vec[rounding_info.index + 1] as BigDigitBaseDouble;
-        dbg!(d_i);
 
         let (h, l) = div_rem(d_i, digit_shifter);
-        dbg!(h);
-        dbg!(l);
 
-        let (mut carry, x) = div_rem(d0 + (l * digit_booster), BIG_DIGIT_RADIX);
-        dbg!(carry);
-        dbg!(x);
+        let (mut carry, x) = div_rem(digit_0 + (l * digit_booster), BIG_DIGIT_RADIX);
         result.push(x as BigDigitBase);
         result.push(h as BigDigitBase);
-        dbg!(&result);
 
         let mut i = 2;
 
@@ -725,7 +717,6 @@ impl Context {
             i += 1;
         }
 
-        dbg!(dbg!(rounding_info.index + i) < dbg!(digit_vec.len()));
         while rounding_info.index + i < digit_vec.len() {
             let d_i = digit_vec[rounding_info.index + i] as BigDigitBaseDouble;
             let (h, l) = div_rem(d_i, digit_shifter);
