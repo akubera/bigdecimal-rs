@@ -601,7 +601,7 @@ impl Context {
         }
 
         // only process one digit
-        if digit_vec.len() - rounding_info.index == 1 {
+        if digit_vec.len() == rounding_info.index + 1 {
             let number = digit_vec[rounding_info.index] as BigDigitBaseDouble;
             let shifted_number = number / digit_shifter;
             let new_digit_number = (shifted_number - shifted_number % 10) + rounded_digit;
@@ -614,7 +614,7 @@ impl Context {
             };
         }
 
-        let d0 = {
+        let digit_0 = {
             let number = digit_vec[rounding_info.index] as BigDigitBaseDouble;
             let x = number / digit_shifter;
             x - x % 10 + rounded_digit
