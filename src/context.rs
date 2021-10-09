@@ -440,6 +440,8 @@ impl Context {
     /// Round decimal to n digits
     ///
     /// ```
+    /// # use std::str::FromStr;
+    /// use bigdecimal::{BigDecimal, Context};
     /// let ctx = Context::default();
     /// let d = BigDecimal::from_str("3.14159").unwrap();
     /// assert_eq!(ctx.round(&d, 3), BigDecimal::from_str("3.142").unwrap());
@@ -448,11 +450,14 @@ impl Context {
     /// Providing a negative number of digits rounds to the left of
     /// the decimal point
     /// ```
+    /// # use std::str::FromStr;
+    /// use bigdecimal::{BigDecimal, Context, RoundingMode};
     /// let ctx = Context::default();
     /// let d = BigDecimal::from_str("13345.234").unwrap();
+    ///
     /// assert_eq!(
     ///    ctx.with_rounding(RoundingMode::Up).round(&d, -2),
-    ///    BigDecimal::from_str("13300").unwrap()
+    ///    BigDecimal::from_str("13400").unwrap()
     /// );
     ///
     /// assert_eq!(
@@ -860,6 +865,20 @@ mod test_rounding {
     use std::str::FromStr;
 
     macro_rules! test_case {
+        ($n:literal; $expected:literal) => {
+            test_case!($n, Up; $expected);
+            test_case!($n, Ceiling; $expected);
+            test_case!($n, Down; $expected);
+            test_case!($n, Floor; $expected);
+            test_case!($n, HalfUp; $expected);
+            test_case!($n, HalfDown; $expected);
+            test_case!($n, HalfEven; $expected);
+        };
+        ($n:literal, Half; $expected:literal) => {
+            test_case!($n, HalfUp; $expected);
+            test_case!($n, HalfDown; $expected);
+            test_case!($n, HalfEven; $expected);
+        };
         (- $n:literal, $mode:ident; $expected:literal) => {
             paste! {
                 #[test]
@@ -895,6 +914,11 @@ mod test_rounding {
             static ref test_decimal: BigDecimal = BigDecimal::from_str("393.070615").unwrap();
         }
 
+        test_case!(24, Down; "393.070615000000000000000000");
+        test_case!(19, Down; "393.0706150000000000000");
+        test_case!(18, Down; "393.070615000000000000");
+        test_case!(15, Down; "393.070615000000000");
+        test_case!(9, Down; "393.070615000");
         test_case!(7, Down; "393.0706150");
 
         test_case!(6, Down; "393.070615");
@@ -925,13 +949,19 @@ mod test_rounding {
         test_case!(0, Down; "393");
         test_case!(0, Up; "394");
 
-        // test_case!(-1, Up; "400");
-        // test_case!(-1, Down; "390");
+        test_case!(-1, Up; "40e1");
+        test_case!(-1, Down; "39e1");
 
-        // test_case!(-2, Up; "4");
-        // test_case!(-2, Down; "3");
+        test_case!(-2, Up; "4e2");
+        test_case!(-2, Down; "3e2");
 
-        test_case!(7, r#Up; "393.0706150");
+        test_case!(-3, Up; "1e3");
+        test_case!(-3, Down; "0e3");
+
+        test_case!(-5, Up; "1e5");
+        test_case!(-5, Down; "0e5");
+
+        test_case!(7, Up; "393.0706150");
         test_case!(10, Up; "393.0706150000");
         test_case!(18, Up; "393.070615000000000000");
     }
@@ -972,6 +1002,72 @@ mod test_rounding {
         test_case!(14, Ceiling; "0.00000000004995");
     }
 
+    mod case_500 {
+        use super::*;
+
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("500").unwrap();
+        }
+
+        test_case!(-5, HalfUp; "1e5");
+        test_case!(-4, Up; "1e4");
+        test_case!(-3, Up; "1e3");
+        test_case!(-3, HalfDown; "0");
+        test_case!(-3, HalfUp; "1e3");
+        test_case!(-3, HalfEven; "0");
+    }
+
+    mod round_12_345 {
+        use super::*;
+
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("12.345").unwrap();
+        }
+
+        test_case!(0, Down; "12");
+        test_case!(0, Up; "13");
+
+        test_case!(1, Down; "12.3");
+        test_case!(1, Up; "12.4");
+        test_case!(1, HalfUp; "12.3");
+        test_case!(1, HalfDown; "12.3");
+        test_case!(1, HalfEven; "12.3");
+
+        test_case!(2, Up; "12.35");
+        test_case!(2, Down; "12.34");
+        test_case!(2, Ceiling; "12.35");
+        test_case!(2, Floor; "12.34");
+        test_case!(2, HalfUp; "12.35");
+        test_case!(2, HalfDown; "12.34");
+        test_case!(2, HalfEven; "12.34");
+    }
+
+    mod round_393_070612 {
+        use super::*;
+
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("393.070612").unwrap();
+        }
+        test_case!(1, Up; "393.1");
+        test_case!(1, Down; "393.0");
+        test_case!(2, Down; "393.07");
+        test_case!(3, Down; "393.070");
+        test_case!(4, Down; "393.0706");
+        test_case!(5, Down; "393.07061");
+        test_case!(5, Up; "393.07062");
+        test_case!(6; "393.070612");
+        test_case!(7; "393.0706120");
+        test_case!(9; "393.070612000");
+
+        test_case!(-4, Up; "1e4");
+        test_case!(-5, Up; "1e5");
+        test_case!(-5, Down; "0");
+        test_case!(-5, Ceiling; "1e5");
+        test_case!(-6, HalfEven; "0");
+        test_case!(-10, Down; "0");
+
+    }
+
     mod case_9_999999900em9 {
         use super::*;
 
@@ -979,163 +1075,103 @@ mod test_rounding {
             static ref test_decimal: BigDecimal = BigDecimal::from_str("9.999999900E-9").unwrap();
         }
 
+        test_case!(0, Down; "0");
+        test_case!(0, Up; "1");
+        test_case!(0, Ceiling; "1");
+        test_case!(0, HalfEven; "0");
+        test_case!(0, HalfUp; "0");
+        test_case!(0, HalfDown; "0");
+
         test_case!(9, Up; "1.0E-8");
+        test_case!(9, Ceiling; "1.0E-8");
+        test_case!(9, Down; "9e-9");
+        test_case!(9, Floor; "9e-9");
+        test_case!(9, HalfEven; "10e-9");
+        test_case!(9, HalfDown; "10e-9");
+        test_case!(9, HalfUp; "10e-9");
+
+        test_case!(10, Up; "1.00E-8");
+        test_case!(10, Down; "99E-10");
+        test_case!(12, Down; "9.999E-9");
+        test_case!(18, Down; "9.999999900E-9");
+        test_case!(18, Up; "9.999999900E-9");
     }
 
-    // #[test]
-    // pub fn round_up() {
-    //     let cases = [(5, "", "63.94267")];
+    mod case_9_99999999999900E_m14 {
+        use super::*;
 
-    //     for (prec, src, expected) in cases.iter() {
-    //         let ctx = Context {
-    //             precision: *prec,
-    //             rounding_mode: RoundingMode::Down,
-    //         };
-
-    //         let d = BigDecimal::from_str(src).unwrap();
-    //         let r = ctx.round(&d, *prec);
-    //         assert_eq!(r, BigDecimal::from_str(expected).unwrap());
-    //     }
-    // }
-
-    /*
-    #[test]
-    #[rustfmt::skip]
-    pub fn round_expanding_right() {
-        let cases = [
-            (6, RoundingMode::Up, "393.070612", "393.070612"),
-            (7, RoundingMode::Up, "393.070612", "393.0706120"),
-            (6, RoundingMode::Down, "393.070612", "393.070612"),
-            (7, RoundingMode::Down, "393.070612", "393.0706120"),
-            (10, RoundingMode::Down, "393.070612", "393.0706120000"),
-            // (5, RoundingMode::Down, "393.070612", "393.07061"),
-            // (5, RoundingMode::Up, "393.070612", "393.07062"),
-        ];
-        for (ndigits, mode, src, expected) in cases.iter() {
-            let ctx = Context {
-                rounding_mode: *mode,
-                ..Context::default()
-            };
-
-            let d = BigDecimal::from_str(src).unwrap();
-            let r = ctx.round(&d, *ndigits);
-            assert_eq!(r, BigDecimal::from_str(expected).unwrap());
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("9.99999999999900E-14").unwrap();
         }
-    }
-    */
 
-    #[test]
-    #[rustfmt::skip]
-    pub fn round_too_large() {
-        let cases = [
-            (-4, RoundingMode::Up, "393.070612", "10000"),
-            (-5, RoundingMode::Up, "393.070612", "100000"),
-            (-5, RoundingMode::Ceiling, "393.070612", "100000"),
-            (-6, RoundingMode::HalfEven, "393.070612", "0"),
-            (-5, RoundingMode::Down, "393.070612", "0"),
-            (-5, RoundingMode::Down, "393.070612", "0"),
-            (-10, RoundingMode::Down, "500.070", "0"),
-            (-5, RoundingMode::Down, "9999.9999", "0"),
-        ];
-        for (ndigits, mode, src, expected) in cases.iter() {
-            let ctx = Context {
-                rounding_mode: *mode,
-                ..Context::default()
-            };
-            let d = BigDecimal::from_str(src).unwrap();
-            let r = ctx.round(&d, *ndigits);
-            assert_eq!(r, BigDecimal::from_str(expected).unwrap());
+        test_case!(0, Up; "1");
+        test_case!(0, Down; "0");
+        test_case!(0, Ceiling; "1");
+        test_case!(0, Floor; "0");
+        test_case!(0, Half; "0");
+    }
+
+    mod case_neg_9_99999999999900E_m14 {
+        use super::*;
+
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("-9.99999999999900E-14").unwrap();
         }
+
+        test_case!(0, Up; "-1");
+        test_case!(0, Down; "0");
+        test_case!(0, Ceiling; "-0");
+        test_case!(0, Floor; "-1");
+        test_case!(0, Half; "0");
     }
 
-    #[test]
-    pub fn round_most_significant_digit() {
-        let cases = [
-            (-3, RoundingMode::HalfEven, "500", "0"),
-            (-3, RoundingMode::HalfUp, "500", "10000"),
-        ];
-        for (ndigits, mode, src, expected) in cases.iter() {
-            let ctx = Context {
-                rounding_mode: *mode,
-                ..Context::default()
-            };
+    mod case_neg_0_01 {
+        use super::*;
 
-            let d = BigDecimal::from_str(src).unwrap();
-            let r = ctx.round(&d, *ndigits);
-            assert_eq!(r, BigDecimal::from_str(expected).unwrap());
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("-0.01").unwrap();
         }
+
+        test_case!(0, Up; "-1");
+        test_case!(0, Floor; "-1");
+        test_case!(0, Ceiling; "-0");
+        test_case!(0, Down; "-0");
+        test_case!(0, Half; "-0");
     }
 
-    #[test]
-    #[rustfmt::skip]
-    pub fn round_12_34567() {
-        let cases = [
-            (0, RoundingMode::Down, "393.070612", "393.1"),
-            // (1, RoundingMode::Down, "393.070612", "393.1"),
-            // (2, RoundingMode::Down, "393.070612", "393.07"),
-            // (3, RoundingMode::Down, "393.070612", "393.070"),
-            // (4, RoundingMode::Down, "393.070612", "393.0706"),
-            // (5, RoundingMode::Down, "393.070612", "393.07061"),
-            // (5, RoundingMode::Up, "393.070612", "393.07062"),
-        ];
-        for (ndigits, mode, src, expected) in cases.iter() {
-            let ctx = Context {
-                rounding_mode: *mode,
-                ..Context::default()
-            };
+    mod case_neg_0_75 {
+        use super::*;
 
-            let d = BigDecimal::from_str(src).unwrap();
-            let r = ctx.round(&d, *ndigits);
-            assert_eq!(r, BigDecimal::from_str(expected).unwrap());
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("-0.75").unwrap();
         }
+
+        test_case!(0, Up; "-1");
+        test_case!(0, Down; "-0");
+        test_case!(0, Ceiling; "-0");
+        test_case!(0, Floor; "-1");
+        test_case!(0, HalfUp; "-1");
+        test_case!(0, HalfDown; "-1");
+        test_case!(0, HalfEven; "-1");
+
+        test_case!(1, Up; "-.8");
+        test_case!(1, Down; "-.7");
+        test_case!(1, Ceiling; "-.7");
+        test_case!(1, Floor; "-0.8");
+        test_case!(1, HalfUp; "-0.8");
+        test_case!(1, HalfDown; "-0.7");
+        test_case!(1, HalfEven; "-.8");
+
+        test_case!(2; "-.75");
+        test_case!(4; "-.7500");
+
+        test_case!(-1, Up; "-1e1");
+        test_case!(-1, Down; "-0");
+        test_case!(-1, Ceiling; "-0");
+        test_case!(-1, Floor; "-1e1");
+        test_case!(-1, HalfUp; "-0e1");
+        test_case!(-1, HalfDown; "-0e1");
+        test_case!(-1, HalfEven; "-0e1");
+
     }
-    #[test]
-    #[rustfmt::skip]
-    pub fn round_393_070612() {
-        let cases = [
-            (1, RoundingMode::Down, "393.070612", "393.1"),
-            // (2, RoundingMode::Down, "393.070612", "393.07"),
-            // (3, RoundingMode::Down, "393.070612", "393.070"),
-            // (4, RoundingMode::Down, "393.070612", "393.0706"),
-            // (5, RoundingMode::Down, "393.070612", "393.07061"),
-            // (5, RoundingMode::Up, "393.070612", "393.07062"),
-        ];
-        for (ndigits, mode, src, expected) in cases.iter() {
-            let ctx = Context {
-                rounding_mode: *mode,
-                ..Context::default()
-            };
-
-            let d = BigDecimal::from_str(src).unwrap();
-            let r = ctx.round(&d, *ndigits);
-            assert_eq!(r, BigDecimal::from_str(expected).unwrap());
-        }
-    }
-
-    // #[rustfmt::skip]
-    // #[test]
-    // pub fn round_down() {
-    //     let cases = [
-    //         (
-    //             25,
-    //             "63.94267984578837493714331685623619705438",
-    //             "63.9426798457883749371433169",
-    //         ),
-    //         (   5,
-    //             "63.94267984578837493714331685623619705438",
-    //             "63.94267",
-    //         ),
-    //     ];
-
-    //     for (prec, src, expected) in cases.iter() {
-    //         let ctx = Context {
-    //             rounding_mode: RoundingMode::Down,
-    //             ..Context::default()
-    //         };
-
-    //         let d = BigDecimal::from_str(src).unwrap();
-    //         let r = ctx.round(&d, *prec);
-    //         assert_eq!(r, BigDecimal::from_str(expected).unwrap());
-    //     }
-    // }
 }
