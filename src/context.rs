@@ -501,15 +501,11 @@ impl Context {
                 let digit_splitter = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT - offset);
                 let digit_shifter = ten_to_pow!(offset);
 
-                // let mut i = new_digits.len() - 1;
-
                 new_digits.push(0);
                 for (&digit, i) in digit_vec.iter().zip(new_digits.len() - 1..) {
                     let (high, low) = div_rem(digit, digit_splitter);
-                    // *new_digits.last_mut().unwrap() += low * digit_shifter;
                     new_digits[i] += low * digit_shifter;
                     new_digits.push(high);
-                    // i += 1;
                 }
             }
 
@@ -624,40 +620,38 @@ impl Context {
         // handle crossing bigdigit boundary
         // [_____x] [y_______] ->
         if rounding_info.offset == 0 {
-            let result = if digit_0 < BIG_DIGIT_RADIX {
-                let mut v = Vec::with_capacity(digit_vec.len() - rounding_info.index);
-                v.push(digit_0 as BigDigitBase);
-                v.extend_from_slice(&digit_vec[rounding_info.index + 1..]);
-                v
+            let mut rounded_digit_vec = Vec::with_capacity(digit_vec.len() - rounding_info.index + 1);
+
+            // position from which to copy remaining digits
+            let mut index = rounding_info.index + 1;
+
+            // whether or not more data needs copied
+            let needs_copy = if digit_0 < BIG_DIGIT_RADIX {
+                rounded_digit_vec.push(digit_0 as BigDigitBase);
+                index < digit_vec.len() // needs copy if index is less than length
             } else {
-                let mut carry = 1;
-                let next_digit = digit_0 - BIG_DIGIT_RADIX;
+                rounded_digit_vec.push((digit_0 - BIG_DIGIT_RADIX) as BigDigitBase);
 
-                let mut v = Vec::with_capacity(digit_vec.len() - rounding_info.index + 1);
-                v.push(next_digit as BigDigitBase);
-
-                let mut index = rounding_info.index + 1;
-                let needs_copy = loop {
+                loop {
                     let shifted_digit = digit_vec[index] as BigDigitBaseDouble + 1;
                     index += 1;
                     if shifted_digit < BIG_DIGIT_RADIX {
-                        v.push(shifted_digit as BigDigitBase);
-                        break true;
+                        rounded_digit_vec.push(shifted_digit as BigDigitBase);
+                        break index < digit_vec.len(); // needs copy if index is less than length
                     }
-                    v.push((shifted_digit - BIG_DIGIT_RADIX) as BigDigitBase);
+                    rounded_digit_vec.push(0);
                     if index == digit_vec.len() {
-                        v.push(1);
-                        break false;
+                        rounded_digit_vec.push(1);
+                        break false; // does not need to copy from digit_vec
                     }
-                };
-
-                if needs_copy {
-                    v.extend_from_slice(&digit_vec[index..]);
                 }
-                v
             };
 
-            let new_digits = crate::bigdigit::convert_to_base_u32_vec(&result);
+            if needs_copy {
+                rounded_digit_vec.extend_from_slice(&digit_vec[index..]);
+            }
+
+            let new_digits = crate::bigdigit::convert_to_base_u32_vec(&rounded_digit_vec);
 
             let int_val = crate::BigInt::new(decimal.sign(), new_digits);
             let scale = n_digits;
@@ -670,11 +664,9 @@ impl Context {
             };
         }
 
-        // let approx_bigdigit_count = digit_vec.len() * MAX_DIGITS_PER_BIGDIGIT - rounding_point;
         let approx_bigdigit_count = (digit_vec.len() * MAX_DIGITS_PER_BIGDIGIT)
             .saturating_sub(rounding_point)
             .max(1);
-        // let approx_bigdigit_count = estimate_dec_digit_count(digit_vec.len(), 100000);
 
         let mut result = Vec::with_capacity(approx_bigdigit_count);
 
