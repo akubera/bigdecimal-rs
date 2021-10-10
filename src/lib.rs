@@ -80,6 +80,10 @@ pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 #[allow(clippy::approx_constant)] // requires Rust 1.43.0
 const LOG2_10: f64 = 3.321928094887362_f64;
 
+/// u64::MAX + 1
+// const MAX_BIG_DIGIT_BASE_DOUBLE: u128 = 18446744073709551616;
+const MAX_BIG_DIGIT_BASE_DOUBLE: u128 = std::u64::MAX as u128 + 1;
+
 #[macro_use]
 mod macros;
 
