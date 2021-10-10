@@ -743,7 +743,7 @@ impl Default for Context {
     fn default() -> Context {
         Context {
             precision: 34,
-            rounding_mode: RoundingMode::HalfUp,
+            rounding_mode: RoundingMode::HalfEven,
         }
     }
 }
