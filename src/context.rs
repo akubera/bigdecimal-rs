@@ -874,6 +874,11 @@ mod test_rounding {
             test_case!($n, HalfDown; $expected);
             test_case!($n, HalfEven; $expected);
         };
+        (- $n:literal, Half; $expected:literal) => {
+            test_case!(-$n, HalfUp; $expected);
+            test_case!(-$n, HalfDown; $expected);
+            test_case!(-$n, HalfEven; $expected);
+        };
         ($n:literal, Half; $expected:literal) => {
             test_case!($n, HalfUp; $expected);
             test_case!($n, HalfDown; $expected);
@@ -980,8 +985,13 @@ mod test_rounding {
         test_case!(35, Down; "63.94267984578837493714331685623619705");
         test_case!(34, Down; "63.9426798457883749371433168562361970");
         test_case!(33, Down; "63.942679845788374937143316856236197");
+        test_case!(32, Up;   "63.94267984578837493714331685623620");
         test_case!(32, Down; "63.94267984578837493714331685623619");
+        test_case!(31, Up;   "63.9426798457883749371433168562362");
+        test_case!(31, Ceiling; "63.9426798457883749371433168562362");
         test_case!(31, Down; "63.9426798457883749371433168562361");
+        test_case!(31, Floor;"63.9426798457883749371433168562361");
+        test_case!(31, Half; "63.9426798457883749371433168562362");
         test_case!(30, Down; "63.942679845788374937143316856236");
 
         test_case!(20, Down; "63.94267984578837493714");
@@ -1009,9 +1019,13 @@ mod test_rounding {
             static ref test_decimal: BigDecimal = BigDecimal::from_str("500").unwrap();
         }
 
-        test_case!(-5, HalfUp; "1e5");
+        test_case!(-5, HalfUp; "0");
         test_case!(-4, Up; "1e4");
+
         test_case!(-3, Up; "1e3");
+        test_case!(-3, Down; "0");
+        test_case!(-3, Floor; "0");
+        test_case!(-3, Ceiling; "1e3");
         test_case!(-3, HalfDown; "0");
         test_case!(-3, HalfUp; "1e3");
         test_case!(-3, HalfEven; "0");
@@ -1173,5 +1187,39 @@ mod test_rounding {
         test_case!(-1, HalfDown; "-0e1");
         test_case!(-1, HalfEven; "-0e1");
 
+    }
+
+    mod case_neg_62_963485 {
+        use super::*;
+
+        lazy_static! {
+            static ref test_decimal: BigDecimal = BigDecimal::from_str("-62.963485").unwrap();
+        }
+
+        test_case!(0, Up; "-63");
+        test_case!(0, Down; "-62");
+        test_case!(0, Ceiling; "-62");
+        test_case!(0, Floor; "-63");
+        test_case!(0, Half; "-63");
+
+        test_case!(-1, Up; "-7e1");
+        test_case!(-1, Down; "-6e1");
+        test_case!(-1, Ceiling; "-6e1");
+        test_case!(-1, Floor; "-7e1");
+        test_case!(-1, Half; "-6e1");
+
+        test_case!(1, Up; "-63.0");
+        test_case!(1, Down; "-62.9");
+        test_case!(1, Ceiling; "-62.9");
+        test_case!(1, Floor; "-63.0");
+        test_case!(1, Half; "-63.0");
+
+        test_case!(5, Up; "-62.96349");
+        test_case!(5, Down; "-62.96348");
+        test_case!(5, Ceiling; "-62.96348");
+        test_case!(5, Floor; "-62.96349");
+        test_case!(5, HalfUp; "-62.96349");
+        test_case!(5, HalfDown; "-62.96348");
+        test_case!(5, HalfEven; "-62.96348");
     }
 }
