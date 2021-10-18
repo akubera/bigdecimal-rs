@@ -527,7 +527,6 @@ impl Context {
         // at this point, rounding_point > 0
         let rounding_point = rounding_point as usize;
         let rounding_info = RoundingInfo::from(&digit_vec, rounding_point);
-        dbg!(&rounding_info);
 
         let rounded_digit = match (
             self.rounding_mode,
@@ -558,8 +557,6 @@ impl Context {
             (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
             (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
         } as BigDigitBaseDouble;
-
-        dbg!(&rounded_digit);
 
         let digit_shifter = ten_to_pow!(rounding_info.offset);
         let digit_booster = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT as u8 - rounding_info.offset);
