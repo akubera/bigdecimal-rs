@@ -86,7 +86,11 @@ mod test_to_decimal_bytes {
     fn test_1() {
         let bigint = num_bigint::BigInt::from_str("1234").unwrap();
         let dec_digits = IntoBigDigitVec::into(&bigint);
-        assert_eq!(&dec_digits, &[1234]);
+        let expected: &[u32] = match BIG_DIGIT_RADIX {
+            1000 => &[234, 1],
+            _ => &[1234],
+        };
+        assert_eq!(&dec_digits, &expected);
     }
 }
 
@@ -1076,7 +1080,6 @@ mod test_rounding {
         test_case!(-5, Ceiling; "1e5");
         test_case!(-6, HalfEven; "0");
         test_case!(-10, Down; "0");
-
     }
 
     mod case_9_999999900em9 {
@@ -1183,7 +1186,6 @@ mod test_rounding {
         test_case!(-1, HalfUp; "-0e1");
         test_case!(-1, HalfDown; "-0e1");
         test_case!(-1, HalfEven; "-0e1");
-
     }
 
     mod case_neg_62_963485 {
