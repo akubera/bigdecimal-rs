@@ -4,7 +4,8 @@ macro_rules! add_digit_vecs_impl {
     ($a:ident + $b:ident => $sum:ident ; $radix:expr, $digit_type:ty, $double_digit_type:ty ) => {{
         $sum.clear();
         if $sum.capacity() < $a.len() + 1 {
-            $sum.reserve($a.len() + 1 - $sum.capacity());
+            let x = $a.len() + 1 - $sum.capacity();
+            $sum.reserve(x);
         }
         let mut a_iter = $a.iter();
 
@@ -53,7 +54,7 @@ mod test_add_digit_vecs {
     use super::*;
 
     macro_rules! impl_test_for_radix {
-        ( $($rad:pat => [$($a:literal),*] [$($b:literal),*] == [$($c:literal),*]),* $(,)?) => {{
+        ( $($rad:pat => [$($a:literal),*] [$($b:literal),*] == [$($c:literal),*]),* $(,)* ) => {{
             let do_test = |a, b, expected: &[BigDigitBase]| {
                 let v = add_digit_vecs(a, b);
                 assert_eq!(&v, &expected);
@@ -66,7 +67,7 @@ mod test_add_digit_vecs {
                 $( $rad => do_test(&[$($a,)*], &[$($b,)*], &[$($c,)*]), )*
             };
         }};
-        ( _ => $all:block, $($rad:pat => [$($a:literal),*] [$($b:literal),*] == [$($c:literal),*]),* $(,)?) => {{
+        ( _ => $all:block, $($rad:pat => [$($a:literal),*] [$($b:literal),*] == [$($c:literal),*]),* $(,)* ) => {{
             let do_test = |a, b, expected: &[BigDigitBase]| {
                 let v = add_digit_vecs(a, b);
                 assert_eq!(&v, &expected);
