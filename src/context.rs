@@ -118,7 +118,7 @@ fn estimate_dec_digit_count(bigdigit_count: usize, digit_base: BigDigitBaseDoubl
 /// number expressed as a BigDigit slice.
 ///
 #[derive(PartialEq, Debug)]
-struct RoundingInfo {
+pub(crate) struct RoundingInfo {
     /// digit to the left of rounding point
     pub left: u8,
     /// digit to the right of rounding point
