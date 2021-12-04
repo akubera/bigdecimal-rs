@@ -72,7 +72,6 @@ use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::iter::Sum;
 use std::str::{self, FromStr};
 
-mod arithmetic;
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
@@ -87,9 +86,14 @@ const MAX_BIG_DIGIT_BASE_DOUBLE: u128 = std::u64::MAX as u128 + 1;
 #[macro_use]
 mod macros;
 
+#[macro_use]
 mod bigdigit;
 
+#[macro_use]
 mod context;
+
+mod arithmetic;
+
 pub use context::{Context, RoundingMode};
 
 #[inline(always)]
