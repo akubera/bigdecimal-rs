@@ -457,7 +457,76 @@ fn _subtract_aligned_digits(
 }
 
 #[inline]
-pub(crate) fn sub_int_digit_vec_into(a: i64, b: &DigitInfo, result: &mut DigitInfo) {
+fn _subtract_unaligned_digits(
+    a_digits: &[BigDigitBase],
+    b_digits: &[BigDigitBase],
+    scale_diff: i64,
+    skip: usize, offset: usize,
+    result: &mut DigitInfo,
+) {
+    debug_assert!(scale_diff != 0);
+
+    // they should not be aligned
+    debug_assert!(offset != 0);
+
+    if scale_diff < 0 {
+        if skip > 0 {
+            result.digits.extend_from_slice(&a_digits[..skip]);
+        }
+
+        let shift = ten_to_pow!(offset);
+        let mask = shift * 10;
+        let mut i = 0;
+        debug_assert!(b_digits.len() <= a_digits[skip..].len());
+
+        let mut carry = 0;
+        let mut sub_carry = 0;
+        while i < b_digits.len() {
+            let (b_hi, b_lo) = num_integer::div_rem(b_digits[i], mask);
+
+            let next_a = a_digits[skip+i];
+            let shifted_b = carry + b_lo * shift;
+
+            let d = next_a as i32 - shifted_b as i32;
+            dbg!(next_a, shifted_b, d);
+            if d < 0 && sub_carry == 0 {
+                sub_carry = -1;
+                result.digits.push((BIG_DIGIT_RADIX as i32 + d) as BigDigitBase);
+            }
+            else if d < 0 {
+                unimplemented!();
+                // result.digits.push(BIG_DIGIT_RADIX + d);
+            } else if d > 0 {
+                result.digits.push((d + sub_carry) as BigDigitBase);
+            } else {
+                unimplemented!();
+            }
+
+            carry = b_hi;
+            i += 1;
+        }
+
+        if i < a_digits.len() {
+            let next_a = a_digits[skip+i];
+            if sub_carry != 0 {
+                unimplemented!();
+            }
+            debug_assert!((next_a - carry) > 0);
+            result.digits.push((next_a - carry) as BigDigitBase);
+            result.digits.extend_from_slice(&a_digits[skip+i+1..]);
+        }
+    } else {
+
+    }
+
+    // unimplemented!()
+    // let mask = to_power_of_ten(lo) as i64;
+
+    // dbg!(dbg!(scale_diff) % dbg!(MAX_DIGITS_PER_BIGDIGIT as i64));
+}
+
+#[inline]
+pub(crate) fn sub_int_digit_vec_into(a: i64, b: &DigitInfo, prec: u32, result: &mut DigitInfo) {
     debug_assert!(b.digits.len() > 0);
     debug_assert!(b.digits.iter().all(|&d| (d as BigDigitBaseDouble) < BIG_DIGIT_RADIX));
 
