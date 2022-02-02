@@ -11,13 +11,35 @@ use crate::bigdigit::{
     BigDigitBaseSignedDouble,
     BigDigitVec,
     BigDigitBaseDouble,
+    count_digits,
 };
 
+/// "lightweight" BigDecimal data
+#[derive(Eq, PartialOrd)]
 pub(crate) struct DigitInfo {
     pub digits: BigDigitVec,
     pub sign: Sign,
     pub scale: i64,
 }
+
+impl PartialEq for DigitInfo {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl Ord for DigitInfo {
+    fn cmp(&self, rhs: &DigitInfo) -> std::cmp::Ordering {
+        let l_digit_count = count_digits(&self.digits);
+        let r_digit_count = count_digits(&rhs.digits);
+
+        let a_int_digits = l_digit_count as i64 + self.scale;
+        let b_int_digits = r_digit_count as i64 + rhs.scale;
+
+        Ordering::Less
+    }
+}
+
 
 #[inline(always)]
 fn negate_all_digits(mut v: Vec<i32>) -> Vec<u32> {
