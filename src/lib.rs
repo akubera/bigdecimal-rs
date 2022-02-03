@@ -1048,17 +1048,7 @@ impl Sub<BigDecimal> for BigDecimal {
 
     #[inline]
     fn sub(self, rhs: BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-        let scale = std::cmp::max(lhs.scale, rhs.scale);
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(scale) - rhs,
-            Ordering::Greater => lhs - rhs.take_and_scale(scale),
-        }
+        arithmetic::subtraction::subtract_big_decimals(&self, &rhs)
     }
 }
 
@@ -1067,17 +1057,7 @@ impl<'a> Sub<&'a BigDecimal> for BigDecimal {
 
     #[inline]
     fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-        let scale = std::cmp::max(lhs.scale, rhs.scale);
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val -= &rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) - rhs,
-            Ordering::Greater => lhs - rhs.with_scale(scale),
-        }
+        arithmetic::subtraction::subtract_big_decimals(&self, rhs)
     }
 }
 
@@ -1086,7 +1066,7 @@ impl<'a> Sub<BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn sub(self, rhs: BigDecimal) -> BigDecimal {
-        -(rhs - self)
+        arithmetic::subtraction::subtract_big_decimals(self, &rhs)
     }
 }
 
@@ -1095,14 +1075,7 @@ impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                let rhs = rhs.with_scale(self.scale);
-                self - rhs
-            }
-            Ordering::Less => self.with_scale(rhs.scale) - rhs,
-            Ordering::Equal => BigDecimal::new(&self.int_val - &rhs.int_val, self.scale),
-        }
+        arithmetic::subtraction::subtract_big_decimals(self, rhs)
     }
 }
 
@@ -1111,19 +1084,7 @@ impl Sub<BigInt> for BigDecimal {
 
     #[inline]
     fn sub(self, rhs: BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) - rhs,
-        }
+        arithmetic::subtraction::subtract_big_numbers(&self, &rhs)
     }
 }
 
@@ -1132,19 +1093,7 @@ impl<'a> Sub<&'a BigInt> for BigDecimal {
 
     #[inline]
     fn sub(self, rhs: &BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) - rhs,
-        }
+        arithmetic::subtraction::subtract_big_numbers(&self, rhs)
     }
 }
 
@@ -1153,7 +1102,7 @@ impl<'a> Sub<BigInt> for &'a BigDecimal {
 
     #[inline]
     fn sub(self, rhs: BigInt) -> BigDecimal {
-        BigDecimal::new(rhs, 0) - self
+        arithmetic::subtraction::subtract_big_numbers(&self, &rhs)
     }
 }
 
@@ -1162,7 +1111,16 @@ impl<'a, 'b> Sub<&'a BigInt> for &'b BigDecimal {
 
     #[inline]
     fn sub(self, rhs: &BigInt) -> BigDecimal {
-        self.with_scale(0) - rhs
+        arithmetic::subtraction::subtract_big_numbers(&self, &rhs)
+    }
+}
+
+impl<'a, 'b> Sub<&'a BigDecimal> for &'b BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
+        arithmetic::subtraction::subtract_big_numbers(rhs, self).neg()
     }
 }
 
