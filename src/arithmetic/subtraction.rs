@@ -3,6 +3,8 @@ use num_integer::div_rem;
 use std::ops::Neg;
 use std::cmp::Ordering;
 
+use crate::Context;
+use crate::BigDecimal;
 use crate::bigdigit::{
     MAX_DIGITS_PER_BIGDIGIT,
     BIG_DIGIT_RADIX,
@@ -37,6 +39,71 @@ impl Ord for DigitInfo {
         let b_int_digits = r_digit_count as i64 + rhs.scale;
 
         Ordering::Less
+    }
+}
+
+impl From<&DigitInfo> for BigDecimal {
+    fn from(digit_info: &DigitInfo) -> Self {
+        let v = crate::bigdigit::convert_to_base_u32_vec(&digit_info.digits);
+        let int_val = num_bigint::BigInt::new(digit_info.sign, v);
+        return BigDecimal {
+            int_val: int_val,
+            scale: digit_info.scale,
+            context: Context::default(),
+        };
+    }
+}
+
+impl From<&BigDecimal> for DigitInfo {
+    fn from(decimal: &BigDecimal) -> Self {
+        let digits = crate::bigdigit::to_bigdigit_vec(
+            decimal.int_val.iter_u64_digits(),
+            std::u64::MAX as u128 + 1
+        );
+        return DigitInfo {
+            digits: digits,
+            sign: decimal.sign(),
+            scale: decimal.scale,
+        };
+    }
+}
+
+impl From<&::num_bigint::BigInt> for DigitInfo {
+    fn from(int_value: &::num_bigint::BigInt) -> Self {
+        let digits = crate::bigdigit::to_bigdigit_vec(
+            int_value.iter_u64_digits(),
+            std::u64::MAX as u128 + 1
+        );
+        return DigitInfo {
+            digits: digits,
+            sign: int_value.sign(),
+            scale: 0,
+        };
+    }
+}
+
+
+#[cfg(test)]
+mod test_digitinfo_tofrom {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn case_193_14() {
+        let bigdec = BigDecimal::from_str("193.14").unwrap();
+        let digit_info = DigitInfo::from(&bigdec);
+        assert_eq!(&digit_info.digits, &[19314]);
+        let new_dec = BigDecimal::from(&digit_info);
+        assert_eq!(&bigdec, &new_dec);
+    }
+
+    #[test]
+    fn case_928133_84283472938472383742934() {
+        let bigdec = BigDecimal::from_str("-928133.84283472938472383742934").unwrap();
+        let digit_info = DigitInfo::from(&bigdec);
+        assert_eq!(&digit_info.digits, &[383742934, 472938472, 813384283, 92]);
+        let new_dec = BigDecimal::from(&digit_info);
+        assert_eq!(&bigdec, &new_dec);
     }
 }
 
