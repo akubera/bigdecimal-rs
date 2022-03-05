@@ -26,7 +26,7 @@ pub(crate) struct DigitInfo {
 
 impl PartialEq for DigitInfo {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        unimplemented!()
     }
 }
 
