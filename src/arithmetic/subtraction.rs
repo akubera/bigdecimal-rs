@@ -3,8 +3,12 @@ use num_integer::div_rem;
 use std::ops::Neg;
 use std::cmp::Ordering;
 
-use crate::Context;
-use crate::BigDecimal;
+use crate::{
+    BigDecimal,
+    Context,
+    RoundingMode,
+};
+
 use crate::bigdigit::{
     MAX_DIGITS_PER_BIGDIGIT,
     BIG_DIGIT_RADIX,
