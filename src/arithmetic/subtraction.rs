@@ -21,7 +21,7 @@ use crate::bigdigit::{
 };
 
 /// "lightweight" BigDecimal data
-#[derive(Eq, PartialOrd)]
+#[derive(Eq, Debug)]
 pub(crate) struct DigitInfo {
     pub digits: BigDigitVec,
     pub sign: Sign,
@@ -30,7 +30,13 @@ pub(crate) struct DigitInfo {
 
 impl PartialEq for DigitInfo {
     fn eq(&self, other: &Self) -> bool {
-        unimplemented!()
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl PartialOrd for DigitInfo {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -39,11 +45,164 @@ impl Ord for DigitInfo {
         let l_digit_count = count_digits(&self.digits);
         let r_digit_count = count_digits(&rhs.digits);
 
-        let a_int_digits = l_digit_count as i64 + self.scale;
-        let b_int_digits = r_digit_count as i64 + rhs.scale;
+        let l_int_digits = l_digit_count as i64 + self.scale;
+        let r_int_digits = r_digit_count as i64 + rhs.scale;
 
-        Ordering::Less
+        let cmp_digits = |ldigits:&[u32], lscale:i64, rdigits: &[u32], rscale:i64| {
+            let len_diff = ldigits.len() as i64 - rdigits.len() as i64;
+
+            let digit_diff = len_diff * MAX_DIGITS_PER_BIGDIGIT as i64;
+            let scale_diff = lscale - rscale;
+
+            let (r_shift, l_shift) = match (lscale.cmp(&rscale), len_diff >= 0) {
+                (Ordering::Equal, _) => {
+                    (1, 1)
+                },
+                (Ordering::Greater, true) => {
+                    (1, ten_to_pow!(dbg!(digit_diff + scale_diff)))
+                 },
+                (Ordering::Greater, false) => {
+                    (ten_to_pow!(dbg!(-digit_diff - scale_diff)), 1)
+                }
+                (Ordering::Less, true) => {
+                    (ten_to_pow!(dbg!(digit_diff - scale_diff)), 1)
+                }
+                (Ordering::Less, false) => {
+                    unreachable!();
+                }
+            };
+
+            for (ld, rd) in ldigits.iter().rev().zip(rdigits.iter().rev()) {
+                let l_val = ld * l_shift;
+                let r_val = rd * r_shift;
+                match l_val.cmp(&r_val) {
+                    Ordering::Equal => continue,
+                    ord => {
+                        return ord;
+                    }
+                };
+            }
+
+            return Ordering::Equal;
+        };
+
+        match (l_int_digits.cmp(&r_int_digits), self.sign, rhs.sign) {
+            (_, Sign::Plus, Sign::Minus) | (_, Sign::Plus, Sign::NoSign) | (_, Sign::NoSign, Sign::Minus) => {
+                Ordering::Greater
+            },
+            (_, Sign::Minus, Sign::Plus) | (_, Sign::NoSign, Sign::Plus) | (_, Sign::Minus, Sign::NoSign)=> {
+                Ordering::Less
+            },
+            (Ordering::Equal, Sign::Plus, Sign::Plus) => {
+                cmp_digits(&self.digits, self.scale, &rhs.digits, rhs.scale)
+            }
+            (Ordering::Equal, Sign::Minus, Sign::Minus) => {
+                cmp_digits(&self.digits, self.scale, &rhs.digits, rhs.scale).reverse()
+            }
+            (ord, Sign::Plus, Sign::Plus) => {
+                ord
+            },
+            (ord, Sign::Minus, Sign::Minus) => {
+                ord.reverse()
+            },
+            (ord, Sign::NoSign, Sign::NoSign) => {
+                unimplemented!()
+            },
+        }
     }
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_bigint_ord {
+    use super::*;
+
+    macro_rules! impl_test {
+        ( - [$($a:literal),+] $($rest:tt)* ) => {
+            impl_test!( ARGS Sign::Minus; $($a),*; ($($a)*) -> (); NAME case_neg_ ;; $($rest)* );
+        };
+        ( [$($a:literal),+] $($rest:tt)* ) => {
+            impl_test!( ARGS Sign::Plus; $($a),*; ($($a)*) -> (); NAME case_ ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),* ; ($a0:literal $($ar:literal)*) -> ($($an:literal)*); NAME $($names:expr)* ;; $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; ($($ar)*) -> ($a0 $($an)*); NAME $($names)* ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; () -> ($($an:literal)*); NAME $($names:expr)* ;; E -$a_scale:literal $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; -$a_scale; NAME $($names)* $($an)* E_neg_ $a_scale ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; () -> ($($an:literal)*); NAME $($names:expr)* ;; E $a_scale:literal $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; NAME $($names)* $($an)* E $a_scale ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; NAME $($names:expr)* ;; < $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; < ; NAME $($names)* _lt_ ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; NAME $($names:expr)* ;; == $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; == ; NAME $($names)* _eq_ ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; NAME $($names:expr)* ;; > $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; > ; NAME $($names)* _gt_ ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; NAME $($names:expr)* ;; [$($b:literal),+]  $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; Sign::Plus; $($b),*; ($($b)*)-> (); NAME $($names)* ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; NAME $($names:expr)* ;; - [$($b:literal),+]  $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; Sign::Minus; $($b),*; ($($b)*) -> (); NAME $($names)* neg_ ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; $b_sign:expr; $($b:literal),*; ($b0:literal $($br:literal)*) -> ($($bn:literal)*); NAME $($names:expr)* ;; $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; $b_sign; $($b),*; ($($br)*) -> ($b0 $($bn)*); NAME $($names)* ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; $b_sign:expr; $($b:literal),*; () -> ($($bn:literal)*); NAME $($names:expr)* ;; $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; $b_sign; $($b),*; NAME $($names)* $($bn)* ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; $b_sign:expr; $($b:literal),*; NAME $($names:expr)* ;; E -$b_scale:literal $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; $b_sign; $($b),*; -$b_scale; NAME $($names)* E_neg_ $b_scale ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; $b_sign:expr; $($b:literal),*; NAME $($names:expr)* ;; E $b_scale:literal $($rest:tt)*) => {
+            impl_test!( ARGS $a_sign; $($a),*; $a_scale; $op; $b_sign; $($b),*; $b_scale; NAME $($names)* E $b_scale ;; $($rest)* );
+        };
+        ( ARGS $a_sign:expr; $($a:literal),*; $a_scale:literal; $op:tt; $b_sign:expr; $($b:literal),*; $b_scale:literal; NAME $($names:expr)* ;; $($rest:tt)*) => {
+            paste! {
+                #[test]
+                fn [< $($names)* >]() {
+                    let a = DigitInfo {
+                        digits: digit_vec![$($a),*],
+                        sign: $a_sign,
+                        scale: $a_scale,
+                    };
+
+                    let b = DigitInfo {
+                        digits: digit_vec![$($b),*],
+                        sign: $b_sign,
+                        scale: $b_scale,
+                    };
+
+                    assert!(a $op b);
+                }
+            }
+        };
+    }
+
+    impl_test!([123] E 0 < [125] E 0);
+    impl_test!(-[123] E 0 < [123] E 0);
+    impl_test!([123] E 0 > -[123] E 0);
+
+    impl_test!([123] E 2 > [123] E 0);
+
+    impl_test!([17033, 19077] E 0 < [13341, 20122] E 0);
+
+    impl_test!([115713341, 68220122] E -2 == [115713341, 68220122] E -2);
+
+    impl_test!([3000] E 0 == [3] E 3);
+    impl_test!([9] E 9 == [000000000, 9] E 0);
+    impl_test!([350036458, 1783004] E -12 < [350036458, 1783005] E -12);
+    impl_test!([122371833, 19071706] E -4 > [254662] E -3);
+    impl_test!(-[122371833, 19071706] E -4 < [233291] E -30);
+    impl_test!([269635621, 1640082] E -13 < [646057227, 467896899, 161899066, 5] E -25);
+
+    /// left-scale < right-scale & left-len < right-len
+    // impl_test!([199454801, 754390613, 956632344] E -20 > [905394148, 283440546, 029359101, 1] E -4);
+
+    impl_test!([323447543, 9566] E 11 > [905394148, 283440546, 029359101, 1] E -4);
 }
 
 impl From<&DigitInfo> for BigDecimal {
@@ -128,6 +287,121 @@ fn convert_to_base_u32_vec(v: Vec<i32>) -> Vec<u32> {
         std::mem::transmute::<Vec<i32>, Vec<u32>>(v)
     }
 }
+
+pub(crate) fn subtract_big_decimals(a: &BigDecimal, b: &BigDecimal) -> BigDecimal {
+    let a_vec = BigDigitVec::from(a);
+    let b_vec = BigDigitVec::from(b);
+
+    let mut result = DigitInfo {
+        digits: bigdigit_vec![],
+        sign: Sign::NoSign,
+        scale: 0,
+    };
+
+    // subtract_into(
+    //     &a_vec,
+    //     a.scale,
+    //     &b_vec,
+    //     b.scale,
+    //     &a.context,
+    //     &mut result,
+    // );
+
+    return BigDecimal::from(&result);
+}
+
+pub(crate) fn subtract_big_numbers(a: &BigDecimal, b: &num_bigint::BigInt) -> BigDecimal {
+    let a_vec = BigDigitVec::from(a);
+    let b_info = DigitInfo::from(b);
+
+    let mut result = DigitInfo {
+        digits: bigdigit_vec![],
+        sign: Sign::NoSign,
+        scale: 0,
+    };
+
+    // subtract_into(
+    //     &a_vec,
+    //     a.scale,
+    //     &b_info.digits,
+    //     0,
+    //     &a.context,
+    //     &mut result,
+    // );
+
+    return BigDecimal::from(&result);
+}
+
+#[inline]
+fn subtract_a_small_number(
+    a_digits: &[BigDigitBase],
+    a_scale: i64,
+    b_digits: &[BigDigitBase],
+    b_scale: i64,
+    context: &Context,
+    result: &mut DigitInfo,
+) {
+    let a_digit_count = count_digits(&a_digits);
+    let b_digit_count = count_digits(&b_digits);
+    // if b_scale {
+    // }
+
+    let a_end_digit_loc = a_scale;
+    let b_start_digit_loc = b_digit_count as i64 - b_scale;
+
+    println!("{}", b_start_digit_loc);
+
+    // a_end_digit_loc
+    if b_start_digit_loc < context.precision as i64 {
+    }
+
+    match context.rounding_mode {
+        RoundingMode::Down | RoundingMode::Floor => {
+            result.digits.push(a_digits[0] - 1);
+            result.scale = a_scale - 1;
+        }
+        _ => {
+            result.digits.extend_from_slice(a_digits);
+            result.scale = a_scale;
+        }
+    }
+    // result.sign = Sign::Plus;
+    // context.round
+    // let new_digits = crate::arithmetic::rounding::round(
+    //     a_digits, a_scale, context.precision as i64, context.rounding_mode
+    // );
+    // swap(result.digits, new_digits);
+}
+
+#[cfg(test)]
+mod test_subtract_a_small_number {
+    use super::*;
+
+    #[test]
+    fn case_result() {
+        let ctx = Context {
+            precision: 5,
+            rounding_mode: RoundingMode::Down,
+        };
+
+        let mut result = DigitInfo {
+            digits: bigdigit_vec![],
+            sign: Sign::NoSign,
+            scale: 0,
+        };
+        subtract_a_small_number(
+            &[100000], 2,
+            &[4834], -9,
+            &ctx,
+            &mut result
+        );
+
+        assert_eq!(&result.digits, &[99999]);
+        assert_eq!(result.scale, 1);
+        assert_eq!(result.sign, Sign::Plus);
+    }
+}
+
 
 /// Subtract a:(digits, scale) - b:(digits, scale) with prec
 /// precision and store in result
