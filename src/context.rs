@@ -186,6 +186,38 @@ impl RoundingInfo {
             digit_mask: digit_mask,
         };
     }
+
+    pub fn get_rounded_digit(&self, rounding_mode: crate::RoundingMode, sign: crate::Sign) -> u8 {
+        match (
+            rounding_mode,
+            sign,
+            self.left,
+            self.right,
+            self.suffix_zeros,
+        ) {
+            // all digits following "left" are zero -> never change "left"
+            (_, _, left, 0, true) => left,
+            // Towards +∞
+            (RoundingMode::Ceiling, Sign::Plus, left, _, _) => left + 1,
+            (RoundingMode::Ceiling, Sign::NoSign, left, _, _) => left,
+            (RoundingMode::Ceiling, Sign::Minus, left, _, _) => left,
+            // Away from 0
+            (RoundingMode::Up, _, left, _, _) => left + 1,
+            // Handle rounding-point = 5
+            (RoundingMode::HalfUp, _, left, 5, true) => left + 1,
+            (RoundingMode::HalfUp, _, left, right, _) => left + (right >= 5) as u8,
+            (RoundingMode::HalfEven, _, left, 5, true) => left + left % 2,
+            (RoundingMode::HalfEven, _, left, right, _) => left + (right >= 5) as u8,
+            (RoundingMode::HalfDown, _, left, 5, true) => left,
+            (RoundingMode::HalfDown, _, left, right, _) => left + (right >= 5) as u8,
+            // Towards 0
+            (RoundingMode::Down, _, left, _, _) => left,
+            // Towards -∞
+            (RoundingMode::Floor, Sign::Plus, left, _, _) => left,
+            (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
+            (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
+        }.into()
+    }
 }
 
 fn get_rounding_digit_pair(digit_vec: &[BigDigitBase], rounding_point: usize) -> (u8, u8) {
@@ -531,36 +563,7 @@ impl Context {
         // at this point, rounding_point > 0
         let rounding_point = rounding_point as usize;
         let rounding_info = RoundingInfo::from(&digit_vec, rounding_point);
-
-        let rounded_digit = match (
-            self.rounding_mode,
-            decimal.sign(),
-            rounding_info.left,
-            rounding_info.right,
-            rounding_info.suffix_zeros,
-        ) {
-            // all digits following "left" are zero -> never change "left"
-            (_, _, left, 0, true) => left,
-            // Towards +∞
-            (RoundingMode::Ceiling, Sign::Plus, left, _, _) => left + 1,
-            (RoundingMode::Ceiling, Sign::NoSign, left, _, _) => left,
-            (RoundingMode::Ceiling, Sign::Minus, left, _, _) => left,
-            // Away from 0
-            (RoundingMode::Up, _, left, _, _) => left + 1,
-            // Handle rounding-point = 5
-            (RoundingMode::HalfUp, _, left, 5, true) => left + 1,
-            (RoundingMode::HalfUp, _, left, right, _) => left + (right >= 5) as u8,
-            (RoundingMode::HalfEven, _, left, 5, true) => left + left % 2,
-            (RoundingMode::HalfEven, _, left, right, _) => left + (right >= 5) as u8,
-            (RoundingMode::HalfDown, _, left, 5, true) => left,
-            (RoundingMode::HalfDown, _, left, right, _) => left + (right >= 5) as u8,
-            // Towards 0
-            (RoundingMode::Down, _, left, _, _) => left,
-            // Towards -∞
-            (RoundingMode::Floor, Sign::Plus, left, _, _) => left,
-            (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
-            (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
-        } as BigDigitBaseDouble;
+        let rounded_digit = rounding_info.get_rounded_digit(self.rounding_mode, decimal.sign()) as BigDigitBaseDouble;
 
         let digit_shifter = ten_to_pow!(rounding_info.offset);
         let digit_booster = ten_to_pow!(MAX_DIGITS_PER_BIGDIGIT as u8 - rounding_info.offset);
