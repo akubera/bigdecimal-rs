@@ -289,8 +289,10 @@ fn convert_to_base_u32_vec(v: Vec<i32>) -> Vec<u32> {
 }
 
 pub(crate) fn subtract_big_decimals(a: &BigDecimal, b: &BigDecimal) -> BigDecimal {
-    let a_vec = BigDigitVec::from(a);
-    let b_vec = BigDigitVec::from(b);
+    use Sign::*;
+
+    let a_info = DigitInfo::from(a);
+    let b_info = DigitInfo::from(b);
 
     let mut result = DigitInfo {
         digits: bigdigit_vec![],
@@ -298,16 +300,34 @@ pub(crate) fn subtract_big_decimals(a: &BigDecimal, b: &BigDecimal) -> BigDecima
         scale: 0,
     };
 
-    // subtract_into(
-    //     &a_vec,
-    //     a.scale,
-    //     &b_vec,
-    //     b.scale,
-    //     &a.context,
-    //     &mut result,
-    // );
-
-    return BigDecimal::from(&result);
+    match (a_info.sign, b_info.sign) {
+        (Plus, Plus) | (Minus, Minus) => {
+            subtract_into(
+                &a_info.digits,
+                a_info.scale,
+                &b_info.digits,
+                b_info.scale,
+                &a.context,
+                &mut result,
+            );
+            BigDecimal::from(&result)
+        },
+        (Plus, Minus) | (Minus, Plus) => {
+            crate::arithmetic::addition::add_digit_vecs_into(
+                &a_info.digits,
+                &b_info.digits,
+                &mut result.digits
+            );
+            result.sign = a_info.sign;
+            BigDecimal::from(&result)
+        },
+        (_, NoSign) => {
+            a.clone()
+        }
+        (NoSign, _) => {
+            b.neg()
+        }
+    }
 }
 
 pub(crate) fn subtract_big_numbers(a: &BigDecimal, b: &num_bigint::BigInt) -> BigDecimal {
