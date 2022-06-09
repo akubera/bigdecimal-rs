@@ -1,5 +1,7 @@
 use std::mem::swap;
 
+use crate::BigDecimal;
+
 use arithmetic::addition::add_digit_vecs_into;
 use arithmetic::multiplication::multiply_digit_vecs_into;
 
@@ -43,6 +45,15 @@ macro_rules! bigdigit_vec {
         vec![$e]
     };
 }
+
+
+impl From<&BigDecimal> for BigDigitVec {
+    fn from(obj: &BigDecimal) -> BigDigitVec {
+        let mut result = bigdigit_vec![];
+        return result;
+    }
+}
+
 
 /// returns true if number is a power of ten (10^x)
 #[cfg(rustc_1_46)]
@@ -366,4 +377,15 @@ mod test_count_digits {
     test_case!(
         [70592446, 177162782, 274783218, 24352950, 191976889,
             216917990, 28818228, 5216000]; 70);
+}
+
+
+#[inline]
+pub(crate) fn decimal_shift_and_mask(n: usize) -> (BigDigitBase, BigDigitBase)
+{
+    let R = BIG_DIGIT_RADIX as BigDigitBase;
+
+    let shift = to_power_of_ten(n as BigDigitBase);
+    let mask = R / shift;
+    return (shift, mask);
 }

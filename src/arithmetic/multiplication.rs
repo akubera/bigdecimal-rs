@@ -142,7 +142,7 @@ mod test_multiply_digit_vecs {
         }
     }
 
-    // #[test]
+    #[test]
     fn test_209504545595_605739580991() {
         impl_test_for_radix! {
           _ => { unimplemented!() },

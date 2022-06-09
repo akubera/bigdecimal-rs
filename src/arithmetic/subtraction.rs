@@ -60,7 +60,7 @@ impl Ord for DigitInfo {
                 },
                 (Ordering::Greater, true) => {
                     (1, ten_to_pow!(dbg!(digit_diff + scale_diff)))
-                 },
+                },
                 (Ordering::Greater, false) => {
                     (ten_to_pow!(dbg!(-digit_diff - scale_diff)), 1)
                 }
@@ -352,6 +352,673 @@ pub(crate) fn subtract_big_numbers(a: &BigDecimal, b: &num_bigint::BigInt) -> Bi
     return BigDecimal::from(&result);
 }
 
+pub fn subtract_jot_from(
+    d: &BigDecimal, ctx: &Context,
+) -> BigDecimal {
+    let mut result = DigitInfo {
+        digits: bigdigit_vec![],
+        sign: Sign::NoSign,
+        scale: 0,
+    };
+
+    let digit_info = DigitInfo::from(d);
+    subtract_jot_into(&digit_info, ctx, &mut result);
+    return (&result).into();
+}
+
+/// Subtract insignificant positive number (close to zero) from a,
+/// correctly applying rounding rules
+///
+pub(crate) fn subtract_jot_into(
+    a: &DigitInfo,
+    context: &Context,
+    result: &mut DigitInfo,
+) {
+    use Sign::*;
+    use RoundingMode::*;
+    use std::cmp::Ordering::*;
+
+    let a_digit_count = count_digits(&a.digits);
+
+    let (index, shift_pow) = num_integer::div_mod_floor(
+        a_digit_count as i64, context.precision as i64
+    );
+    dbg!(a_digit_count, context.precision, index, shift_pow + 1);
+
+    let rounding_point_within_digits = a_digit_count > context.precision as usize;
+    let rounding_point_on_digit_edge = a_digit_count == context.precision as usize;
+    let rounding_point_right_of_all_digits = a_digit_count < context.precision as usize;
+
+    dbg!(rounding_point_within_digits);
+    dbg!(rounding_point_on_digit_edge);
+    dbg!(rounding_point_right_of_all_digits);
+
+    if rounding_point_within_digits {
+        let rounding_point = a_digit_count as u64 - context.precision;
+        dbg!(rounding_point);
+        let (rounding_index, rounding_offset) = div_rem(rounding_point as usize, MAX_DIGITS_PER_BIGDIGIT as usize);
+        dbg!(rounding_index, rounding_offset);
+
+        let rounding_big_digit = a.digits[rounding_index];
+        if rounding_offset == 0 {
+            unimplemented!();
+        } else {
+            let trailing_mask = ten_to_pow!(rounding_offset);
+            dbg!(trailing_mask);
+            let masked_digit = rounding_big_digit % (trailing_mask * 10);
+            let (left_digit, trailing_digits) = div_rem(masked_digit, trailing_mask);
+            let right_digit = trailing_digits / trailing_mask;
+            dbg!(rounding_big_digit, left_digit, right_digit, trailing_digits);
+
+            let all_trailing_zeros = trailing_digits == 0 && a.digits.iter().take(rounding_index).all(|&d| d == 0);
+            dbg!(all_trailing_zeros);
+            dbg!(left_digit, right_digit, all_trailing_zeros, a.sign, context.rounding_mode);
+            match (left_digit, right_digit, all_trailing_zeros, a.sign, context.rounding_mode) {
+                (l, _, true, Plus, Floor) | (l, _, true, Plus, Down) => {
+                    dbg!(masked_digit);
+                    let mut carry = 0;
+                    for &d in a.digits.iter().skip(rounding_index) {
+                        let (hi, lo) = div_rem(d, trailing_mask as u32);
+                        dbg!(hi, lo);
+                        result.digits.push(lo * 10 + carry);
+                        dbg!(&result.digits);
+                        // d.push(hi);
+                    }
+                    // let digits =
+                    // result.digits.extend(a.digits)
+                    unimplemented!();
+                }
+                /*
+                (0, r, true) => {
+                     crate::context::round_digits( );
+                }
+                (l, 0, true) => {
+                }
+                (l, r, true) => {
+                }
+                (l, r, false) => {
+                }
+                */
+                _ => {
+                    unimplemented!();
+                }
+            }
+
+            if !all_trailing_zeros {
+                dbg!("");
+            } else if right_digit == 0 {
+                dbg!("");
+            }
+        }
+    }
+
+
+    match (a.sign, context.rounding_mode) {
+        (NoSign, _) => { unreachable!() }
+        (Plus, Up) | (Plus, Ceiling) => { unimplemented!() }
+        (Plus, Down) | (Plus, Floor)  => { unimplemented!() }
+        (Plus, HalfDown) | (Plus, HalfUp) | (Plus, HalfEven) => { unimplemented!() }
+        (Minus, Up) | (Minus, Floor) => { unimplemented!() }
+        (Minus, Down) | (Minus, Ceiling)  => { unimplemented!() }
+        (Minus, HalfDown) | (Minus, HalfUp) | (Minus, HalfEven) => { unimplemented!() }
+    }
+
+
+    // dbg!(sign)
+
+    // offset, shift_pow)
+
+    match index.cmp(&(a.digits.len() as i64)) {
+        // index within
+       Less => {
+        let index = index as usize;
+        let d =  a.digits[index] % ten_to_pow!(shift_pow);
+        dbg!(d);
+       }
+       Equal => {
+          a.digits[0] % 10;
+       }
+       Greater => {
+       }
+    }
+
+    if a.digits.iter().all(|&d| d == 0) {
+        result.digits = vec![0];
+        return;
+    }
+
+    // crate::context::get_rounding_digit_pair(&a.digits, );
+
+    dbg!(&a.digits);
+    dbg!(&a.scale);
+
+    // find index of first non-zero bigidigt
+    let nz_index = a.digits.iter().position(|&d| d != 0).unwrap();
+
+    // count non-trailing-zero big digits
+    let nz_digit_count = count_digits(&a.digits[nz_index..]);
+
+    dbg!(nz_index);
+    dbg!(nz_digit_count);
+
+    // could be negative - beware casting to usize if prec < nz_digit_count
+    let additional_digits_required = context.precision as i64 - nz_digit_count as i64;
+    let (new_digit_count, new_digit_offset) = num_integer::div_mod_floor(
+    // let (new_digit_count, new_digit_offset) = num_integer::div_rem(
+        additional_digits_required, MAX_DIGITS_PER_BIGDIGIT as i64
+    );
+
+    dbg!(additional_digits_required);
+    dbg!(new_digit_count);
+    dbg!(new_digit_offset);
+
+    result.scale = a.scale - additional_digits_required + MAX_DIGITS_PER_BIGDIGIT as i64 * nz_index as i64;
+    result.sign = a.sign;
+
+    result.digits.clear();
+    dbg!(a.sign, context.rounding_mode, (nz_digit_count as u64).cmp(&context.precision));
+    match (a.sign, context.rounding_mode, (nz_digit_count as u64).cmp(&context.precision)) {
+        (Plus, Up, Equal) | (Plus, Ceiling, Equal) => {
+            result.digits.extend(a.digits.iter().skip(nz_index));
+            // result.scale += (MAX_DIGITS_PER_BIGDIGIT * nz_index) as i64;
+        }
+        (Plus, Down, Equal) | (Plus, Floor, Equal) => {
+            result.digits.extend(a.digits.iter().skip(nz_index));
+            result.digits[0] -= 1;
+            // result.scale += (MAX_DIGITS_PER_BIGDIGIT * nz_index) as i64;
+        }
+        // (Minus, Floor, Equal) => {
+        //     let mut digits = a.digits.iter();
+
+        //     let (mut carry, d_lo) = div_rem(digits.next().unwrap() + 1, BIG_DIGIT_RADIX as BigDigitBase);
+        //     result.digits.push(d_lo);
+
+        //     if carry == 0 {
+        //         result.digits.extend(digits);
+        //     }
+        // },
+        // (Minus, Up, Equal) |
+        // (Minus, Up, Less) |
+        // (Minus, Floor, Equal) |
+        // (Minus, Floor, Less) => {
+        //     let mut digits = a.digits.iter();
+        //     dbg!(&digits);
+        //     result.digits.extend(digits);
+        //     /*
+        //     let (mut carry, d_lo) = div_rem(digits.next().unwrap() + 1, BIG_DIGIT_RADIX as BigDigitBase);
+        //     result.digits.push(d_lo);
+        //     if carry == 0 {
+        //     }
+        //     */
+        // }
+        // (Minus, Up, Greater) | (Minus, Floor, Greater) if new_digit_offset == 0 => {
+        //     // let mut digits = a.digits.iter().skip(nz_index);
+        //     // let mut carry = 1;
+        //     // for &digit in digits {
+        //     //     let (dhi, dlo) = div_rem(digit, 1);
+        //     //     result.digits.push(dlo * 1 + carry);
+        //     //     carry = dhi;
+        //     // }
+
+        //     // if carry != 0 {
+        //     //     result.digits.push(carry);
+        //     // }
+        // }
+        (Minus, Floor, Equal) |
+        (Minus, Floor, Less) => {
+            if new_digit_offset == 0 {
+                // result.digits.push(d0);
+                // result.digits.extend(a.digits.iter().skip(nz_index+1));
+                unimplemented!();
+            } else {
+                let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+
+                let mut digits = a.digits.iter().skip(nz_index);
+                let mut carry = 1;
+                for &digit in digits {
+                    let (dhi, dlo) = div_rem(digit, mask);
+                    result.digits.push(dlo * shift + carry);
+                    carry = dhi;
+                }
+
+                if carry != 0 {
+                    result.digits.push(carry);
+                }
+            }
+            // if nz_digit_count + 1 < MAX_DIGITS_PER_BIGDIGITS {
+            //     result.digits.push(result.dig)
+            // } else {
+            // if new_digit_count == 0 {
+            //     result.digits.push(1);
+            // } else {
+            //     result.digits.resize(new_digit_count, 0);
+            //     result.digits[0] = 1;
+            // }}
+            // result
+        }
+        // (Minus, Floor, Greater) => {
+        //     // Greater means we have more digits than precision
+
+        //     let new_digit_count = -(new_digit_count + 1);
+        //     dbg!(new_digit_count);
+
+        //     let round_point = a_digit_count - context.precision as usize;
+        //     dbg!(round_point);
+
+        //     let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+        //     dbg!(shift);
+        //     dbg!(mask);
+
+        //     if a.digits[0] < (BIG_DIGIT_RADIX - 1) as BigDigitBase {
+        //         dbg!(&a.digits);
+
+        //         let round_info = crate::context::RoundingInfo::from(&a.digits, round_point);
+        //         // let mut carry = round_info.get_rounded_digit(context.rounding_mode, a.sign);
+        //         let mut carry = 1;
+
+        //         let next_digit = a.digits[0];
+        //         let d0 = a.digits[0] / mask;
+        //         // let (d0_hi, d_lo) = div_rem(next_digit, mask);
+        //         dbg!(d0);
+        //         dbg!(carry);
+        //         dbg!(shift);
+        //         dbg!(d0 + carry as BigDigitBase);
+        //         result.digits.push(d0 + carry as BigDigitBase);
+        //     } else {
+        //         dbg!(&a.digits);
+        //         let round_info = crate::context::RoundingInfo::from(&a.digits, context.precision as usize);
+        //         let rounded_digit = round_info.get_rounded_digit(context.rounding_mode, a.sign);
+        //         dbg!(rounded_digit);
+        //         result.digits.push(rounded_digit as BigDigitBase);
+        //     }
+
+
+        //     // new_digit_count, new_digit_offset
+        //     dbg!(&a.digits);
+
+
+        //     let (d0_hi, d0_lo) = div_rem(a.digits[0] + 1, BIG_DIGIT_RADIX as u32);
+        //     dbg!(d0_hi);
+        //     dbg!(d0_lo);
+        //     //  / mask;
+
+        //     // dbg!(d0 + 1);
+
+        //     result.scale += additional_digits_required;
+        //     // result.digits.push(d0 + 1);
+        // }
+        // (Minus, Floor, Greater) => {
+        //     if new_digit_offset == 0 {
+        //         // result.digits.push(d0);
+        //         // result.digits.extend(a.digits.iter().skip(nz_index+1));
+        //         unimplemented!();
+        //     } else {
+        //         let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+        //     }
+
+        // }
+        // (Minus, Up, Greater) => {
+        //     let round_point = a_digit_count - context.precision as usize;
+        //     dbg!(round_point);
+
+        //     let (skip, offset) = div_rem(round_point, MAX_DIGITS_PER_BIGDIGIT);
+
+        //     let mut digits = a.digits.iter().skip(skip);
+
+        //     let trailing_zero = a.digits.iter().take(skip).all(|&d| d == 0);
+
+        //     let round_info = crate::context::RoundingInfo::from(&a.digits, round_point);
+        //     let round_digit = round_info.get_rounded_digit(context.rounding_mode, a.sign) as BigDigitBase;
+        //     dbg!(round_digit);
+
+        //     let digit0 = digits.next().unwrap();
+        //     dbg!(digit0);
+        //     dbg!(result.scale);
+
+        //     if offset == 0 {
+        //         let digit0 = digit0 - (digit0 % 10) + round_digit;
+        //         dbg!(digit0);
+        //         result.digits.push(digit0);
+        //         result.digits.extend(digits);
+        //     } else {
+        //         let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(
+        //             offset as usize
+        //         );
+        //         let digit0_shifted = digit0 / shift;
+        //         let mut carry = digit0_shifted - (digit0_shifted % 10) + round_digit;
+        //         for &digit in digits {
+        //             let (d_hi, d_lo) = div_rem(digit, shift);
+        //             result.digits.push(d_lo * mask + carry);
+        //             carry = d_hi;
+        //         }
+
+        //         if carry != 0 {
+        //             result.digits.push(carry);
+        //         }
+        //     }
+        // }
+        (_, _, Greater) => {
+            let round_point = a_digit_count - context.precision as usize;
+            dbg!(round_point);
+
+            let (skip, offset) = div_rem(round_point, MAX_DIGITS_PER_BIGDIGIT);
+
+            let mut digits = a.digits.iter().skip(skip);
+
+            let trailing_zero = a.digits.iter().take(skip).all(|&d| d == 0);
+
+            let round_info = crate::context::RoundingInfo::from(&a.digits, round_point);
+            let round_digit = round_info.get_rounded_digit(context.rounding_mode, a.sign) as BigDigitBase;
+            dbg!(round_digit);
+
+            let digit0 = digits.next().unwrap();
+            dbg!(digit0);
+            dbg!(result.scale);
+
+            if offset == 0 {
+                let digit0 = digit0 - (digit0 % 10) + round_digit;
+                dbg!(digit0);
+                result.digits.push(digit0);
+                result.digits.extend(digits);
+            } else {
+                let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(
+                    offset as usize
+                );
+                let digit0_shifted = digit0 / shift;
+                let mut carry = digit0_shifted - (digit0_shifted % 10) + round_digit;
+                for &digit in digits {
+                    let (d_hi, d_lo) = div_rem(digit, shift);
+                    result.digits.push(d_lo * mask + carry);
+                    carry = d_hi;
+                }
+
+                if carry != 0 {
+                    result.digits.push(carry);
+                }
+            }
+        }
+        (Plus, Down, Less) |
+        (Plus, Down, Equal) |
+        (Plus, Floor, Less) |
+        (Plus, Floor, Equal) => {
+
+            // fill required digits with maximum nines (999999999)
+            result.digits.resize(new_digit_count as usize, (BIG_DIGIT_RADIX - 1) as BigDigitBase);
+
+            // decrement first non zero digit to "round-down"
+            let d0 = a.digits[nz_index] - 1;
+
+            if new_digit_offset == 0 {
+                result.digits.push(d0);
+                result.digits.extend(a.digits.iter().skip(nz_index+1));
+            } else {
+                // examine implementations here
+                // https://rust.godbolt.org/z/o8xj1zxbY
+
+                let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+
+                // init to nine filler for first iteration
+                // eg: 100 -> 99, 100000 -> 99999
+                let mut carry = shift - 1;
+
+                // closure to push digits into result (mutates carry)
+                let mut push_digit = |&next_digit| {
+                    let (d_hi, d_lo) = div_rem(next_digit, mask);
+                    result.digits.push((d_lo * shift) + carry);
+                    carry = d_hi;
+                };
+
+                // push d0, then remaining digits
+                push_digit(&d0);
+                a.digits.iter().skip(nz_index+1).for_each(push_digit);
+
+                if carry != 0 {
+                    result.digits.push(carry);
+                }
+            }
+        }
+        (Minus, Ceiling, Less) |
+        (Minus, Down, Less) |
+        (Minus, Floor, Less) |
+        (Minus, HalfUp, Less) |
+        (Minus, Up, Less)  => {
+            if new_digit_offset == 0 {
+                result.digits.extend(a.digits.iter().skip(nz_index));
+            } else {
+                let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+
+                let mut carry = 0;
+                dbg!(shift);
+                dbg!(mask);
+                for &next_digit in a.digits.iter().skip(nz_index) {
+                    let (d_hi, d_lo) = div_rem(next_digit, mask);
+                    result.digits.push((d_lo * shift) + carry);
+                    carry = d_hi;
+                }
+
+                if carry != 0 {
+                    result.digits.push(carry);
+                }
+            }
+        }
+        (Minus, _, Less) |
+        (Minus, _, Equal) |
+        (Plus, _, Less) |
+        (Plus, _, Equal) |
+        (Minus, HalfDown, Less) |
+        (Minus, HalfDown, Equal) |
+        (Minus, HalfEven, Equal) |
+        (Minus, Floor, Equal) |
+        (Minus, Floor, Less) |
+        (Minus, Up, Equal) |
+        (Plus, Up, Less) |
+        (Plus, Up, Equal) |
+        (Plus, Ceiling, Less) => {
+            if new_digit_offset == 0 {
+                result.digits.extend(a.digits.iter().skip(nz_index));
+            } else {
+                let (shift, mask) = crate::bigdigit::decimal_shift_and_mask(new_digit_offset as usize);
+
+                let mut carry = 0;
+                for &next_digit in a.digits.iter().skip(nz_index) {
+                    let (d_hi, d_lo) = div_rem(next_digit, mask);
+                    result.digits.push((d_lo * shift) + carry);
+                    carry = d_hi;
+                }
+
+                if carry != 0 {
+                    result.digits.push(carry);
+                }
+            }
+        }
+        (NoSign, _, _) => {
+            unreachable!();
+        }
+        // _ => {
+        //     unreachable!();
+        // }
+    }
+}
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_subtract_jot {
+    use super::*;
+
+    macro_rules! impl_test {
+        ( - [$($a:literal),+] $($rest:tt)* ) => {
+            impl_test!(name=[case_neg] a=[$($a)* ; Sign::Minus] a_name=[$($a)* ->] :: $($rest)*);
+        };
+        ( [$($a:literal),+] $($rest:tt)* ) => {
+            impl_test!(name=[case] a=[$($a)* ; Sign::Plus] a_name=[$($a)* ->] :: $($rest)*);
+        };
+            (name=[$($name:expr)*] a=[$($a:tt)+] a_name=[$a0:literal $($ar:literal)* -> $($an:literal)*] :: $($rest:tt)*) => {
+                impl_test!(name=[$($name)*] a=[$($a)*] a_name=[$($ar)* -> $a0 $($an)*] :: $($rest)*);
+            };
+            (name=[$($name:expr)*] a=[$($a:tt)+] a_name=[-> $($an:literal)+] :: $($rest:tt)*) => {
+                impl_test!(name=[$($name)* $($an)*] a=[$($a)*] :: $($rest)*);
+            };
+        (name=[$($name:expr)*] a=[$($a:tt)+] :: E - $a_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e_neg $a_scale] a=[$($a)* ; -$a_scale] :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] :: E + $a_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e $a_scale] a=[$($a)* ; $a_scale] :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] :: = - $($rest:tt)*) => {
+            // ignore the -
+            impl_test!(name=[$($name)*] a=[$($a)+] :: = $($rest)*);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] :: = [$($r:literal),+] E+$r_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)*] a=[$($a)*] r=[$($r)*; $r_scale] :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] :: = [$($r:literal),+] E $r_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)*] a=[$($a)*] r=[$($r)*; $r_scale] :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] r=[$($r:tt)+] :: ; prec=$prec:literal round=$round_mode:expr) => {
+            impl_test!(name=[$($name)* _prec_ $prec _round_ $round_mode ] a=[$($a)*] r=[$($r)*] prec=$prec round=$round_mode ;;);
+        };
+        (name=[$($name:expr)*] a=[$($a:tt)+] r=[$($r:tt)+] prec=$prec:literal round=$round_mode:expr ;;) => {
+            paste!{
+                #[test]
+                fn [< $($name)* >]() {
+                    impl_test!(a=[$($a)*] r=[$($r)*] prec=$prec round=RoundingMode::$round_mode)
+                }
+            }
+
+        };
+        (a=[$($a_digits:literal)+ ; $a_sign:path ; $a_scale:literal] r=[$($r_digits:literal)+ ; $r_scale:literal] prec=$prec:literal round=$rounding_mode:expr ) => {{
+            let ctx = Context {
+                precision: $prec,
+                rounding_mode: $rounding_mode,
+            };
+
+            let mut result = DigitInfo {
+                digits: bigdigit_vec![],
+                sign: Sign::NoSign,
+                scale: 0,
+            };
+
+            let a = DigitInfo {
+                digits: digit_vec![$($a_digits),*],
+                scale: $a_scale,
+                sign: $a_sign,
+            };
+
+            subtract_jot_into(
+                &a,
+                &ctx,
+                &mut result
+            );
+
+            assert_eq!(&result.digits, &[$($r_digits),*]);
+            assert_eq!(result.scale, $r_scale);
+            assert_eq!(result.sign, $a_sign);
+        }};
+    }
+
+    /*
+    impl_test!([123456]E-4 = [123455]E-4 ; prec=6 round=Down);
+    impl_test!([123456]E-4 = [1234559]E-5 ; prec=7 round=Down);
+    impl_test!([123456]E-4 = [12345599]E-6 ; prec=8 round=Down);
+    impl_test!([123456]E-4 = [999999999, 123455999]E-16 ; prec=18 round=Down);
+    impl_test!([482095363, 15564435]E-7 = [095362999, 564435482, 15]E-10 ; prec=20 round=Down);
+
+    impl_test!([123456]E-4 = [123455]E-4 ; prec=6 round=Floor);
+
+    impl_test!([123456]E-4 = [123456]E-4 ; prec=6 round=Up);
+    impl_test!([123456]E-4 = [1234560]E-5 ; prec=7 round=Up);
+    impl_test!([123456]E-4 = [234560000, 1]E-8 ; prec=10 round=Up);
+    impl_test!([123456]E-4 = [234560000, 1]E-8 ; prec=10 round=Ceiling);
+
+    // impl_test!(-[123456999]E-4 = -[12345700]E-4 ; prec=8 round=Floor);
+    // impl_test!(-[123456999]E-4 = -[12345700]E-4 ; prec=8 round=Floor);
+    // impl_test!(-[999999999, 99]E-5 = -[10000000]E-1 ; prec=8 round=Floor);
+
+    impl_test!([837502522, 829135874, 224742278, 1]E-15 = [122474227]E+4; prec=9 round=Down);
+    impl_test!([837502522, 829135874, 224742278, 1]E-15 = [122474228]E+4; prec=9 round=Up);
+    impl_test!([837502522, 829135874, 224742278, 1]E-15 = [742278830, 1224]E+0; prec=13 round=Up);
+    impl_test!([837502522, 829135874, 224742278, 1]E-15 = [227882913, 122474]E-2; prec=15 round=Floor);
+
+    impl_test!(-[117715206, 883811998, 4352442]E-23 = -[288381199, 435244]E-13; prec=15 round=Down);
+    impl_test!(-[117715206, 883811998, 4352442]E-23 = -[883811998, 4352442]E-14; prec=16 round=Down);
+    impl_test!(-[117715206, 883811998, 4352442]E-23 = -[883811999, 4352442]E-14; prec=16 round=Floor);
+    impl_test!(-[117715206, 883811998, 4352442]E-23 = -[883811999, 4352442]E-14; prec=16 round=Up);
+
+    impl_test!([000000000, 103592800, 3120462]E-14 = [103592800, 3120462]E-5; prec=16 round=Up);
+    impl_test!([000000000, 103592800, 3120462]E-14 = [103592799, 3120462]E-5; prec=16 round=Down);
+    impl_test!([000000000, 103592800, 3120462]E-14 = [621035928, 31204]E-3; prec=14 round=HalfDown);
+    impl_test!([000000000, 103592800, 3120462]E-14 = [592800000, 120462103, 3]E-8; prec=19 round=Ceiling);
+
+    impl_test!(-[854596516, 540961549, 7]E-2 = -[409615499, 75]E+6; prec=11 round=Up);
+    impl_test!(-[854596516, 540961549, 7]E-2 = -[985459652, 754096154]E-1; prec=18 round=Up);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[854596517, 540961549, 7]E-2; prec=19 round=Up);
+
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799660]E+3; prec=9 round=Floor);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799660]E+3; prec=9 round=Up);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799659]E+3; prec=9 round=Down);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799659]E+3; prec=9 round=HalfUp);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799659]E+3; prec=9 round=HalfEven);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[355799659]E+3; prec=9 round=Ceiling);
+
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996594, 3]E+2; prec=10 round=Down);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996595, 3]E+2; prec=10 round=HalfUp);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996595, 3]E+2; prec=10 round=HalfEven);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996594, 3]E+2; prec=10 round=Ceiling);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996595, 3]E+2; prec=10 round=Floor);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[557996595, 3]E+2; prec=10 round=Up);
+
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965949, 35]E+1; prec=11 round=Down);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965949, 35]E+1; prec=11 round=HalfUp);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965949, 35]E+1; prec=11 round=HalfEven);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965949, 35]E+1; prec=11 round=Ceiling);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965950, 35]E+1; prec=11 round=Floor);
+    impl_test!(-[317000000, 579965949, 35]E-8 = -[579965950, 35]E+1; prec=11 round=Up);
+    */
+
+    impl_test!([200002000]E-8 = [200002]E-4; prec=6 round=Floor);
+    // impl_test!(-[317000000, 579965949, 35]E-8 = -[799659494, 355]E-0; prec=12 round=Floor);
+    // impl_test!(-[317000000, 579965949, 35]E-8 = -[493170001, 255799659]E-6; prec=18 round=Floor);
+    // // impl_test!(-[317000000, 579965949, 35]E-8 = -[557996594, 3]E+2; prec=10 round=Floor);
+    // impl_test!(-[317000000, 579965949, 35]E-8 = -[931700001, 557996594, 3]E-7; prec=19 round=Floor);
+    // impl_test!(-[317000000, 579965949, 35]E-8 = -[317000001, 579965949, 35]E-8; prec=20 round=Floor);
+    // impl_test!(-[317000000, 579965949, 35]E-8 = -[170000001, 799659493, 355]E-9; prec=21 round=Floor);
+
+    // impl_test!(-[403434392, 508220146, 277568563, 784063985, 776617144, 317903140, 579965949, 35]E-36 = -[508220146, 277568563, 784063985, 776617144, 317903140, 579965949, 35]E-27; prec=75 round=Floor);
+
+    // impl_test!(-[000000000, 854596516, 540961549, 7]E-11 = -[545965161, 409615498, 75]E-3; prec=19 round=Floor);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[545965161, 409615498, 75]E-3; prec=20 round=Floor);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[545965161, 409615498, 75]E-3; prec=20 round=Up);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[545965160, 409615498, 75]E-3; prec=20 round=HalfUp);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[545965160, 409615498, 75]E-3; prec=20 round=Down);
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[545965160, 409615498, 75]E-3; prec=20 round=Ceiling);
+
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[459651601, 096154985, 754]E-4; prec=21 round=Up);
+
+    // impl_test!(-[854596516, 540961549, 7]E-2 = -[985459652, 754096154]E-1; prec=12 round=Up);
+
+    // impl_test!([034772202, 292742408, 054200776, 013946389, 1129]E+29 = [1]E+10; prec=1 round=HalfUp);
+    // impl_test!([034772202, 292742408, 054200776, 013946389, 1129]E+29 = [2]E+10; prec=1 round=Up);
+
+    // impl_test!([117715206, 883811998, 4352442]E-23 = []E-13; prec=15 round=Floor);
+    // impl_test!(-[032881694, 647539724]E-9 = -[240328816, 6475397]E-7; prec=16 round=Down);
+
+    // impl_test!(-[123456]E-4 = -[1234560]E-5 ; prec=6 round=Up);
+
+    // impl_test!([100]E+0 = [9999999]E-5 ; prec=7 round=Down);
+    // impl_test!([100000]E+2 = [99999]E-1 ; prec=5 round=Down);
+
+    // impl_test!([100000]E 2 - [4834]E-9 = [100000] E 2; prec=5 round=Up);
+    // impl_test!([132194634] E 10 - [599364822, 2005607]E -15 = [132194634] E 10; prec=12);
+    // impl_test!([132194634] E 10 - [599364822, 2005607]E -15 = [194633999, 132] E 7; prec=12 round=Down);
+    // impl_test!([1]E 100 - [1]E 1 = [1] E 100; prec=8 round=HalfUp);
+    // impl_test!(name=[case_ 1] a=1 b=1 a_scale=1 b_scale=1 prec=8);
+
+
+
+}
+
+
 #[inline]
 fn subtract_a_small_number(
     a_digits: &[BigDigitBase],
@@ -375,11 +1042,14 @@ fn subtract_a_small_number(
     if b_start_digit_loc < context.precision as i64 {
     }
 
+    result.sign = Sign::Plus;
+
     match context.rounding_mode {
         RoundingMode::Down | RoundingMode::Floor => {
             result.digits.push(a_digits[0] - 1);
             result.scale = a_scale - 1;
         }
+
         _ => {
             result.digits.extend_from_slice(a_digits);
             result.scale = a_scale;
@@ -394,32 +1064,96 @@ fn subtract_a_small_number(
 }
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod test_subtract_a_small_number {
     use super::*;
 
-    #[test]
-    fn case_result() {
-        let ctx = Context {
-            precision: 5,
-            rounding_mode: RoundingMode::Down,
+    macro_rules! impl_test {
+        // ( [$($a:literal),+] E - $a_scale:literal - [$($b:literal),+] E - $b_scale:literal ; $($rest:tt)*) => {
+        ( [$($a:literal),+] $($rest:tt)* ) => {
+            impl_test!(a=$($a)* a_name=($($a)*) -> () :: $($rest)*);
         };
-
-        let mut result = DigitInfo {
-            digits: bigdigit_vec![],
-            sign: Sign::NoSign,
-            scale: 0,
+            (a=$($a:literal)+ a_name=($a0:literal $($ar:literal)*) -> ($($an:literal)*) :: $($rest:tt)*) => {
+                impl_test!(a=$($a)* a_name=($($ar)*) -> ($a0 $($an)*) :: $($rest)*);
+            };
+            (a=$($a:literal)+ a_name=() -> ($($an:literal)+) :: $($rest:tt)*) => {
+                impl_test!(name=[case_ $($an)*] a=$($a)* :: $($rest)*);
+            };
+        (name=[$($name:expr)*] a=$($a:literal)+ :: E - $a_scale:literal - [$($b:literal),+] $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e_neg $a_scale] a=$($a)* b=$($b)* a_scale=-$a_scale b_name=($($b)*) -> () :: $($rest)*);
         };
-        subtract_a_small_number(
-            &[100000], 2,
-            &[4834], -9,
-            &ctx,
-            &mut result
-        );
+        (name=[$($name:expr)*] a=$($a:literal)+ :: E $a_scale:literal - [$($b:literal),+] $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e $a_scale]     a=$($a)* b=$($b)*  a_scale=$a_scale b_name=($($b)*) -> () :: $($rest)*);
+        };
+            (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* a_scale=$a_scale:literal b_name=($b0:literal $($br:literal)*) -> ($($bn:literal)*) :: $($rest:tt)*) => {
+                impl_test!(name=[$($name)*] a=$($a)* b=$($b)* a_scale=$a_scale b_name=($($br)*) -> ($b0 $($bn)*) :: $($rest)*);
+            };
+            (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* a_scale=$a_scale:literal b_name=() -> ($($bn:literal)*) :: $($rest:tt)*) => {
+                impl_test!(name=[$($name)* __ $($bn)*] a=$($a)* b=$($b)* a_scale=$a_scale :: $($rest)*);
+            };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* a_scale=$a_scale:literal :: E - $b_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e_neg $b_scale ] a=$($a)* b=$($b)* a_scale=$a_scale b_scale=-$b_scale :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* a_scale=$a_scale:literal :: E $b_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)* e $b_scale ] a=$($a)* b=$($b)* a_scale=$a_scale b_scale=$b_scale :: $($rest)*);
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* a_scale=$a_scale:literal b_scale=$b_scale:literal :: = [$($c:literal),+] E $c_scale:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)*] a=$($a)* b=$($b)* c=$($c)* a_scale=$a_scale b_scale=$b_scale c_scale=$c_scale :: $($rest)* );
 
-        assert_eq!(&result.digits, &[99999]);
-        assert_eq!(result.scale, 1);
-        assert_eq!(result.sign, Sign::Plus);
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)+ c=$($c:literal)+ a_scale=$a_scale:literal b_scale=$b_scale:literal c_scale=$c_scale:literal :: ; prec=$prec:literal $($rest:tt)*) => {
+            impl_test!(name=[$($name)* _prec_ $prec] a=$($a)* b=$($b)* c=$($c)* a_scale=$a_scale b_scale=$b_scale c_scale=$c_scale prec=$prec :: $($rest)* );
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* c=$($c:literal)+ a_scale=$a_scale:literal b_scale=$b_scale:literal c_scale=$c_scale:literal prec=$prec:literal :: ) => {
+            impl_test!(name=[$($name)*] a=$($a)* b=$($b)* c=$($c)* a_scale=$a_scale b_scale=$b_scale c_scale=$c_scale prec=$prec :: round=HalfEven);
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* c=$($c:literal)+ a_scale=$a_scale:literal b_scale=$b_scale:literal c_scale=$c_scale:literal prec=$prec:literal :: round=$round_mode:ident) => {
+            impl_test!(name=[$($name)* _round_ $round_mode] a=$($a)* b=$($b)* c=$($c)* a_scale=$a_scale b_scale=$b_scale c_scale=$c_scale prec=$prec round=RoundingMode::$round_mode ;; );
+        };
+        (name=[$($name:expr)*] a=$($a:literal)+ b=$($b:literal)* c=$($c:literal)+ a_scale=$a_scale:literal b_scale=$b_scale:literal c_scale=$c_scale:literal prec=$prec:literal round=$rounding:expr ;; ) => {
+            paste!{
+                #[test]
+                fn [< $($name)* >]() {
+                    impl_test!(a=$($a)* b=$($b)* c=$($c)* a_scale=$a_scale b_scale=$b_scale c_scale=$c_scale prec=$prec round=$rounding)
+                }
+            }
+
+        };
+        (a=$($a:literal)+ b=$($b:literal)+ c=$($c:literal)+ a_scale=$a_scale:literal b_scale=$b_scale:literal c_scale=$c_scale:literal prec=$prec:literal round=$round:expr ) => {{
+
+            let ctx = Context {
+                precision: $prec,
+                rounding_mode: $round,
+            };
+
+            let mut result = DigitInfo {
+                digits: bigdigit_vec![],
+                sign: Sign::NoSign,
+                scale: 0,
+            };
+
+            subtract_a_small_number(
+                &[$($a),*], $a_scale,
+                &[$($b),*], $b_scale,
+                &ctx,
+                &mut result
+            );
+
+            assert_eq!(&result.digits, &[$($c),*]);
+            assert_eq!(result.scale, $c_scale);
+            assert_eq!(result.sign, Sign::Plus);
+        }};
     }
+
+    impl_test!([100000]E 2 - [4834]E-9 = [99999] E 1; prec=5 round=Down);
+    impl_test!([100000]E 2 - [4834]E-9 = [100000] E 2; prec=5 round=Up);
+    impl_test!([132194634] E 10 - [599364822, 2005607]E -15 = [132194634] E 10; prec=12);
+    impl_test!([132194634] E 10 - [599364822, 2005607]E -15 = [194633999, 132] E 7; prec=12 round=Down);
+    impl_test!([1]E 100 - [1]E 1 = [1] E 100; prec=8 round=HalfUp);
+    // impl_test!(name=[case_ 1] a=1 b=1 a_scale=1 b_scale=1 prec=8);
+
+
+
 }
 
 
@@ -432,9 +1166,20 @@ pub(crate) fn subtract_into(
     a_scale: i64,
     b_digits: &[BigDigitBase],
     b_scale: i64,
-    prec: std::num::NonZeroU32,
+    context: &Context,
     result: &mut DigitInfo,
 ) {
+    let prec = std::num::NonZeroU32::new(context.precision as u32).unwrap();
+
+    let b_digit_count = count_digits(&b_digits);
+
+    if (a_scale - (b_digit_count as i64 - b_scale)) < context.precision as i64 {
+        subtract_a_small_number(
+            a_digits, a_scale, b_digits, b_scale, context, result
+        );
+        return;
+    }
+
     if a_scale == b_scale {
         _subtract_aligned_digits(a_digits, b_digits, prec, result);
         result.scale = a_scale;
@@ -453,7 +1198,9 @@ pub(crate) fn subtract_into(
         None => unimplemented!("handle aligned digits?"),
     }
 
-    dbg!(scale_diff, skip, offset);
+    dbg!(scale_diff);
+    dbg!(skip);
+    dbg!( offset);
 
     result.scale = a_scale.min(b_scale);
     result.sign = Sign::Plus;
@@ -608,7 +1355,14 @@ mod test_subtract_into {
             $( assert!(($b as i128) < (BIG_DIGIT_RADIX as i128)); )*
             $( assert!(($r as i128) < (BIG_DIGIT_RADIX as i128)); )*
 
-            subtract_into(&a_digits, $a_scale, &b_digits, $b_scale, std::num::NonZeroU32::new($prec).unwrap(), &mut output);
+            let ctx = Context {
+                precision: $prec,
+                rounding_mode: RoundingMode::HalfEven,
+            };
+
+            // std::num::NonZeroU32::new($prec).unwrap()
+            // subtract_into(&a_digits, $a_scale, &b_digits, $b_scale, &ctx, &mut output);
+            // sub
 
             dbg!(&output.sign, &output.digits);
             assert_eq!(&output.digits, &[$($r),*]);
@@ -1158,37 +1912,36 @@ fn _subtract_unaligned_digits(
         //         sub_carry = 1;
         //     }
         // } else if skip > 0 {
-            for i in 0..skip {
-                match (b_digits[i], sub_carry) {
-                    (0, 0) => {
-                        result.digits.push(0);
-                    }
-                    (0, _) => {
-                        let diff = BIG_DIGIT_RADIX - 1 as BigDigitBaseDouble;
-                        result.digits.push(diff as BigDigitBase);
-                        sub_carry = 0;
-                    }
-                    (d, 0) => {
-                        let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
-                        result.digits.push(diff as BigDigitBase);
-                        sub_carry = 1;
-                    }
-                    (d, _) if d == (BIG_DIGIT_RADIX - 1) as u32 => {
-                        let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
-                        result.digits.push(diff as BigDigitBase);
-                        sub_carry = 0;
-                    }
-                    (d, _) => {
-                        let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
-                        result.digits.push(diff as BigDigitBase);
-                        sub_carry = 0;
-                    }
+        for i in 0..skip {
+            match (b_digits[i], sub_carry) {
+                (0, 0) => {
+                    result.digits.push(0);
+                }
+                (0, _) => {
+                    let diff = BIG_DIGIT_RADIX - 1 as BigDigitBaseDouble;
+                    result.digits.push(diff as BigDigitBase);
+                    sub_carry = 0;
+                }
+                (d, 0) => {
+                    let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
+                    result.digits.push(diff as BigDigitBase);
+                    sub_carry = 1;
+                }
+                (d, _) if d == (BIG_DIGIT_RADIX - 1) as u32 => {
+                    let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
+                    result.digits.push(diff as BigDigitBase);
+                    sub_carry = 0;
+                }
+                (d, _) => {
+                    let diff = BIG_DIGIT_RADIX - d as BigDigitBaseDouble;
+                    result.digits.push(diff as BigDigitBase);
+                    sub_carry = 0;
                 }
             }
-
-        if a_digits.len() <= b_digits[skip..].len() {
         }
-            // result.digits.extend_from_slice(&b_digits[..skip]);
+
+        if a_digits.len() <= b_digits[skip..].len() {}
+        // result.digits.extend_from_slice(&b_digits[..skip]);
         // }
 
         dbg!(a_digits.len(), b_digits[skip..].len());
@@ -1356,7 +2109,11 @@ pub(crate) fn sub_int_digit_vec_into(a: i64, b: &DigitInfo, prec: std::num::NonZ
         }
     }
 
-    subtract_into(a_digits, 0, b_digits, b_scale, prec, result);
+    let ctx = Context {
+        precision: prec.get() as u64,
+        ..Default::default()
+    };
+    subtract_into(a_digits, 0, b_digits, b_scale, &ctx, result);
 
     unimplemented!();
 }
@@ -1510,7 +2267,8 @@ mod test_sub_int_digit_vec_into {
                 sign: Sign::NoSign,
             };
 
-            assert!(($minuend as i128) <= (i64::MAX as i128));
+            // assert!(($minuend as i128) <= (i64::MAX as i128));
+            assert!(($minuend as i128) < crate::MAX_BIG_DIGIT_BASE_DOUBLE as i128);
 
             sub_int_digit_vec_into($minuend, &input, DEFAULT_PREC, &mut output);
             dbg!(&output.sign, &output.digits);

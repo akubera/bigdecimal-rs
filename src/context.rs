@@ -187,40 +187,53 @@ impl RoundingInfo {
         };
     }
 
-    pub fn get_rounded_digit(&self, rounding_mode: crate::RoundingMode, sign: crate::Sign) -> u8 {
-        match (
-            rounding_mode,
-            sign,
-            self.left,
-            self.right,
-            self.suffix_zeros,
-        ) {
-            // all digits following "left" are zero -> never change "left"
-            (_, _, left, 0, true) => left,
-            // Towards +∞
-            (RoundingMode::Ceiling, Sign::Plus, left, _, _) => left + 1,
-            (RoundingMode::Ceiling, Sign::NoSign, left, _, _) => left,
-            (RoundingMode::Ceiling, Sign::Minus, left, _, _) => left,
-            // Away from 0
-            (RoundingMode::Up, _, left, _, _) => left + 1,
-            // Handle rounding-point = 5
-            (RoundingMode::HalfUp, _, left, 5, true) => left + 1,
-            (RoundingMode::HalfUp, _, left, right, _) => left + (right >= 5) as u8,
-            (RoundingMode::HalfEven, _, left, 5, true) => left + left % 2,
-            (RoundingMode::HalfEven, _, left, right, _) => left + (right >= 5) as u8,
-            (RoundingMode::HalfDown, _, left, 5, true) => left,
-            (RoundingMode::HalfDown, _, left, right, _) => left + (right >= 5) as u8,
-            // Towards 0
-            (RoundingMode::Down, _, left, _, _) => left,
-            // Towards -∞
-            (RoundingMode::Floor, Sign::Plus, left, _, _) => left,
-            (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
-            (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
-        }.into()
+    pub fn get_rounded_digit(&self, rounding_mode: RoundingMode, sign: crate::Sign) -> BigDigitBase {
+        round_digit(rounding_mode, sign, self.left, self.right, self.suffix_zeros)
     }
 }
 
-fn get_rounding_digit_pair(digit_vec: &[BigDigitBase], rounding_point: usize) -> (u8, u8) {
+
+/// Perform the rounding of digits
+pub(crate) fn round_digit(
+    rounding_mode: RoundingMode,
+    sign: Sign,
+    left_digit: u8,
+    right_digit: u8,
+    suffix_zeros: bool
+) -> BigDigitBase {
+    match (
+        rounding_mode,
+        sign,
+        left_digit,
+        right_digit,
+        suffix_zeros,
+    ) {
+        // all digits following "left" are zero -> never change "left"
+        (_, _, left, 0, true) => left,
+        // Towards +∞
+        (RoundingMode::Ceiling, Sign::Plus, left, _, _) => left + 1,
+        (RoundingMode::Ceiling, Sign::NoSign, left, _, _) => left,
+        (RoundingMode::Ceiling, Sign::Minus, left, _, _) => left,
+        // Away from 0
+        (RoundingMode::Up, _, left, _, _) => left + 1,
+        // Handle rounding-point = 5
+        (RoundingMode::HalfUp, _, left, 5, true) => left + 1,
+        (RoundingMode::HalfUp, _, left, right, _) => left + (right >= 5) as u8,
+        (RoundingMode::HalfEven, _, left, 5, true) => left + left % 2,
+        (RoundingMode::HalfEven, _, left, right, _) => left + (right >= 5) as u8,
+        (RoundingMode::HalfDown, _, left, 5, true) => left,
+        (RoundingMode::HalfDown, _, left, right, _) => left + (right >= 5) as u8,
+        // Towards 0
+        (RoundingMode::Down, _, left, _, _) => left,
+        // Towards -∞
+        (RoundingMode::Floor, Sign::Plus, left, _, _) => left,
+        (RoundingMode::Floor, Sign::NoSign, left, _, _) => left,
+        (RoundingMode::Floor, Sign::Minus, left, _, _) => left + 1,
+    }.into()
+}
+
+
+pub(crate) fn get_rounding_digit_pair(digit_vec: &[BigDigitBase], rounding_point: usize) -> (u8, u8) {
     if rounding_point == 0 {
         let (higher_digits, first_digit) = div_rem(digit_vec[0], 10);
         return ((higher_digits % 10) as u8, first_digit as u8);
@@ -741,6 +754,13 @@ impl Context {
             context,
         };
     }
+
+    pub(crate) fn neg(&self) -> Context {
+        Context {
+            precision: self.precision,
+            rounding_mode: self.rounding_mode.neg(),
+        }
+    }
 }
 
 impl Default for Context {
@@ -859,6 +879,18 @@ pub enum RoundingMode {
     /// * -2.5 -> -2.0
     /// * -5.5 -> -6.0
     HalfEven,
+}
+
+impl RoundingMode {
+    pub(crate) fn neg(&self) -> RoundingMode {
+        use RoundingMode::*;
+
+        match *self {
+            Ceiling => Floor,
+            Floor => Ceiling,
+            rest => rest
+        }
+    }
 }
 
 #[cfg(test)]

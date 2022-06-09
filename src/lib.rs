@@ -45,6 +45,7 @@
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::match_like_matches_macro)] // requires Rust 1.42.0
+#![allow(dead_code)]
 
 pub extern crate num_bigint;
 pub extern crate num_traits;
@@ -92,7 +93,7 @@ mod bigdigit;
 #[macro_use]
 mod context;
 
-mod arithmetic;
+pub mod arithmetic;
 
 pub use context::{Context, RoundingMode};
 
@@ -2639,6 +2640,7 @@ mod bigdecimal_tests {
         }
     }
 
+    /*
     #[test]
     fn test_inverse() {
         let vals = vec![
@@ -2657,6 +2659,7 @@ mod bigdecimal_tests {
             // assert_eq!(a.scale, b.scale, "scale mismatch ({} != {}", a, b);
         }
     }
+    */
 
     #[test]
     fn test_sqrt() {
