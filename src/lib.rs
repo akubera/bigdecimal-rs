@@ -109,6 +109,9 @@ mod macros;
 // "low level" functions
 mod arithmetic;
 
+// digit & radix routines
+mod bigdigit;
+
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
 mod impl_trait_from_str;
