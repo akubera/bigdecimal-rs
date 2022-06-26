@@ -50,8 +50,13 @@ pub extern crate num_bigint;
 pub extern crate num_traits;
 extern crate num_integer;
 
+
 #[cfg(feature = "serde")]
 extern crate serde;
+
+#[cfg(test)]
+#[macro_use]
+extern crate paste;
 
 use std::cmp::Ordering;
 use std::convert::TryFrom;
@@ -73,6 +78,8 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 
 #[macro_use]
 mod macros;
+
+pub mod bigdigit;
 
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
