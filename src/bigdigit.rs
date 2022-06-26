@@ -159,6 +159,7 @@ impl BigDigit {
         (BigDigit(hi as BigDigitBase), BigDigit(lo as BigDigitBase))
     }
 
+    /// Calculate z += (self * y), returning the carry value
     #[inline]
     pub fn fused_multiply_add_into(&self, y: &BigDigit, z: &mut BigDigit)
         -> BigDigit
@@ -172,6 +173,18 @@ impl BigDigit {
         z.0 = lo as BigDigitBase;
         BigDigit(hi as BigDigitBase)
     }
+
+    /// calculate self += (a * b), returning the carry value
+    ///
+    /// Alternate form of fused_multiply_add_into with "conventional" naming
+    ///
+    #[inline]
+    pub fn add_assign_product(&mut self, a: &BigDigit, b: &BigDigit)
+        -> BigDigit
+    {
+        a.fused_multiply_add_into(b, self)
+    }
+
 
     /// Store sum of self plus carry in self and, store new overflow value in carry
     #[inline]
