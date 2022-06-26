@@ -259,6 +259,12 @@ impl BigDigitVec {
         self.push(BigDigit(value));
     }
 
+    /// Push fully expanded integer into the vector
+    ///
+    /// To replace the contents of vector with a fully expanded integer, use the
+    /// `replace_with` method.
+    ///
+    #[inline]
     pub fn push_integer<N: Into<u128>>(&mut self, num: N) {
         let a = num.into();
         if a < BIG_DIGIT_RADIX as u128 {
@@ -266,12 +272,14 @@ impl BigDigitVec {
             return;
         }
 
+        let mut carry = a;
         loop {
-            let (a, lo) = div_rem(a, BIG_DIGIT_RADIX as u128);
+            let (hi, lo) = div_rem(carry, BIG_DIGIT_RADIX as u128);
             self.push_raw_integer(lo as BigDigitBase);
-            if a == 0 {
+            if hi == 0 {
                 break;
             }
+            carry = hi;
         }
     }
 
