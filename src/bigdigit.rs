@@ -63,6 +63,24 @@ type BigDigitVecBase = Vec<BigDigit>;
 
 
 impl BigDigit {
+    /// Helper constructor for functions in this crate that dont have access
+    /// to the private '.0' field
+    ///
+    pub(crate) fn from_raw_integer<N: Into<BigDigitBase>>(n: N) -> BigDigit {
+        let v = n.into();
+        debug_assert!((v as BigDigitBaseDouble) < BIG_DIGIT_RADIX);
+        BigDigit(v)
+    }
+
+    /// Useful for Rust's default of i32 for integer literals
+    /// when building via macros
+    ///
+    pub(crate) fn from_literal_integer(n: i32) -> BigDigit {
+        debug_assert!(n >= 0);
+        debug_assert!((n as BigDigitBaseDouble) < BIG_DIGIT_RADIX);
+        BigDigit(n as BigDigitBase)
+    }
+
     /// Return value zero
     pub fn zero() -> BigDigit {
         BigDigit(0)
@@ -345,10 +363,6 @@ impl AsRef<[BigDigit]> for BigDigitVec {
 
 impl AsMut<[BigDigit]> for BigDigitVec {
     fn as_mut(&mut self) -> &mut [BigDigit] { self.0.as_mut() }
-}
-
-pub(crate) fn build_big_digit(x: u32) -> BigDigit {
-    BigDigit(x)
 }
 
 /// Custom wrapper for easily building BigDigitVec objects

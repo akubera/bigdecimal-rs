@@ -2,29 +2,30 @@
 
 macro_rules! apply {
     ($func:ident, $a:literal, [ $($b:literal),* ]) => {{
-        let a = crate::bigdigit::build_big_digit($a);
-        let b = [ $( crate::bigdigit::build_big_digit($b) ),* ];
+        let a = BigDigit::from_literal_integer($a);
+        let b = [ $( BigDigit::from_literal_integer($b) ),* ];
         $func(&a, &b)
     }};
     ($func:ident, [ $($a:literal),* ], [ $($b:literal),* ]) => {{
-        let a = [ $( crate::bigdigit::build_big_digit($a) ),* ];
-        let b = [ $( crate::bigdigit::build_big_digit($b) ),* ];
+        let a = [ $( BigDigit::from_literal_integer($a) ),* ];
+        let b = [ $( BigDigit::from_literal_integer($b) ),* ];
         $func(&a, &b)
     }};
 }
 
 macro_rules! assert_bigdecvec_eq {
     ( $v:ident, [ $($digits:literal),* ] ) => {
-        let expected = [ $( crate::bigdigit::build_big_digit($digits) ),* ];
+        let expected = [ $( BigDigit::from_literal_integer($digits) ),* ];
         assert_eq!($v.as_ref(), &expected);
     };
 }
 
 macro_rules! call_func {
     ( $func:ident, [ $($a:literal),* ] [ $($b:literal),* ] [ $($c:literal),* ]) => {{
-        let a = [ $( crate::bigdigit::build_big_digit($a) ),* ];
-        let b = [ $( crate::bigdigit::build_big_digit($b) ),* ];
-        let expected = [ $( crate::bigdigit::build_big_digit($c) ),* ];
+        use crate::bigdigit::BigDigitBase;
+        let a = [ $( BigDigit::from_literal_integer($a) ),* ];
+        let b = [ $( BigDigit::from_literal_integer($b) ),* ];
+        let expected = [ $( BigDigit::from_literal_integer($c) ),* ];
 
         $func(a.as_ref(), b.as_ref(), expected.as_ref());
     }}
