@@ -153,6 +153,30 @@ impl BigDigit {
         (BigDigit(hi as BigDigitBase), BigDigit(lo as BigDigitBase))
     }
 
+    #[inline]
+    pub fn fused_multiply_add_into(&self, y: &BigDigit, z: &mut BigDigit)
+        -> BigDigit
+    {
+        let product = (self.0 as BigDigitBaseDouble
+                        * y.0 as BigDigitBaseDouble)
+                        + z.0 as BigDigitBaseDouble;
+
+        let (hi, lo) = div_rem(product, BIG_DIGIT_RADIX);
+        debug_assert!(hi < BIG_DIGIT_RADIX);
+        z.0 = lo as BigDigitBase;
+        BigDigit(hi as BigDigitBase)
+    }
+
+    /// Store sum of self plus carry in self and, store new overflow value in carry
+    #[inline]
+    pub fn add_assign_carry(&mut self, carry: &mut BigDigit) {
+        let tmp = self.0 as BigDigitBaseDouble + carry.0 as BigDigitBaseDouble;
+        let (overflow, sum) = div_rem(tmp, BIG_DIGIT_RADIX);
+        debug_assert!(overflow < BIG_DIGIT_RADIX);
+        self.0 = sum as BigDigitBase;
+        carry.0 = overflow as BigDigitBase;
+    }
+
     /// Return the value of self plus carry, store overflow value (0 or 1) in carry
     #[inline]
     pub fn add_carry(&self, carry: &mut BigDigit) -> BigDigit {
