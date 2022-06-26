@@ -80,6 +80,7 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 mod macros;
 
 pub mod bigdigit;
+pub mod arithmetic;
 
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
