@@ -52,6 +52,7 @@ pub(crate) fn add_digit_slices_into(a: &[BigDigit], b: &[BigDigit], v: &mut BigD
 #[allow(unreachable_patterns)]
 mod test_add_digit_slices {
     use super::*;
+    use crate::bigdigit::BIG_DIGIT_RADIX;
 
     include!("../test_macros.rs");
 
@@ -67,7 +68,7 @@ mod test_add_digit_slices {
         };
         ([$($a:literal),*] [$($b:literal),*] == [$($c:literal),*]) => {
             let do_test = impl_test!();
-            testimplr!(do_test, [$($a),*] [$($b),*] [$($c),*]);
+            call_func!(do_test, [$($a),*] [$($b),*] [$($c),*]);
         };
     }
 
