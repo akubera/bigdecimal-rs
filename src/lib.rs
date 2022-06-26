@@ -46,6 +46,11 @@
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::match_like_matches_macro)] // requires Rust 1.42.0
 
+// allow while in R&D phase
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_macros)]
+
 pub extern crate num_bigint;
 pub extern crate num_traits;
 extern crate num_integer;
