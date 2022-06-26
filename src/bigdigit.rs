@@ -287,8 +287,20 @@ impl From<bool> for BigDigit {
     fn from(val: bool) -> BigDigit { BigDigit::from(val as u8) }
 }
 
-impl From<BigDigit> for u32 {
-    fn from(big_digit: BigDigit) -> u32 { big_digit.0 }
+impl From<BigDigit> for BigDigitBase {
+    fn from(big_digit: BigDigit) -> BigDigitBase { big_digit.0 }
+}
+
+impl From<&BigDigit> for BigDigitBase {
+    fn from(big_digit: &BigDigit) -> BigDigitBase { big_digit.0 }
+}
+
+impl From<BigDigit> for BigDigitBaseDouble {
+    fn from(big_digit: BigDigit) -> BigDigitBaseDouble { big_digit.0 as BigDigitBaseDouble }
+}
+
+impl From<&BigDigit> for BigDigitBaseDouble {
+    fn from(big_digit: &BigDigit) -> BigDigitBaseDouble { big_digit.0 as BigDigitBaseDouble }
 }
 
 impl std::cmp::PartialEq<u32> for BigDigit {
