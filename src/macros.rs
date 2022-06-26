@@ -252,3 +252,13 @@ macro_rules! impl_div_for_primitives {
         forward_primitive_types!(uints => impl_div_for_uint_primitive);
     };
 }
+
+
+macro_rules! nonzero {
+    ( $n:expr ) => {
+        std::num::NonZeroU128::new($n as u128).unwrap()
+    };
+    ( $exp:expr, $t:ty ) => {
+        std::num::NonZeroU128::new($exr as $t).unwrap()
+    };
+}
