@@ -90,7 +90,7 @@ mod macros;
 pub mod bigdigit;
 pub mod arithmetic;
 
-mod context;
+pub mod context;
 pub use context::{Context, RoundingMode};
 
 

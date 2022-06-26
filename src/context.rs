@@ -69,17 +69,25 @@ impl Context {
     }
 }
 
-/// Status of context object
 bitflags! {
+    /// Operation status flags stored in context object
     pub struct Status: u32 {
-        const OVERFLOW = 0x00000200;
-        const UNDERFLOW = 0x00002000;
-        const CLAMBED = 0x00000400;
-        const ROUNDED = 0x00000800;
-        const DIVBYZERO = 0x00000002;
-        const DIVIMPOSSIBLE = 0x00000004;
+        /// Operation has overflowed
+        const OVERFLOW             = 0x00000200;
+        /// Operation has underflowed to zero
+        const UNDERFLOW            = 0x00002000;
+        /// Operation output was affected by boundary limits
+        const CLAMPED              = 0x00000400;
+        /// Rounding occurred though possibly no information was lost
+        const ROUNDED              = 0x00000800;
+        /// Divide by zero
+        const DIVBYZERO            = 0x00000002;
+        /// Divide by zero
+        const DIVIMPOSSIBLE        = 0x00000004;
+        /// Output too big
         const INSUFFICIENT_STORAGE = 0x00000010;
-        const INEXACT = 0x00000020;
+        /// Indicates that rounding occurred and the result is not exact
+        const INEXACT              = 0x00000020;
     }
 }
 
