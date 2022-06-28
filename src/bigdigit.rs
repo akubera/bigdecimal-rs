@@ -875,40 +875,38 @@ mod test_count_digits {
 }
 
 
-pub(crate) struct BigDigitSplitter {
-    mask: BigDigitBase,
-    shift: BigDigitBase,
-}
-
-impl BigDigitSplitter {
-    pub(crate) fn new(offset: u32) -> Self {
-        BigDigitSplitter {
-            mask: to_power_of_ten(offset),
-            shift: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
-        }
-    }
-}
-
-pub(crate) struct BigDigitSplitterIter<'a, I: Iterator<Item=&'a BigDigit>> {
+/// Iterator which splits a stream of BigDigits into hi and low parts
+///
+/// To be used to align digits
+///
+pub(crate) struct BigDigitSplitterIter<'a, I>
+where
+    I: Iterator<Item=&'a BigDigit>
+{
     mask: BigDigitBase,
     shift: BigDigitBase,
     prev: BigDigit,
     iter: I,
 }
 
-impl<'a, I: Iterator<Item=&'a BigDigit>> BigDigitSplitterIter<'a, I> {
+impl<'a, I> BigDigitSplitterIter<'a, I>
+where
+    I: Iterator<Item=&'a BigDigit>
+{
     pub fn new(offset: u32, iter: I) -> Self {
         BigDigitSplitterIter {
-            mask: to_power_of_ten(offset),
-            shift: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
+            mask: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
+            shift: to_power_of_ten(offset),
             prev: BigDigit::zero(),
             iter: iter,
         }
     }
 }
 
-impl<'a, I: Iterator<Item=&'a BigDigit>> Iterator for BigDigitSplitterIter<'a, I> {
-// impl<I: Iterator<Item=BigDigit>> Iterator for BigDigitSplitterIter<I> {
+impl<'a, I> Iterator for BigDigitSplitterIter<'a, I>
+where
+    I: Iterator<Item=&'a BigDigit>
+{
     type Item = BigDigit;
 
     fn next(&mut self) -> Option<Self::Item> {
