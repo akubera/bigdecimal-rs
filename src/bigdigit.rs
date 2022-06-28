@@ -609,7 +609,6 @@ macro_rules! from_iter_radix_impl {
             add_digit_slices_into(&result, &digit_vec, &mut tmp);
             swap(&mut result, &mut tmp);
         }
-        dbg!(digit_vec.capacity(), result.capacity(), tmp.capacity(), radix_shift_vec.capacity());
 
         return result;
     }};
