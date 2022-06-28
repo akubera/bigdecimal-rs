@@ -132,6 +132,14 @@ impl BigDigit {
         }
     }
 
+    #[inline]
+    pub fn split_and_shift(self, mask: BigDigitBase, shift: BigDigitBase)
+        -> (BigDigit, BigDigit)
+    {
+        let (hi, lo) = div_rem(self.0, mask);
+        (BigDigit(hi), BigDigit(lo * shift))
+    }
+
     /// Add this and another bigdigit into a vector
     #[inline]
     pub fn add_into(&self, rhs: &BigDigit, v: &mut BigDigitVec) {
@@ -302,6 +310,14 @@ impl BigDigitVec {
         }
     }
 
+    /// Copy values from the slice into the vec
+    ///
+    /// Note: zeroes will not be truncated
+    ///
+    pub fn extend_from_slice(&mut self, slice: &[BigDigit]) {
+        self.0.extend_from_slice(slice)
+    }
+
     /// Resize internal vector, filling new entries with copy
     /// of value
     pub fn resize(&mut self, new_len: usize, value: BigDigit) {
@@ -349,6 +365,29 @@ impl BigDigitVec {
     pub fn truncate_zeros(&mut self) {
         let nonzero_index = self.0.iter().rposition(|&d| d != 0).unwrap_or(0);
         self.0.truncate(nonzero_index + 1);
+    }
+
+    /// Helper method for extening vector with digits, potentially adding carry
+    ///
+    pub(crate) fn extend_with_carried_sum<I>(&mut self, digits: I, mut carry: BigDigit)
+    where
+        I: Iterator<Item=BigDigit>
+    {
+        if carry.is_zero() {
+            for digit in digits {
+                self.push(digit);
+            }
+            return;
+        }
+
+        for digit in digits {
+            self.push(digit.add_carry(&mut carry));
+        }
+
+        if !carry.is_zero() {
+            self.push(carry);
+        }
+
     }
 }
 
@@ -758,7 +797,7 @@ mod test_power_of_ten {
 /// Calculate 10^n
 ///
 #[inline]
-pub fn to_power_of_ten(n: u32) -> BigDigitBase {
+pub(crate) fn to_power_of_ten(n: u32) -> BigDigitBase {
     (10 as BigDigitBase).pow(n)
 }
 
@@ -833,4 +872,51 @@ mod test_count_digits {
     test_case!(
         [70592446, 177162782, 274783218, 24352950, 191976889,
             216917990, 28818228, 5216000]; 70);
+}
+
+
+pub(crate) struct BigDigitSplitter {
+    mask: BigDigitBase,
+    shift: BigDigitBase,
+}
+
+impl BigDigitSplitter {
+    pub(crate) fn new(offset: u32) -> Self {
+        BigDigitSplitter {
+            mask: to_power_of_ten(offset),
+            shift: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
+        }
+    }
+}
+
+pub(crate) struct BigDigitSplitterIter<'a, I: Iterator<Item=&'a BigDigit>> {
+    mask: BigDigitBase,
+    shift: BigDigitBase,
+    prev: BigDigit,
+    iter: I,
+}
+
+impl<'a, I: Iterator<Item=&'a BigDigit>> BigDigitSplitterIter<'a, I> {
+    pub fn new(offset: u32, iter: I) -> Self {
+        BigDigitSplitterIter {
+            mask: to_power_of_ten(offset),
+            shift: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
+            prev: BigDigit::zero(),
+            iter: iter,
+        }
+    }
+}
+
+impl<'a, I: Iterator<Item=&'a BigDigit>> Iterator for BigDigitSplitterIter<'a, I> {
+// impl<I: Iterator<Item=BigDigit>> Iterator for BigDigitSplitterIter<I> {
+    type Item = BigDigit;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|digit| {
+            let (hi, lo) = digit.split_and_shift(self.mask, self.shift);
+            let result = BigDigit(lo.0 + self.prev.0);
+            self.prev = hi;
+            result
+        })
+    }
 }
