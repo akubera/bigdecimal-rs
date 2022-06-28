@@ -28,7 +28,15 @@ macro_rules! call_func {
         let expected = [ $( BigDigit::from_literal_integer($c) ),* ];
 
         $func(a.as_ref(), b.as_ref(), expected.as_ref());
-    }}
+    }};
+    ( $func:ident, [ $($a:literal),* ]/$a_scale:literal [ $($b:literal),* ]/$b_scale:literal [ $($c:literal),* ]) => {{
+        use crate::bigdigit::BigDigitBase;
+        let a = [ $( BigDigit::from_literal_integer($a) ),* ];
+        let b = [ $( BigDigit::from_literal_integer($b) ),* ];
+        let expected = [ $( BigDigit::from_literal_integer($c) ),* ];
+
+        $func(a.as_ref(), $a_scale, b.as_ref(), $b_scale, expected.as_ref());
+    }};
 }
 
 
