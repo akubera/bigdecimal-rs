@@ -16,6 +16,7 @@ use crate::arithmetic::{
 
 use crate::context::DEFAULT_PRECISION;
 
+
 /// The "base type" of the big digit
 ///
 /// This should be the smallest unsigned integer
@@ -807,7 +808,7 @@ pub(crate) fn to_power_of_ten(n: u32) -> BigDigitBase {
 ///
 /// Assumes little endian notation base $10^9$ bigdigits
 ///
-pub(crate) fn count_digits(v: &[BigDigitBase]) -> usize
+pub(crate) fn count_digits(v: &[BigDigit]) -> usize
 {
     debug_assert!(v.len() > 0);
     let digits_in_int = |n: BigDigitBase| {
@@ -834,7 +835,7 @@ pub(crate) fn count_digits(v: &[BigDigitBase]) -> usize
         }
     };
 
-    MAX_DIGITS_PER_BIGDIGIT * (v.len() - 1) + digits_in_int(v[v.len() - 1])
+    MAX_DIGITS_PER_BIGDIGIT * (v.len() - 1) + digits_in_int(v[v.len() - 1].0)
 }
 
 #[cfg(test)]
@@ -855,7 +856,7 @@ mod test_count_digits {
             paste! {
                 #[test]
                 fn [< case_ $($name)* >]() {{
-                    let count = count_digits(&[$($n),*]);
+                    let count = count_digits(&[$(BigDigit($n)),*]);
                     assert_eq!(count, $expected);
                 }}
             }
