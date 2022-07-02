@@ -741,7 +741,11 @@ const fn is_power_of_ten(n: BigDigitBaseDouble) -> bool {
 /// be used in definition of RADIX_IS_POWER_OF_TEN
 #[cfg(not(rustc_1_46))]
 const fn is_power_of_ten(n: BigDigitBaseDouble) -> bool {
-    return n == 1000000000 || n == 100;
+    match n {
+        1 | 10 | 100 | 1000 | 10000 | 100000 | 1000000 |
+        10000000 | 100000000 | 1000000000 => { true },
+        _ => { false }
+    }
 }
 
 
