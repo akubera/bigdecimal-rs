@@ -7,11 +7,14 @@
 
 use std::mem::swap;
 use num_integer::div_rem;
+use num_bigint::Sign;
 
 use crate::arithmetic::{
     addition::add_digit_slices_into,
     multiplication::multiply_digit_slices_into,
 };
+
+use crate::context::DEFAULT_PRECISION;
 
 /// The "base type" of the big digit
 ///
@@ -920,6 +923,32 @@ where
             Some(last)
         } else {
             None
+        }
+    }
+}
+
+
+/// Digit info
+///
+#[derive(Debug)]
+pub(crate) struct DigitInfo {
+    /// digits
+    pub(crate) digits: BigDigitVec,
+    /// scale
+    scale: i64,
+    /// precision
+    precision: std::num::NonZeroI64,
+    /// Signed
+    sign: Sign,
+}
+
+impl Default for DigitInfo {
+    fn default() -> DigitInfo {
+        DigitInfo {
+            precision: std::num::NonZeroI64::new(DEFAULT_PRECISION as i64).unwrap(),
+            scale: 0,
+            digits: BigDigitVec::default(),
+            sign: Sign::NoSign,
         }
     }
 }
