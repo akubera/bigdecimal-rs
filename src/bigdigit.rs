@@ -909,11 +909,17 @@ where
     type Item = BigDigit;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|digit| {
+        if let Some(digit) = self.iter.next() {
             let (hi, lo) = digit.split_and_shift(self.mask, self.shift);
             let result = BigDigit(lo.0 + self.prev.0);
             self.prev = hi;
-            result
-        })
+            Some(result)
+        } else if self.prev != 0 {
+            let last = self.prev;
+            self.prev.0 = 0;
+            Some(last)
+        } else {
+            None
+        }
     }
 }
