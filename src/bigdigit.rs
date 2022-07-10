@@ -136,6 +136,12 @@ impl BigDigit {
         }
     }
 
+    /// Split the big digit into masked and shifted non-masked parts
+    ///
+    /// Mask and shift should be factors of BIGDIGIT_RADIX
+    ///
+    /// 123456.split_and_shift(100, 10000) -> (1234, 560000)
+    ///
     #[inline]
     pub fn split_and_shift(self, mask: BigDigitBase, shift: BigDigitBase)
         -> (BigDigit, BigDigit)
