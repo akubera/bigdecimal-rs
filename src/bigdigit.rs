@@ -63,7 +63,7 @@ pub(crate) const RADIX_POWER_OF_TEN: Option<usize> = power_of_ten(BIG_DIGIT_RADI
 ///
 /// A "tuple-struct" type so we may write impls
 ///
-#[derive(Debug,Default,Clone,Copy,Eq,PartialEq,Ord,PartialOrd)]
+#[derive(Default,Clone,Copy,Eq,PartialEq,Ord,PartialOrd)]
 pub struct BigDigit(BigDigitBase);
 
 /// type distinguising which parameter is overflow
@@ -240,6 +240,13 @@ impl BigDigit {
         carry.0 = overflow as BigDigitBase;
     }
 }
+
+impl std::fmt::Debug for BigDigit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BigDigit({})", self.0)
+    }
+}
+
 
 impl std::ops::Add for BigDigit {
     type Output = (BigDigit, bool);
