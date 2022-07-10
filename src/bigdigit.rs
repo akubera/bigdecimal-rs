@@ -245,6 +245,14 @@ impl BigDigit {
         self.0 = sum as BigDigitBase;
         carry.0 = overflow as BigDigitBase;
     }
+
+    /// Calculate quotient and remainder of bigdigit with argument
+    ///
+    #[inline]
+    pub fn div_rem(self, n: BigDigitBase) -> (BigDigit, BigDigit) {
+        let (hi, lo) = div_rem(self.0, n);
+        (BigDigit(hi), BigDigit(lo))
+    }
 }
 
 impl std::fmt::Debug for BigDigit {
