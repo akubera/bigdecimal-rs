@@ -101,6 +101,12 @@ impl BigDigit {
         BigDigit(1)
     }
 
+    /// Return maximum value of a single bigdigit (i.e. RADIX - 1)
+    pub fn max() -> BigDigit {
+        let max_big_digit = BIG_DIGIT_RADIX - 1;
+        BigDigit(max_big_digit as BigDigitBase)
+    }
+
     /// True if big digit is zero
     #[inline]
     pub fn is_zero(&self) -> bool {
