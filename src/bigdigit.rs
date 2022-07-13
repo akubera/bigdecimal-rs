@@ -121,12 +121,6 @@ impl BigDigit {
     /// True if BigDigit is ten to the given power
     #[inline]
     pub(crate) fn is_ten_to_power(&self, pow: u8) -> bool {
-        if pow == 0 && self.0 == 1 {
-            return true;
-        }
-        if pow % 10 != 0 {
-            return false;
-        }
         self.0 == match pow {
             0 => 1,
             1 => 10,
