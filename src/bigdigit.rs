@@ -143,6 +143,62 @@ impl BigDigit {
         }
     }
 
+    /// Return the lowest digit and number of zeros preceding it
+    ///
+    /// (1230000).get_lowest_non_zero_digit() == (3, 4)
+    /// (0909090).get_lowest_non_zero_digit() == (9, 1)
+    /// (0000008).get_lowest_non_zero_digit() == (8, 0)
+    /// (000000).get_lowest_non_zero_digit() == (0, 0)
+    ///
+    #[inline]
+    pub(crate) fn get_lowest_non_zero_digit(&self) -> (u8, usize) {
+        // compare implementations: https://rust.godbolt.org/z/4s7MWr4z7
+        debug_assert_ne!(self.0, 0);
+        if self.0 == 0 {
+            return (0, 0);
+        }
+        /*
+        fn recurisve_impl(x: BigDigitBase, n: usize) -> (u8, usize) {
+            let y = x % 10;
+            if y != 0 {
+                (y, n)
+            } else {
+                recurisve_impl(x / 10, n + 1)
+            }
+        }
+        return recurisve_impl(self.0, 0);
+        */
+        /*
+        macro_rules! impl_condition {
+            ($t:literal : $idx:literal) => {
+                if self.0 % $t != 0 {
+                    let shifted = self.0 / ($t / 10);
+                    return ((shifted % 10) as u8, 1);
+                }
+            }
+        }
+        impl_condition!(10 : 0);
+        impl_condition!(100 : 1);
+        impl_condition!(1000 : 2);
+        impl_condition!(10000 : 3);
+        impl_condition!(100000 : 4);
+        impl_condition!(1000000 : 5);
+        impl_condition!(10000000 : 6);
+        impl_condition!(100000000 : 7);
+        impl_condition!(1000000000 : 8);
+        unreachable!()
+        */
+        let mut n = self.0;
+        for i in 0.. {
+            let y = n % 10;
+            if y != 0 {
+                return (y as u8, i);
+            }
+            n /= 10;
+        }
+        unreachable!();
+    }
+
     /// Split the big digit into masked and shifted non-masked parts
     ///
     /// Mask and shift should be factors of BIGDIGIT_RADIX
