@@ -118,6 +118,13 @@ impl BigDigit {
         self.0 == 1
     }
 
+    /// Create BigDigit as an integer power of ten: 10^p
+    #[inline]
+    pub(crate) fn ten_to_the(p: BigDigitBase) -> BigDigit {
+        debug_assert!((p as usize) < MAX_DIGITS_PER_BIGDIGIT);
+        BigDigit(to_power_of_ten(p))
+    }
+
     /// True if BigDigit is ten to the given power
     #[inline]
     pub(crate) fn is_ten_to_power(&self, pow: u8) -> bool {
