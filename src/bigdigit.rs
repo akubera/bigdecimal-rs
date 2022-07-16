@@ -436,14 +436,6 @@ impl BigDigitVec {
         }
     }
 
-    /// Extend this vector with values from iterator
-    pub fn extend<I>(&mut self, iter: I)
-    where
-        I: std::iter::IntoIterator<Item=BigDigit>
-    {
-        self.0.extend(iter)
-    }
-
     /// Copy values from the slice into the vec
     ///
     /// Note: zeroes will not be truncated
@@ -673,6 +665,16 @@ impl std::ops::IndexMut<usize> for BigDigitVec {
         self.0.index_mut(index)
     }
 }
+
+
+impl std::iter::Extend<BigDigit> for BigDigitVec {
+    /// Extend this vector with values from iterator
+    #[inline]
+    fn extend<T: IntoIterator<Item=BigDigit>>(&mut self, iter: T) {
+        self.0.extend(iter)
+    }
+}
+
 
 /// Custom wrapper for easily building BigDigitVec objects
 macro_rules! bigdigitbase_vec {
