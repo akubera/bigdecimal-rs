@@ -2155,6 +2155,22 @@ mod bigdecimal_tests {
     }
 
     #[test]
+    fn test_to_i128() {
+        let vals = vec![
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),
+            ("170141183460469231731687303715884105727", 170141183460469231731687303715884105727),
+            ("0.001", 0),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_i128().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
     fn test_to_f64() {
         let vals = vec![
             ("12.34", 12.34),
