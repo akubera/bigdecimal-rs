@@ -1687,6 +1687,12 @@ impl ToPrimitive for BigDecimal {
             Sign::NoSign => Some(0),
         }
     }
+    fn to_i128(&self) -> Option<i128> {
+        match self.sign() {
+            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i128(),
+            Sign::NoSign => Some(0),
+        }
+    }
     fn to_u64(&self) -> Option<u64> {
         match self.sign() {
             Sign::Plus => self.with_scale(0).int_val.to_u64(),
