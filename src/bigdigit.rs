@@ -199,6 +199,31 @@ impl BigDigit {
         unreachable!();
     }
 
+    /// Count number of digits, ignoring the leading zeros
+    ///
+    #[inline]
+    pub fn significant_digit_count(&self) -> usize {
+        if self.0 >= 100000000 {
+            9
+        } else if self.0 >= 10000000 {
+            8
+        } else if self.0 >= 1000000 {
+            7
+        } else if self.0 >= 100000 {
+            6
+        } else if self.0 >= 10000 {
+            5
+        } else if self.0 >= 1000 {
+            4
+        } else if self.0 >= 100 {
+            3
+        } else if self.0 >= 10 {
+            2
+        } else {
+            1
+        }
+    }
+
     /// Split the big digit into masked and shifted non-masked parts
     ///
     /// Mask and shift should be factors of BIGDIGIT_RADIX
@@ -476,6 +501,12 @@ impl BigDigitVec {
             self.push(carry);
         }
 
+    }
+
+    /// Count the number of significant digits in this bigdigit
+    #[inline]
+    pub(crate) fn count_digits(&self) -> usize {
+        count_digits(&self.0)
     }
 }
 
@@ -896,34 +927,10 @@ pub(crate) fn to_power_of_ten(n: u32) -> BigDigitBase {
 ///
 /// Assumes little endian notation base $10^9$ bigdigits
 ///
+#[inline]
 pub(crate) fn count_digits(v: &[BigDigit]) -> usize
 {
-    debug_assert!(v.len() > 0);
-    let digits_in_int = |n: BigDigitBase| {
-        if n < 10 {
-            1
-        } else if n < 100 {
-            2
-        } else if n < 1000 {
-            3
-        } else if n < 10000 {
-            4
-        } else if n < 100000 {
-            5
-        } else if n < 1000000 {
-            6
-        } else if n < 10000000 {
-            7
-        } else if n < 100000000 {
-            8
-        } else if n < 1000000000 {
-            9
-        } else {
-            unreachable!()
-        }
-    };
-
-    MAX_DIGITS_PER_BIGDIGIT * (v.len() - 1) + digits_in_int(v[v.len() - 1].0)
+    MAX_DIGITS_PER_BIGDIGIT * (v.len() - 1) + v[v.len() - 1].significant_digit_count()
 }
 
 #[cfg(test)]
