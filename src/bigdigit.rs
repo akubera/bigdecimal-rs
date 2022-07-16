@@ -1189,17 +1189,19 @@ impl ShiftAndMask {
 
     /// Split bigdigit into high and low digits
     ///
-    /// BigDigit(3).split(987654321) => (987000000, 000654321)
+    /// ShiftAndMask::mask_high(3).split(987654321) => (987000000, 000654321)
+    /// ShiftAndMask::mask_low(3).split(987654321)  => (987654000, 000000321)
     ///
     fn split(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
-        let (hi, lo) = div_rem(n.0, self.shift);
-        (BigDigit(hi * self.shift), BigDigit(lo))
+        let (hi, lo) = div_rem(n.0, self.mask);
+        (BigDigit(hi * self.mask), BigDigit(lo))
     }
 
     /// Split and shift such that the n "high" bits are on low
     /// side of digit and low bits are at the high end
     ///
-    /// BigDigit(3).split_and_shift(987654321) => (000000987, 654321000)
+    /// ShiftAndMask::mask_high(3).split_and_shift(987654321) => (000000987, 654321000)
+    /// ShiftAndMask::mask_low(3).split_and_shift(987654321)  => (000987654, 321000000)
     ///
     fn split_and_shift(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
         n.split_and_shift(self.mask, self.shift)
@@ -1213,8 +1215,8 @@ mod test_shift_and_mask {
 
     #[test]
     fn case_1() {
-        let s = ShiftAndMask::mask_low(1);
         let x = BigDigit(987654321);
+        let s = ShiftAndMask::mask_low(1);
         assert_eq!(s.split(&x), (BigDigit(987654320),
                                  BigDigit(000000001)));
 
@@ -1231,8 +1233,8 @@ mod test_shift_and_mask {
 
     #[test]
     fn case_2() {
-        let s = ShiftAndMask::mask_low(2);
         let x = BigDigit(987654321);
+        let s = ShiftAndMask::mask_low(2);
         assert_eq!(s.split(&x), (BigDigit(987654300),
                                  BigDigit(000000021)));
 
@@ -1249,19 +1251,46 @@ mod test_shift_and_mask {
 
     #[test]
     fn case_4() {
-        let s = ShiftAndMask::mask_low(4);
         let x = BigDigit(987654321);
+        let s = ShiftAndMask::mask_low(4);
         assert_eq!(s.split(&x), (BigDigit(987650000),
                                  BigDigit(000004321)));
         assert_eq!(s.split_and_shift(&x), (BigDigit(000098765),
                                            BigDigit(432100000)));
 
         let s = ShiftAndMask::mask_high(4);
-        assert_eq!(s.split(&x), (BigDigit(987650000),
-                                 BigDigit(000004321)));
+        assert_eq!(s.split(&x), (BigDigit(987600000),
+                                 BigDigit(000054321)));
 
         assert_eq!(s.split_and_shift(&x), (BigDigit(000009876),
                                            BigDigit(543210000)));
+    }
+
+    #[test]
+    fn case_8() {
+        let x = BigDigit(987654321);
+        let s = ShiftAndMask::mask_low(8);
+        assert_eq!(s.split(&x), (BigDigit(900000000),
+                                 BigDigit(087654321)));
+        assert_eq!(s.split_and_shift(&x), (BigDigit(000000009),
+                                           BigDigit(876543210)));
+
+        let s = ShiftAndMask::mask_high(8);
+        assert_eq!(s.split(&x), (BigDigit(987654320),
+                                 BigDigit(000000001)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(098765432),
+                                           BigDigit(100000000)));
+    }
+
+    #[test]
+    fn complimentary_values() {
+        for (i, j) in (1..MAX_DIGITS_PER_BIGDIGIT).zip(MAX_DIGITS_PER_BIGDIGIT-1..0) {
+            let lo = ShiftAndMask::mask_low(i);
+            let hi = ShiftAndMask::mask_high(j);
+            assert_eq!(lo.mask, hi.mask);
+            assert_eq!(lo.shift, hi.shift);
+        }
     }
 }
 
