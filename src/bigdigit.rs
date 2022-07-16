@@ -1443,72 +1443,37 @@ impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
 }
 
 #[cfg(test)]
-mod test_offset_iter {
+mod test_big_digit_splitter_iter {
     use super::*;
 
-    #[test]
-    fn case_single_digit_offset_0() {
-        let digits = [BigDigit(806938958)];
-        let mut iter = BigDigitSplitterIter::from_slice_shifting_left(&digits, 0);
-        assert_eq!(iter.next().map(u32::from), Some(806938958));
-        assert_eq!(iter.next(), None);
+    macro_rules! impl_test {
+        ($func:ident([$($input:literal),+], $n:literal) == [$($expected:literal),+]) => {
+            paste! {
+                #[test]
+                fn [< test_ $func $(_ $input)* _ $n >]() {
+                    let digits = bigdigit_vec![$($input),*];
+                    let iter = BigDigitSplitterIter::$func(&digits, $n);
+                    let output = iter.map(u32::from).collect::<Vec<u32>>();
+                    let expected = [$($expected),*];
+                    assert_eq!(&output, &expected);
+                }
+            }
+        }
     }
 
-    #[test]
-    fn case_single_digit_offset_1() {
-        let digits = [BigDigit(806938958)];
-        let mut iter = BigDigitSplitterIter::from_slice_shifting_left(&digits, 1);
-        assert_eq!(iter.next().map(u32::from), Some(069389580));
-        assert_eq!(iter.next().map(u32::from), Some(8));
-        assert_eq!(iter.next(), None);
-    }
+    impl_test!(from_slice_shifting_left([806938958], 0) == [806938958]);
+    impl_test!(from_slice_shifting_left([806938958], 1) == [069389580, 8]);
+    impl_test!(from_slice_shifting_left([806938958], 3) == [938958000, 806]);
+    impl_test!(from_slice_shifting_right([806938958], 0) == [806938958]);
+    impl_test!(from_slice_shifting_right([806938958], 1) == [080693895]);
+    impl_test!(from_slice_shifting_right([806938958], 2) == [008069389]);
 
-    #[test]
-    fn case_single_digit_offset_3() {
-        let digits = [BigDigit(806938958)];
-        let mut iter = BigDigitSplitterIter::from_slice_shifting_left(&digits, 3);
-        assert_eq!(iter.next().map(u32::from), Some(938958000));
-        assert_eq!(iter.next().map(u32::from), Some(000000806));
-        assert_eq!(iter.next(), None);
-    }
+    impl_test!(from_slice_shifting_left([861590398, 169326016], 3) => [590398000, 326016861, 169]);
+    impl_test!(from_slice_shifting_right([861590398, 169326016], 3) => [016861590, 169326]);
 
-    #[test]
-    fn case_digit_offset_3() {
-        let digits = bigdigit_vec!(861590398, 169326016);
-        let mut iter = BigDigitSplitterIter::from_slice_shifting_left(&digits, 3);
-        assert_eq!(iter.next().map(u32::from), Some(590398000));
-        assert_eq!(iter.next().map(u32::from), Some(326016861));
-        assert_eq!(iter.next().map(u32::from), Some(169));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn case_digit_offset_3_top_compliment() {
-        let digits = bigdigit_vec!(861590398, 169326016);
-        let mut iter = BigDigitSplitterIter::from_slice_shifting_right(&digits, 3);
-        assert_eq!(iter.next().map(u32::from), Some(016861590));
-        assert_eq!(iter.next().map(u32::from), Some(169326));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn case_from_slice_starting_top_3() {
-        let digits = bigdigit_vec!(861590398, 169326016);
-        let mut iter = BigDigitSplitterIter::from_slice_starting_top(&digits, 3);
-        assert_eq!(iter.next().map(u32::from), Some(326016861));
-        assert_eq!(iter.next().map(u32::from), Some(169));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn case_from_slice_starting_bottom_3() {
-        let digits = bigdigit_vec!(861590398, 169326016);
-        let mut iter = BigDigitSplitterIter::from_slice_starting_bottom(&digits, 3);
-        assert_eq!(iter.next().map(u32::from), Some(398000000));
-        assert_eq!(iter.next().map(u32::from), Some(016861590));
-        assert_eq!(iter.next().map(u32::from), Some(169326));
-        assert_eq!(iter.next(), None);
-    }
+    impl_test!(from_slice_starting_top([861590398, 169326016], 0) => [861590398, 169326016]);
+    impl_test!(from_slice_starting_top([861590398, 169326016], 3) => [326016861, 169]);
+    impl_test!(from_slice_starting_bottom([861590398, 169326016], 3) => [398000000, 016861590, 169326]);
 
     #[test]
     fn case_shift_minus_one() {
