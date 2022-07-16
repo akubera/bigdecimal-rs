@@ -1823,6 +1823,13 @@ impl ToPrimitive for BigDecimal {
             Sign::Minus => None,
         }
     }
+    fn to_u128(&self) -> Option<u128> {
+        match self.sign() {
+            Sign::Plus => self.with_scale(0).int_val.to_u128(),
+            Sign::NoSign => Some(0),
+            Sign::Minus => None,
+        }
+    }
 
     fn to_f64(&self) -> Option<f64> {
         self.int_val.to_f64().map(|x| x * 10f64.powi(-self.scale as i32))
