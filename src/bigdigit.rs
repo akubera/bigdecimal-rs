@@ -435,6 +435,14 @@ impl BigDigitVec {
         }
     }
 
+    /// Extend this vector with values from iterator
+    pub fn extend<I>(&mut self, iter: I)
+    where
+        I: std::iter::IntoIterator<Item=BigDigit>
+    {
+        self.0.extend(iter)
+    }
+
     /// Copy values from the slice into the vec
     ///
     /// Note: zeroes will not be truncated
