@@ -374,6 +374,7 @@ impl std::ops::Add for BigDigit {
 pub struct BigDigitVec(BigDigitVecBase);
 
 impl BigDigitVec {
+
     /// Make a new BigDigitVec with a new Vec
     pub fn new() -> BigDigitVec {
         BigDigitVec(BigDigitVecBase::new())
@@ -470,6 +471,54 @@ impl BigDigitVec {
         }
     }
 
+    /// Reserve enough space in vector to contain given precision
+    #[inline]
+    pub fn reserve_precision(&mut self, precision: std::num::NonZeroUsize) {
+        let bigdigit_count = precision.get() / (MAX_DIGITS_PER_BIGDIGIT as usize) + 1;
+        let additional = bigdigit_count.checked_sub(self.0.capacity()).unwrap_or(0);
+        self.0.reserve(additional)
+    }
+
+    /// Return index and value of first bigdigit satisfying given predicate
+    #[inline]
+    pub fn argwhere<P>(&self, predicate: P) -> Option<(usize, &BigDigit)>
+    where
+        P: Fn(&BigDigit) -> bool
+    {
+        self.0.iter().position(predicate).map(|idx| (idx, &self.0[idx]))
+    }
+
+    /// Search for first bigdigit satisfying given predicate
+    ///
+    /// This forwards the `std::Vec::find` method
+    ///
+    #[inline]
+    pub fn find<P>(&self, predicate: P) -> Option<&BigDigit>
+    where
+        P: Fn(&&BigDigit) -> bool
+    {
+        self.0.iter().find(predicate)
+    }
+
+    /// Return position of first bigdigit satisfying given predicate
+    ///
+    /// This forwards the `std::Vec::position` method
+    ///
+    #[inline]
+    pub fn position<P>(&self, predicate: P) -> Option<usize>
+    where
+        P: Fn(&BigDigit) -> bool
+    {
+        self.0.iter().position(predicate)
+    }
+
+    /// Return position of first bigdigit less than maximum BigDigit value
+    #[inline]
+    pub fn position_non_max<P>(&self) -> Option<usize>
+    {
+        self.0.iter().position(|&d| d != BigDigit::max())
+    }
+
     /// Replace contents with bigdigits of num
     pub fn replace_with<N>(&mut self, num: N)
     where
@@ -500,6 +549,18 @@ impl BigDigitVec {
         self.0.truncate(nonzero_index + 1);
     }
 
+    /// Return mutable iterator
+    #[inline]
+    pub(crate) fn iter_mut(&mut self) -> std::slice::IterMut<BigDigit> {
+        self.0.iter_mut()
+    }
+
+    /// Return mutable reference to last value in vector
+    #[inline]
+    pub fn last_mut(&mut self) -> Option<&mut BigDigit> {
+        self.0.last_mut()
+    }
+
     /// Helper method for extening vector with digits, potentially adding carry
     ///
     pub(crate) fn extend_with_carried_sum<I>(&mut self, digits: I, mut carry: BigDigit)
@@ -520,7 +581,6 @@ impl BigDigitVec {
         if !carry.is_zero() {
             self.push(carry);
         }
-
     }
 
     /// Count the number of significant digits in this bigdigit
