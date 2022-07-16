@@ -62,41 +62,6 @@ pub(crate) const RADIX_IS_POWER_OF_TEN: bool = is_power_of_ten(BIG_DIGIT_RADIX);
 pub(crate) const RADIX_POWER_OF_TEN: Option<usize> = power_of_ten(BIG_DIGIT_RADIX);
 
 
-/// Return pair of (shift, mask) numbers
-///
-/// To be used as decimal-digit mask and complementary "shift factor"
-///
-#[inline]
-pub(crate) fn get_shift_and_mask(n: usize) -> (BigDigitBase, BigDigitBase) {
-    debug_assert!(n < MAX_DIGITS_PER_BIGDIGIT);
-    let mask = to_power_of_ten(n as u32);
-    let shift = to_power_of_ten((MAX_DIGITS_PER_BIGDIGIT - n) as u32);
-    (shift, mask)
-}
-
-#[cfg(test)]
-mod get_shift_and_mask {
-    use super::*;
-
-    macro_rules! impl_test {
-        ($n:literal -> $expected:literal) => {
-            paste! {
-                #[test]
-                fn [< case_ $n >] () {
-                    let (shift, mask) = get_shift_and_mask($n);
-                    assert_eq!(mask, $expected);
-                    assert_eq!(mask as BigDigitBaseDouble * shift as BigDigitBaseDouble, BIG_DIGIT_RADIX);
-                }
-            }
-        }
-    }
-    impl_test!(0 -> 1);
-    impl_test!(4 -> 10000);
-    impl_test!(5 -> 100000);
-    impl_test!(8 -> 100000000);
-}
-
-
 /// BigDigit type
 ///
 /// A "tuple-struct" type so we may write impls
@@ -1182,9 +1147,9 @@ impl ShiftAndMask {
 
     /// Build such that (X % mask) 'keeps' n digits of X
     fn mask_low(n: usize) -> Self {
-        let (mask, shift) = get_shift_and_mask(n as usize);
-        debug_assert!(mask > 0);
-        debug_assert!(shift > 0);
+        debug_assert!(n < MAX_DIGITS_PER_BIGDIGIT);
+        let mask = to_power_of_ten(n as u32);
+        let shift = to_power_of_ten((MAX_DIGITS_PER_BIGDIGIT - n) as u32);
         Self { shift, mask }
     }
 
