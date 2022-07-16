@@ -1021,7 +1021,19 @@ mod test_power_of_ten {
 ///
 #[inline]
 pub(crate) fn to_power_of_ten(n: u32) -> BigDigitBase {
-    (10 as BigDigitBase).pow(n)
+    match n {
+        0 => 1,
+        1 => 10,
+        2 => 100,
+        3 => 1000,
+        4 => 10000,
+        5 => 100000,
+        6 => 1000000,
+        7 => 10000000,
+        8 => 100000000,
+        9 => 1000000000,
+        _ => unreachable!()
+    }
 }
 
 /// Count the number of digits, in slice of bigdigits
