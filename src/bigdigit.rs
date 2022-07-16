@@ -1213,74 +1213,38 @@ impl ShiftAndMask {
 mod test_shift_and_mask {
     use super::*;
 
-    #[test]
-    fn case_1() {
-        let x = BigDigit(987654321);
-        let s = ShiftAndMask::mask_low(1);
-        assert_eq!(s.split(&x), (BigDigit(987654320),
-                                 BigDigit(000000001)));
+    macro_rules! impl_test_cases {
+        ($num:literal => split split-and-shift
+            $( $mask_func:ident @ $n:literal = ($s1:literal, $s2:literal) ($r1:literal, $r2:literal) )*
+        ) => {
+            $(
+                paste!{
+                    #[test]
+                    fn [< test_ $mask_func _ $n _ split _ $num >]() {
+                        let x = BigDigit($num);
+                        let s = ShiftAndMask::$mask_func($n);
+                        assert_eq!(s.split(&x), (BigDigit($s1), BigDigit($s2)));
+                    }
 
-        assert_eq!(s.split_and_shift(&x), (BigDigit(098765432),
-                                           BigDigit(100000000)));
-
-        let s = ShiftAndMask::mask_high(1);
-        assert_eq!(s.split(&x), (BigDigit(900000000),
-                                 BigDigit(087654321)));
-
-        assert_eq!(s.split_and_shift(&x), (BigDigit(000000009),
-                                           BigDigit(876543210)));
+                    #[test]
+                    fn [< test_ $mask_func _ $n _ split_and_shift _ $num >]() {
+                        let x = BigDigit($num);
+                        let s = ShiftAndMask::$mask_func($n);
+                        assert_eq!(s.split_and_shift(&x), (BigDigit($r1), BigDigit($r2)));
+                    }
+                }
+            )*
+        }
     }
 
-    #[test]
-    fn case_2() {
-        let x = BigDigit(987654321);
-        let s = ShiftAndMask::mask_low(2);
-        assert_eq!(s.split(&x), (BigDigit(987654300),
-                                 BigDigit(000000021)));
-
-        assert_eq!(s.split_and_shift(&x), (BigDigit(009876543),
-                                           BigDigit(210000000)));
-
-        let s = ShiftAndMask::mask_high(2);
-        assert_eq!(s.split(&x), (BigDigit(980000000),
-                                 BigDigit(007654321)));
-
-        assert_eq!(s.split_and_shift(&x), (BigDigit(000000098),
-                                           BigDigit(765432100)));
-    }
-
-    #[test]
-    fn case_4() {
-        let x = BigDigit(987654321);
-        let s = ShiftAndMask::mask_low(4);
-        assert_eq!(s.split(&x), (BigDigit(987650000),
-                                 BigDigit(000004321)));
-        assert_eq!(s.split_and_shift(&x), (BigDigit(000098765),
-                                           BigDigit(432100000)));
-
-        let s = ShiftAndMask::mask_high(4);
-        assert_eq!(s.split(&x), (BigDigit(987600000),
-                                 BigDigit(000054321)));
-
-        assert_eq!(s.split_and_shift(&x), (BigDigit(000009876),
-                                           BigDigit(543210000)));
-    }
-
-    #[test]
-    fn case_8() {
-        let x = BigDigit(987654321);
-        let s = ShiftAndMask::mask_low(8);
-        assert_eq!(s.split(&x), (BigDigit(900000000),
-                                 BigDigit(087654321)));
-        assert_eq!(s.split_and_shift(&x), (BigDigit(000000009),
-                                           BigDigit(876543210)));
-
-        let s = ShiftAndMask::mask_high(8);
-        assert_eq!(s.split(&x), (BigDigit(987654320),
-                                 BigDigit(000000001)));
-
-        assert_eq!(s.split_and_shift(&x), (BigDigit(098765432),
-                                           BigDigit(100000000)));
+    impl_test_cases!{
+        987654321 =>    split                    split-and-shift
+         mask_low @ 1 = (987654320, 000000001)   (098765432, 100000000)
+         mask_low @ 2 = (987654300, 000000021)   (009876543, 210000000)
+         mask_low @ 4 = (987650000, 000004321)   (000098765, 432100000)
+        mask_high @ 2 = (980000000, 007654321)   (000000098, 765432100)
+        mask_high @ 4 = (987600000, 000054321)   (000009876, 543210000)
+        mask_high @ 8 = (987654320, 000000001)   (098765432, 100000000)
     }
 
     #[test]
