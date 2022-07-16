@@ -7,6 +7,7 @@
 
 use std::mem::swap;
 use std::ops::RangeFrom;
+use std::marker::PhantomData;
 use num_integer::{div_rem, Integer};
 use num_bigint::Sign;
 
@@ -1126,53 +1127,407 @@ mod test_count_digits {
 }
 
 
-/// Iterator which splits a stream of BigDigits into hi and low parts
+
+/// The various ways of splitting the first element
 ///
-/// To be used to align digits
-///
-pub(crate) struct BigDigitSplitterIter<'a, I>
-where
-    I: Iterator<Item=&'a BigDigit>
-{
-    mask: BigDigitBase,
-    shift: BigDigitBase,
-    prev: BigDigit,
-    iter: I,
+pub(crate) enum DigitSplitMode {
+    /// Start with the lower n digits of the first bigdigit, shifted up
+    ///
+    /// 987654321, 4 => [432100000, xxxx98765]
+    ///
+    Bottom(u8),
+
+    /// Start with the lower digits of the first bigdigit, shifted up by n
+    ///
+    /// 987654321, 3 => [654321000, xxxxxx987]
+    ///
+    BottomShifted(u8),
+
+    /// Start with high n digits of the first bigdigit
+    ///
+    /// 987654321, 3 => [xxxxxx987]
+    ///
+    Top(u8),
+
+    /// Start with the high digits of the first bigdigit, shifted down by n
+    ///
+    /// 987654321, 4 => [xxxx98765]
+    ///
+    TopShiftedBy(u8),
 }
 
-impl<'a, I> BigDigitSplitterIter<'a, I>
-where
-    I: Iterator<Item=&'a BigDigit>
-{
-    pub fn new(offset: u32, iter: I) -> Self {
-        BigDigitSplitterIter {
-            mask: to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - offset),
-            shift: to_power_of_ten(offset),
-            prev: BigDigit::zero(),
-            iter: iter,
+
+/// Object used to shift and mask decimal digits
+///
+/// Uses div and rem to "mask" decimals using powers of 10.
+///
+/// 987654321 % 10000  => 000004321
+/// 987654321 / 10000  => 000098765 ('shifted' => 987600000)
+///
+/// ShiftAndMask(4).split_and_shift(98765321) -> (98760000, 000005321)
+/// ShiftAndMask(1).split_and_shift(98765321) -> (98760000, 000005321)
+///
+struct ShiftAndMask {
+    shift: BigDigitBase,
+    mask: BigDigitBase,
+}
+
+impl ShiftAndMask {
+
+    /// Build such that (X % mask) 'keeps' n digits of X
+    fn mask_low(n: usize) -> Self {
+        let (mask, shift) = get_shift_and_mask(n as usize);
+        debug_assert!(mask > 0);
+        debug_assert!(shift > 0);
+        Self { shift, mask }
+    }
+
+    /// Build such that (X / mask) 'keeps' n digits of X
+    fn mask_high(n: usize) -> Self {
+        Self::mask_low(MAX_DIGITS_PER_BIGDIGIT - n as usize)
+    }
+
+    /// Split bigdigit into high and low digits
+    ///
+    /// BigDigit(3).split(987654321) => (987000000, 000654321)
+    ///
+    fn split(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
+        let (hi, lo) = div_rem(n.0, self.shift);
+        (BigDigit(hi * self.shift), BigDigit(lo))
+    }
+
+    /// Split and shift such that the n "high" bits are on low
+    /// side of digit and low bits are at the high end
+    ///
+    /// BigDigit(3).split_and_shift(987654321) => (000000987, 654321000)
+    ///
+    fn split_and_shift(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
+        n.split_and_shift(self.mask, self.shift)
+    }
+}
+
+
+#[cfg(test)]
+mod test_shift_and_mask {
+    use super::*;
+
+    #[test]
+    fn case_1() {
+        let s = ShiftAndMask::mask_low(1);
+        let x = BigDigit(987654321);
+        assert_eq!(s.split(&x), (BigDigit(987654320),
+                                 BigDigit(000000001)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(098765432),
+                                           BigDigit(100000000)));
+
+        let s = ShiftAndMask::mask_high(1);
+        assert_eq!(s.split(&x), (BigDigit(900000000),
+                                 BigDigit(087654321)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(000000009),
+                                           BigDigit(876543210)));
+    }
+
+    #[test]
+    fn case_4() {
+        let s = ShiftAndMask::mask_low(4);
+        let x = BigDigit(987654321);
+        assert_eq!(s.split(&x), (BigDigit(987600000),
+                                 BigDigit(000054321)));
+        assert_eq!(s.split_and_shift(&x), (BigDigit(000098765),
+                                           BigDigit(432100000)));
+
+        let s = ShiftAndMask::mask_high(4);
+        assert_eq!(s.split(&x), (BigDigit(987650000),
+                                 BigDigit(000004321)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(000009876),
+                                           BigDigit(543210000)));
+    }
+}
+
+
+/// Wrap shift-and-mask type with special-case for zero shift
+///
+enum ShiftState {
+    Zero,
+    Shifted(ShiftAndMask),
+}
+
+
+impl ShiftState {
+
+    /// First shift shifts n low-bytes high
+    fn mask_low(n: u8) -> Self {
+        if n == 0 {
+            ShiftState::Zero
+        } else {
+            ShiftAndMask::mask_low(n as usize).into()
+        }
+    }
+
+    /// First shift keeps n high bytes
+    fn mask_high(n: u8) -> Self {
+        if n == 0 {
+            ShiftState::Zero
+        } else {
+            ShiftAndMask::mask_high(n as usize).into()
         }
     }
 }
 
-impl<'a, I> Iterator for BigDigitSplitterIter<'a, I>
-where
-    I: Iterator<Item=&'a BigDigit>
+impl From<ShiftAndMask> for ShiftState {
+    fn from(shift_mask: ShiftAndMask) -> Self{
+        Self::Shifted(shift_mask)
+    }
+}
+
+
+/// Object for iterating big-digits which have been split for realignment
+///
+pub(crate) struct BigDigitSplitterIter<'a, I>
+{
+    shift: ShiftState,
+    prev: BigDigit,
+    digits: I,
+    phantom: std::marker::PhantomData<&'a ()>,
+}
+
+
+impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
+{
+    /// Build one with one the 'slitting modes'
+    #[inline]
+    fn from_slice(slice: &'a [BigDigit], mode: DigitSplitMode) -> Self {
+        use bigdigit::DigitSplitMode::*;
+        debug_assert!(slice.len() > 0);
+
+        match mode {
+            Top(0) | TopShiftedBy(0) | Bottom(0) | BottomShifted(0) => {
+                Self {
+                    shift: ShiftState::Zero,
+                    prev: BigDigit::zero(),
+                    digits: slice.iter(),
+                    phantom: std::marker::PhantomData,
+                }
+            }
+            BottomShifted(n) => {
+                let shift = ShiftState::mask_high(n);
+                Self {
+                    shift: shift,
+                    prev: BigDigit::zero(),
+                    digits: slice.iter(),
+                    phantom: std::marker::PhantomData,
+                }
+            }
+            Bottom(n) => {
+                let shift = ShiftState::mask_low(n);
+                Self {
+                    shift: shift,
+                    prev: BigDigit::zero(),
+                    digits: slice.iter(),
+                    phantom: std::marker::PhantomData,
+                }
+            }
+            Top(n) => {
+                let shifter = ShiftAndMask::mask_high(n as usize);
+                let mut digits = slice.iter();
+                let first_digit = *digits.next().unwrap() / shifter.mask;
+                Self {
+                    shift: shifter.into(),
+                    prev: first_digit,
+                    digits: digits,
+                    phantom: std::marker::PhantomData,
+                }
+            }
+            TopShiftedBy(n) => {
+                let shifter = ShiftAndMask::mask_low(n as usize);
+                let mut digits = slice.iter();
+                let first_digit = *digits.next().unwrap() / shifter.mask;
+                Self {
+                    shift: shifter.into(),
+                    prev: first_digit,
+                    digits: digits,
+                    phantom: std::marker::PhantomData,
+                }
+            }
+        }
+    }
+
+    /// Stream will behave as if adding n zeros to the digits
+    ///
+    /// 987654321 : n=3 => 654321000
+    ///
+    pub(crate) fn from_slice_shifting_left(slice: &'a [BigDigit], n: usize) -> Self {
+        Self::from_slice(slice, DigitSplitMode::BottomShifted(n as u8))
+    }
+
+    /// Stream will behave as if removing n digits of the number
+    ///
+    /// 987654321 : n=3 => xxx987654
+    ///
+    /// This is the second digit of `from_slice_starting_bottom`
+    ///
+    pub(crate) fn from_slice_shifting_right(slice: &'a [BigDigit], n: usize) -> Self {
+        Self::from_slice(slice, DigitSplitMode::TopShiftedBy(n as u8))
+    }
+
+    /// First digit will be the bottom n digits shifted to top
+    ///
+    /// 987654321 : n=3 => 321000000
+    ///
+    pub(crate) fn from_slice_starting_bottom(slice: &'a [BigDigit], n: usize) -> Self {
+        Self::from_slice(slice, DigitSplitMode::Bottom(n as u8))
+    }
+
+    /// First digit will be the top n digits shifted to bottom
+    ///
+    /// 987654321 : n=3 => xxxxxx987
+    ///
+    /// This is the second digit of `from_slice_shifting_left`
+    ///
+    pub(crate) fn from_slice_starting_top(slice: &'a [BigDigit], n: usize) -> Self {
+        Self::from_slice(slice, DigitSplitMode::Top(n as u8))
+    }
+
+    /// Copy all remaining digits into destination vector
+    pub fn extend_vector(self, dest: &mut BigDigitVec) {
+        if let Self { shift: ShiftState::Zero, ref digits, .. } = self {
+            dest.extend_from_slice(digits.as_slice());
+        } else {
+            dest.extend(self);
+        }
+    }
+
+    /// Returns the value of the 'shift' with one subtracted
+    ///
+    /// Useful for adding nines to first result of `from_slice_starting_bottom`
+    ///
+    pub fn shift_minus_one(&self) -> BigDigitBase {
+        match self {
+            BigDigitSplitterIter { shift: ShiftState::Zero, .. } => {
+                (BIG_DIGIT_RADIX - 1) as BigDigitBase
+            },
+            BigDigitSplitterIter { shift: ShiftState::Shifted(shifter), .. } => {
+                shifter.shift - 1
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
 {
     type Item = BigDigit;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(digit) = self.iter.next() {
-            let (hi, lo) = digit.split_and_shift(self.mask, self.shift);
-            let result = BigDigit(lo.0 + self.prev.0);
-            self.prev = hi;
-            Some(result)
-        } else if self.prev != 0 {
-            let last = self.prev;
-            self.prev.0 = 0;
-            Some(last)
-        } else {
-            None
+        match self {
+            BigDigitSplitterIter {
+                shift: ShiftState::Zero,
+                ref mut digits,
+                ..
+            } => {
+                digits.next().copied()
+            },
+            BigDigitSplitterIter {
+                shift: ShiftState::Shifted(shifter),
+                ref mut prev,
+                ref mut digits,
+                ..
+            } => match digits.next() {
+                Some(next_digit) => {
+                    let (hi, lo) = shifter.split_and_shift(next_digit);
+                    let carry = std::mem::replace(prev, hi);
+                    Some(BigDigit(lo.0 + carry.0))
+                }
+                None if !prev.is_zero() => {
+                    let last_digit = std::mem::replace(prev, BigDigit::zero());
+                    Some(last_digit)
+                }
+                None => None,
+            },
         }
+    }
+}
+
+#[cfg(test)]
+mod test_offset_iter {
+    use super::*;
+
+    #[test]
+    fn case_single_digit_offset_0() {
+        let digits = [BigDigit(806938958)];
+        let mut iter = BigDigitSplitterIter::from_slice(&digits, DigitSplitMode::BottomShifted(0));
+        assert_eq!(iter.next().map(u32::from), Some(806938958));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_single_digit_offset_1() {
+        let digits = [BigDigit(806938958)];
+        let mut iter = BigDigitSplitterIter::from_slice(&digits, DigitSplitMode::BottomShifted(1));
+        assert_eq!(iter.next().map(u32::from), Some(069389580));
+        assert_eq!(iter.next().map(u32::from), Some(8));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_single_digit_offset_3() {
+        let digits = [BigDigit(806938958)];
+        let mut iter = BigDigitSplitterIter::from_slice(&digits, DigitSplitMode::BottomShifted(3));
+        assert_eq!(iter.next().map(u32::from), Some(938958000));
+        assert_eq!(iter.next().map(u32::from), Some(000000806));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_digit_offset_3() {
+        let digits = bigdigit_vec!(861590398, 169326016);
+        let mut iter = BigDigitSplitterIter::from_slice(&digits, DigitSplitMode::BottomShifted(3));
+        assert_eq!(iter.next().map(u32::from), Some(590398000));
+        assert_eq!(iter.next().map(u32::from), Some(326016861));
+        assert_eq!(iter.next().map(u32::from), Some(169));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_digit_offset_3_top_compliment() {
+        let digits = bigdigit_vec!(861590398, 169326016);
+        let mut iter = BigDigitSplitterIter::from_slice_shifting_right(&digits, 3);
+        assert_eq!(iter.next().map(u32::from), Some(016861590));
+        assert_eq!(iter.next().map(u32::from), Some(169326));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_from_slice_starting_top_3() {
+        let digits = bigdigit_vec!(861590398, 169326016);
+        let mut iter = BigDigitSplitterIter::from_slice_starting_top(&digits, 3);
+        assert_eq!(iter.next().map(u32::from), Some(326016861));
+        assert_eq!(iter.next().map(u32::from), Some(169));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_from_slice_starting_bottom_3() {
+        let digits = bigdigit_vec!(861590398, 169326016);
+        let mut iter = BigDigitSplitterIter::from_slice_starting_bottom(&digits, 3);
+        assert_eq!(iter.next().map(u32::from), Some(398000000));
+        assert_eq!(iter.next().map(u32::from), Some(016861590));
+        assert_eq!(iter.next().map(u32::from), Some(169326));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn case_shift_minus_one() {
+        let digits = [BigDigit(987654321)];
+        let mut iter = BigDigitSplitterIter::from_slice_starting_bottom(&digits, 3);
+        let first_digit = iter.next().unwrap();
+        let nines = iter.shift_minus_one();
+
+        assert_eq!(first_digit.0 + nines, 321999999);
+        assert_eq!(iter.next().unwrap().0, 987654);
+        assert_eq!(iter.next(), None);
     }
 }
 
