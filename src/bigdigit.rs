@@ -384,6 +384,18 @@ impl BigDigitVec {
         BigDigitVec(BigDigitVecBase::with_capacity(capacity))
     }
 
+    /// Create from slice of primitive integers in little endian order
+    ///
+    /// Note: These are not validated and should not be used
+    ///       outside of building a BigDigitVec from literals
+    ///
+    pub(crate) fn from_literal_slice(a: &[u32]) -> BigDigitVec {
+        use std::iter::Extend;
+        let mut v = BigDigitVec::new();
+        v.0.extend(a.iter().map(|&d| BigDigit(d)));
+        v
+    }
+
     /// Push bigdigit into vector
     pub fn push(&mut self, digit: BigDigit) {
         self.0.push(digit);
