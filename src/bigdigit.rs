@@ -293,6 +293,17 @@ impl BigDigit {
     }
 
 
+    /// Store sum of self plus rhs in self
+    ///
+    /// Overflow is not checked, use with caution.
+    ///
+    #[inline]
+    pub(crate) fn add_assign(&mut self, rhs: BigDigit) {
+        let sum = self.0 as BigDigitBaseDouble + rhs.0 as BigDigitBaseDouble;
+        debug_assert!(sum < BIG_DIGIT_RADIX);
+        self.0 = sum as BigDigitBase;
+    }
+
     /// Store sum of self plus carry in self and, store new overflow value in carry
     #[inline]
     pub fn add_assign_carry(&mut self, carry: &mut BigDigit) {
