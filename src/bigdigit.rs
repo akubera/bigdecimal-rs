@@ -629,24 +629,24 @@ impl BigDigitVec {
 
     /// Helper method for extening vector with digits, potentially adding carry
     ///
-    pub(crate) fn extend_with_carried_sum<I>(&mut self, digits: I, mut carry: BigDigit)
+    #[inline]
+    pub(crate) fn extend_with_carried_sum<I>(&mut self, mut digits: I, mut carry: BigDigit)
     where
         I: Iterator<Item=BigDigit>
     {
-        if carry.is_zero() {
-            for digit in digits {
-                self.push(digit);
+        while !carry.is_zero() {
+            match digits.next() {
+                None => {
+                    self.push(carry);
+                    carry.0 = 0;  // should we do this?
+                    return;
+                }
+                Some(digit) => {
+                    self.push(digit.add_carry(&mut carry));
+                }
             }
-            return;
         }
-
-        for digit in digits {
-            self.push(digit.add_carry(&mut carry));
-        }
-
-        if !carry.is_zero() {
-            self.push(carry);
-        }
+        self.extend(digits);
     }
 
     /// Count the number of significant digits in this bigdigit
