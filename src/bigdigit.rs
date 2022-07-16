@@ -1446,8 +1446,24 @@ impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
 mod test_big_digit_splitter_iter {
     use super::*;
 
+    // Test the _from_slice methods
+    //
+    // enforces: from_slice_shifting_right(n)[1..] == from_slice_starting_bottom(n)
+    //             from_slice_starting_top(n)[1..] == from_slice_shifting_left(n)
+    //
     macro_rules! impl_test {
+        (from_slice_starting_bottom([$($input:literal),+], $n:literal) == [$($expected:literal),+]) => {
+            impl_test!(from_slice_starting_bottom; $($input)*; $n; $($expected)*; false);
+            impl_test!(from_slice_shifting_right; $($input)*; $n; $($expected)*; $n != 0);
+        };
+        (from_slice_shifting_left([$($input:literal),+], $n:literal) == [$($expected:literal),+]) => {
+            impl_test!(from_slice_shifting_left; $($input)*; $n; $($expected)*; false);
+            impl_test!(from_slice_starting_top; $($input)*; $n; $($expected)*; $n != 0);
+        };
         ($func:ident([$($input:literal),+], $n:literal) == [$($expected:literal),+]) => {
+            impl_test!($func; $($input)*; $n; $($expected)*; false);
+        };
+        ($func:ident; $($input:literal)+; $n:literal; $($expected:literal)+; $skip:expr) => {
             paste! {
                 #[test]
                 fn [< test_ $func $(_ $input)* _ $n >]() {
@@ -1455,25 +1471,32 @@ mod test_big_digit_splitter_iter {
                     let iter = BigDigitSplitterIter::$func(&digits, $n);
                     let output = iter.map(u32::from).collect::<Vec<u32>>();
                     let expected = [$($expected),*];
-                    assert_eq!(&output, &expected);
+                    let skip = if $skip { 1 } else { 0 };
+                    assert_eq!(&output, &expected[skip..]);
                 }
             }
         }
     }
 
+    // these include from_slice_starting_top tests
     impl_test!(from_slice_shifting_left([806938958], 0) == [806938958]);
     impl_test!(from_slice_shifting_left([806938958], 1) == [069389580, 8]);
     impl_test!(from_slice_shifting_left([806938958], 3) == [938958000, 806]);
-    impl_test!(from_slice_shifting_right([806938958], 0) == [806938958]);
-    impl_test!(from_slice_shifting_right([806938958], 1) == [080693895]);
-    impl_test!(from_slice_shifting_right([806938958], 2) == [008069389]);
 
-    impl_test!(from_slice_shifting_left([861590398, 169326016], 3) => [590398000, 326016861, 169]);
-    impl_test!(from_slice_shifting_right([861590398, 169326016], 3) => [016861590, 169326]);
+    impl_test!(from_slice_shifting_left([861590398, 169326016], 0) == [861590398, 169326016]);
+    impl_test!(from_slice_shifting_left([861590398, 169326016], 3) == [590398000, 326016861, 169]);
 
-    impl_test!(from_slice_starting_top([861590398, 169326016], 0) => [861590398, 169326016]);
-    impl_test!(from_slice_starting_top([861590398, 169326016], 3) => [326016861, 169]);
-    impl_test!(from_slice_starting_bottom([861590398, 169326016], 3) => [398000000, 016861590, 169326]);
+    // these include from_slice_shifting_right tests
+    impl_test!(from_slice_starting_bottom([806938958], 0) == [806938958]);
+    impl_test!(from_slice_starting_bottom([806938958], 1) == [80000000, 80693895]);
+    impl_test!(from_slice_starting_bottom([806938958], 2) == [58000000, 8069389]);
+
+    impl_test!(from_slice_starting_bottom([127887266, 554762514, 7488], 0) == [127887266, 554762514, 7488]);
+    impl_test!(from_slice_starting_bottom([127887266, 554762514, 7488], 5) == [872660000, 625141278, 74885547]);
+    impl_test!(from_slice_starting_bottom([127887266, 554762514, 7488], 8) == [278872660, 547625141, 74885]);
+
+    impl_test!(from_slice_starting_bottom([861590398, 169326016], 3) == [398000000, 016861590, 169326]);
+
 
     #[test]
     fn case_shift_minus_one() {
