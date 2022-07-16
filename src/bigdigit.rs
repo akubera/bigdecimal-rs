@@ -1230,11 +1230,29 @@ mod test_shift_and_mask {
     }
 
     #[test]
+    fn case_2() {
+        let s = ShiftAndMask::mask_low(2);
+        let x = BigDigit(987654321);
+        assert_eq!(s.split(&x), (BigDigit(987654300),
+                                 BigDigit(000000021)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(009876543),
+                                           BigDigit(210000000)));
+
+        let s = ShiftAndMask::mask_high(2);
+        assert_eq!(s.split(&x), (BigDigit(980000000),
+                                 BigDigit(007654321)));
+
+        assert_eq!(s.split_and_shift(&x), (BigDigit(000000098),
+                                           BigDigit(765432100)));
+    }
+
+    #[test]
     fn case_4() {
         let s = ShiftAndMask::mask_low(4);
         let x = BigDigit(987654321);
-        assert_eq!(s.split(&x), (BigDigit(987600000),
-                                 BigDigit(000054321)));
+        assert_eq!(s.split(&x), (BigDigit(987650000),
+                                 BigDigit(000004321)));
         assert_eq!(s.split_and_shift(&x), (BigDigit(000098765),
                                            BigDigit(432100000)));
 
