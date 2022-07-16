@@ -6,7 +6,8 @@
 //!
 
 use std::mem::swap;
-use num_integer::div_rem;
+use std::ops::RangeFrom;
+use num_integer::{div_rem, Integer};
 use num_bigint::Sign;
 
 use crate::arithmetic::{
@@ -663,6 +664,24 @@ impl std::ops::Index<usize> for BigDigitVec {
 impl std::ops::IndexMut<usize> for BigDigitVec {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.0.index_mut(index)
+    }
+}
+
+impl std::ops::Index<std::ops::RangeTo<usize>> for BigDigitVec {
+    type Output = [BigDigit];
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeTo<usize>) -> &Self::Output {
+        self.0.index(index)
+    }
+}
+
+impl std::ops::Index<std::ops::RangeFrom<usize>> for BigDigitVec {
+    type Output = [BigDigit];
+
+    #[inline]
+    fn index(&self, index: std::ops::RangeFrom<usize>) -> &Self::Output {
+        self.0.index(index)
     }
 }
 
