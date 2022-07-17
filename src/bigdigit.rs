@@ -146,6 +146,21 @@ impl BigDigit {
         }
     }
 
+    /// True if BigDigit is ten to any power (within RADIX)
+    #[inline]
+    pub(crate) fn is_power_of_ten(&self) -> bool {
+        [1,
+         10,
+         100,
+         1000,
+         10000,
+         100000 ,
+         1000000 ,
+         10000000 ,
+         100000000 ,
+         1000000000 ].binary_search(&self.0).is_ok()
+    }
+
     /// Return the lowest digit and number of zeros preceding it
     ///
     /// (1230000).get_lowest_non_zero_digit() == (3, 4)
