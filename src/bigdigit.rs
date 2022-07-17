@@ -105,9 +105,28 @@ impl BigDigit {
     }
 
     /// Return maximum value of a single bigdigit (i.e. RADIX - 1)
+    ///
+    ///      BIG_DIGIT_RADIX = 1000000000
+    ///     max ten-to-power =  999999999
+    ///
     pub fn max() -> BigDigit {
-        let max_big_digit = BIG_DIGIT_RADIX - 1;
-        BigDigit(max_big_digit as BigDigitBase)
+        BigDigit((BIG_DIGIT_RADIX - 1) as BigDigitBase)
+    }
+
+    /// Return maximum power of ten a bigdigit may hold
+    ///
+    ///      BIG_DIGIT_RADIX = 1000000000
+    ///     max ten-to-power =  100000000
+    ///
+    pub fn max_power_of_ten() -> BigDigit {
+        BigDigit((BIG_DIGIT_RADIX / 10) as BigDigitBase)
+    }
+
+    /// Create BigDigit as an integer power of ten: 10^p
+    #[inline]
+    pub(crate) fn ten_to_the(p: BigDigitBase) -> BigDigit {
+        debug_assert!((p as usize) < MAX_DIGITS_PER_BIGDIGIT);
+        BigDigit(to_power_of_ten(p))
     }
 
     /// True if big digit is zero
@@ -119,13 +138,6 @@ impl BigDigit {
     #[inline]
     pub fn is_one(&self) -> bool {
         self.0 == 1
-    }
-
-    /// Create BigDigit as an integer power of ten: 10^p
-    #[inline]
-    pub(crate) fn ten_to_the(p: BigDigitBase) -> BigDigit {
-        debug_assert!((p as usize) < MAX_DIGITS_PER_BIGDIGIT);
-        BigDigit(to_power_of_ten(p))
     }
 
     /// True if BigDigit is ten to the given power
