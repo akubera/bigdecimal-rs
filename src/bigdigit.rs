@@ -135,9 +135,16 @@ impl BigDigit {
         self.0 == 0
     }
 
+    /// True if bigdigit is one
     #[inline]
     pub fn is_one(&self) -> bool {
         self.0 == 1
+    }
+
+    /// True if bigdigit is maximum allowed value
+    #[inline]
+    pub fn is_max(&self) -> bool {
+        self.0 as BigDigitBaseDouble == (BIG_DIGIT_RADIX - 1)
     }
 
     /// True if BigDigit is ten to the given power
