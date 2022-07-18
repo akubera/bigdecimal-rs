@@ -1549,16 +1549,43 @@ mod test_big_digit_splitter_iter {
 
 /// Digit info
 ///
-#[derive(Debug)]
+#[derive(Debug,Eq,PartialEq)]
 pub(crate) struct DigitInfo {
     /// digits
     pub(crate) digits: BigDigitVec,
     /// scale
-    scale: i64,
-    /// precision
-    precision: std::num::NonZeroI64,
+    pub(crate) scale: i64,
     /// Signed
-    sign: Sign,
+    pub(crate) sign: Sign,
+}
+
+impl DigitInfo {
+    /// Count number of digits stored in digit vec
+    pub fn count_digits(&self) -> usize {
+        count_digits(&self.digits)
+    }
+
+    /// Return pair of numbers to be added
+    pub fn rounding_pair(&self, digit_position: usize) -> (u8, u8) {
+        if digit_position == 0 {
+            return ((self.digits[0].0 % 10) as u8, 0);
+        }
+        let (idx, offset) = div_rem(digit_position, MAX_DIGITS_PER_BIGDIGIT);
+        if offset == 0 {
+            let left = self.digits[idx] % 10;
+            let right = self.digits[idx-1].0 / 100000000;
+            (left as u8, right as u8)
+        }
+        else if offset == 1 {
+            let low_two = self.digits[idx].0 % 100;
+            div_rem(low_two as u8, 10)
+        } else {
+            let shifter = to_power_of_ten(offset as BigDigitBase - 1);
+            let shifted = self.digits[idx] / shifter;
+            let low_two = shifted % 100;
+            div_rem(low_two as u8, 10)
+        }
+    }
 }
 
 impl Default for DigitInfo {
