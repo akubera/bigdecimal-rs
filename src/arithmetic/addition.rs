@@ -613,3 +613,559 @@ pub(crate) fn add_jot_into(
     // the result should have the precision number of digits requested
     debug_assert_eq!(result.count_digits(), precision.get() as usize);
 }
+
+
+#[cfg(test)]
+#[allow(overflowing_literals)]
+#[allow(unreachable_patterns)]
+#[allow(non_snake_case)]
+mod test_add_jot_into {
+    use super::*;
+
+    include!{ "../test_macros.rs" }
+
+    macro_rules! impl_case {
+        ($prec:literal, $rounding:ident => - $($n:literal)* E $scale:literal) => {
+            paste! {
+                #[test]
+                fn [< prec_ $prec _round_ $rounding >]() {
+                    let data = case_input!();
+                    let mut result = DigitInfo::default();
+                    add_jot_into(&data, nonzero!($prec;usize), RoundingMode::$rounding, &mut result);
+                    let expected = digit_info!(- $($n)* E $scale);
+                    assert_eq!(result, expected);
+                }
+            }
+
+        };
+        ($prec:literal, $rounding:ident => $($n:literal)* E $scale:literal) => {
+            paste! {
+                #[test]
+                fn [< prec_ $prec _round_ $rounding >]() {
+                    let data = case_input!();
+                    let mut result = DigitInfo::default();
+                    add_jot_into(&data, nonzero!($prec;usize), RoundingMode::$rounding, &mut result);
+                    let expected = digit_info!($($n)* E $scale);
+                    assert_eq!(result, expected);
+                }
+            }
+        };
+        ($prec:literal, $rounding:ident, $($multiple_rounding:ident),+ => - $($n:literal)* E $scale:literal) => {
+            impl_case!($prec, $rounding => - $($n)* E $scale);
+            impl_case!($prec, $($multiple_rounding),* => - $($n)* E $scale);
+        };
+        ($prec:literal, $rounding:ident, $($multiple_rounding:ident),+ => $($n:literal)* E $scale:literal) => {
+            impl_case!($prec, $rounding => $($n)* E $scale);
+            impl_case!($prec, $($multiple_rounding),* => $($n)* E $scale);
+        };
+    }
+
+    mod case_93881419894285022eneg14 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(93881419 894285022 E -14) }
+        }
+
+        impl_case!(8, Down => 93881419 E -5);
+        impl_case!(8, Up => 93881420 E -5);
+
+        impl_case!(14, Down => 93881 419894285 E -11);
+
+        impl_case!(17, Down => 93881419 894285022 E -14);
+        impl_case!(17, Up => 93881419 894285023 E -14);
+
+        impl_case!(19, Up => 9 388141989 428502201 E -16);
+    }
+
+    mod case_90000000000000000_e_neg14 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(90000000 000000000 E -14) }
+        }
+
+        impl_case!(19, Up => 9 000000000 000000001 E -16);
+    }
+
+    mod case_neg_87300000000000000000000000_e_2 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-87300000 000000000 000000000 E 2) }
+        }
+
+        impl_case!(10, Up => -8 730000000 E 18);
+        impl_case!(20, Up => -87 300000000 000000000 E 8);
+        impl_case!(28, Up => -8 730000000 000000000 000000000 E 0);
+
+        impl_case!(10, Down, Ceiling => -8 729999999 E 18);
+        impl_case!(20, Down => -87 299999999 999999999 E 8);
+
+        impl_case!(28, Down => -8 729999999 999999999 999999999 E 0);
+    }
+
+
+    mod case_99999995_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(99999995 E 0) }
+        }
+
+        impl_case!(5, Up => 10000 E 4);
+
+        impl_case!(7, Up, Ceiling, HalfDown, HalfUp, HalfEven => 1000000 E 2);
+        impl_case!(7, Down, Floor  => 9999999 E 1);
+        impl_case!(8, Up, Ceiling => 99999996 E 0);
+        impl_case!(8, Down, Floor, HalfDown, HalfUp, HalfEven  => 99999995 E 0);
+    }
+
+    mod case_999999995_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999995 E 0) }
+        }
+
+        impl_case!(5, Up => 10000 E 5);
+
+        impl_case!(8, Up, Ceiling, HalfDown, HalfUp, HalfEven => 10000000 E 2);
+        impl_case!(9, Up, Ceiling => 999999996 E 0);
+
+        impl_case!(5, Down => 99999 E 4);
+
+        impl_case!(8, Down, Floor => 99999999 E 1);
+        impl_case!(9, Down, Floor, HalfDown, HalfUp, HalfEven => 999999995 E 0);
+    }
+
+
+    mod case_99999999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(99999999 E 0) }
+        }
+
+        // impl_case!(5, Up => 10000 E 4);
+
+        impl_case!(8, Up, Ceiling => 10000000 E 1);
+
+        impl_case!(9, Up, Ceiling => 999999991 E -1);
+        impl_case!(10, Up, Ceiling => 9 999999901 E -2);
+
+        impl_case!(19, Up => 9 999999900 000000001 E -11);
+
+        impl_case!(8, Down, Floor, HalfDown, HalfUp, HalfEven => 99999999 E 0);
+        impl_case!(9, Down, Floor, HalfDown, HalfUp, HalfEven => 999999990 E -1);
+        impl_case!(10, Down, Floor, HalfDown, HalfUp, HalfEven => 9 999999900 E -2);
+        impl_case!(19, Down => 9 999999900 000000000 E -11);
+    }
+
+    mod case_999999999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999999 E 0) }
+        }
+
+        impl_case!(5, Up => 10000 E 5);
+        impl_case!(9, Up => 100000000 E 1);
+        impl_case!(10, Up => 9 999999991 E -1);
+        impl_case!(19, Up => 9 999999990 000000001 E -10);
+
+        impl_case!(9, Down, Floor, HalfDown, HalfUp, HalfEven => 999999999 E 0);
+        impl_case!(10, Down, Floor  => 9 999999990 E -1);
+        impl_case!(19, Down => 9 999999990 000000000 E -10);
+    }
+
+    mod case_20999999999999999999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(20 999999999 999999999 E 0) }
+        }
+
+        impl_case!(20, Up => 21 000000000 000000000 E 0);
+        impl_case!(19, Up => 2 100000000 00000000 E 1);
+        impl_case!(18, Up => 210000000 00000000 E 2);
+    }
+
+    mod case_29999999999999999999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(29 999999999 999999999 E 0) }
+        }
+
+        impl_case!(20, Up => 30 000000000 000000000 E 0);
+        impl_case!(19, Up => 3 000000000 00000000 E 1);
+        impl_case!(18, Up => 300000000 00000000 E 2);
+    }
+
+    mod case_899999999999999999999999999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(899999999 999999999 999999999 E 0) }
+        }
+
+        impl_case!(27, Up => 900000000 000000000 000000000 E 0);
+        // impl_case!(19, Up => 3 000000000 00000000 E 1);
+        // impl_case!(18, Up => 300000000 00000000 E 2);
+    }
+
+
+    mod case_999999999999999999999999_e_neg13 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999 999999999 999999999 E -13) }
+        }
+
+        impl_case!(12, Up, Ceiling, HalfDown, HalfEven, HalfUp => 100 000000000 E 0);
+        impl_case!(24, Up => 100000 000000000 000000000 E -12);
+
+        impl_case!(10, Down, Floor => 9 999999999 E 1);
+        impl_case!(11, Down, Floor => 99 999999999 E 0);
+        impl_case!(12, Down, Floor => 999 999999999 E -1);
+        impl_case!(27, Down, Floor => 999999999 999999999 999999000 E -16);
+        // impl_case!(19, Up => 3 000000000 00000000 E 1);
+        // impl_case!(18, Up => 300000000 00000000 E 2);
+    }
+
+    mod case_999999999999999999999999999_e_neg7 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999999 999999999 999999999 E -7) }
+        }
+
+        impl_case!(27, Up => 100000000 000000000 000000000 E -6);
+        impl_case!(27, Down => 999999999 999999999 999999999 E -7);
+        // impl_case!(19, Up => 3 000000000 00000000 E 1);
+        // impl_case!(18, Up => 300000000 00000000 E 2);
+    }
+
+    mod case_99999_e_10 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(99999 E 10) }
+        }
+
+        impl_case!(5, Up => 10000 E 11);
+    }
+
+    mod case_199999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(199999 E 0) }
+        }
+
+        impl_case!(5, Up, Ceiling => 20000 E 1);
+
+        impl_case!(6, Up, Ceiling => 200000 E 0);
+        impl_case!(6, Down, Floor, HalfUp, HalfDown, HalfEven => 199999 E 0);
+
+        impl_case!(16, HalfEven => 1999990 000000000 E -10);
+    }
+
+    mod case_neg_199999_e_0 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-199999 E 0) }
+        }
+
+        impl_case!(6, Up => -199999 E 0);
+        impl_case!(6, Down => -199998 E 0);
+        impl_case!(6, Ceiling => -199998 E 0);
+        impl_case!(6, Floor => -199999 E 0);
+        impl_case!(6, HalfUp => -199999 E 0);
+        impl_case!(6, HalfDown => -199999 E 0);
+        impl_case!(6, HalfEven => -199999 E 0);
+    }
+
+
+    mod case_neg_14478775 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-14478775 E 0) }
+        }
+
+        impl_case!(8, Up, Floor, HalfUp, HalfDown, HalfEven => -14478775 E 0);
+        impl_case!(8, Down, Ceiling => -14478774 E 0);
+
+
+        impl_case!(9, Up, Floor, HalfUp, HalfDown, HalfEven => -144787750 E -1);
+        impl_case!(9, Down, Ceiling => -144787749 E -1);
+
+        impl_case!(20, Up => -14 478775000 000000000 E -12);
+        impl_case!(20, Down => -14 478774999 999999999 E -12);
+    }
+
+    mod case_neg_1000_e_neg3 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-1000 E -3) }
+        }
+
+        // impl_case!(18, Up   => -100000000 000000000 E -17);
+
+        impl_case!(19, Up   => -1 000000000 000000000 E -18);
+        impl_case!(20, Up   => -10 000000000 000000000 E -19);
+
+        impl_case!(16, Down => -9999999 999999999 E -16);
+        impl_case!(17, Down => -99999999 999999999 E -17);
+        impl_case!(18, Down => -999999999 999999999 E -18);
+        impl_case!(19, Down => -9 999999999 999999999 E -19);
+        impl_case!(20, Down => -99 999999999 999999999 E -20);
+
+        impl_case!(24, Down => -999999 999999999 999999999 E -24);
+
+        impl_case!(27, Down => -999999999 999999999 999999999 E -27);
+    }
+
+    mod case_neg_100000000_e_neg_60 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-100000000 E -60) }
+        }
+
+        impl_case!(18, Up, Floor => -100000000 000000000 E -69);
+        impl_case!(19, Up, Floor => -1 000000000 000000000 E -70);
+        impl_case!(20, Up, Floor => -10 000000000 000000000 E -71);
+        impl_case!(21, Up, Floor => -100 000000000 000000000 E -72);
+        impl_case!(22, Up, Floor => -1000 000000000 000000000 E -73);
+        impl_case!(23, Up, Floor => -10000 000000000 000000000 E -74);
+        impl_case!(24, Up, Floor => -100000 000000000 000000000 E -75);
+        impl_case!(25, Up, Floor => -1000000 000000000 000000000 E -76);
+
+        impl_case!(18, Down, Ceiling => -999999999 999999999 E -70);
+        impl_case!(19, Down, Ceiling => -9 999999999 999999999 E -71);
+        impl_case!(20, Down, Ceiling => -99 999999999 999999999 E -72);
+    }
+
+    mod case_neg_1000000000_e_10 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-1 000000000 E 10) }
+        }
+
+        // impl_case!(7, Down => -9999999 E 18);
+        impl_case!(14, Down => -99999 999999999 E 5);
+        impl_case!(15, Down => -999999 999999999 E 4);
+        impl_case!(16, Down => -9999999 999999999 E 3);
+        impl_case!(17, Down => -99999999 999999999 E 2);
+        impl_case!(18, Down => -999999999 999999999 E 1);
+        impl_case!(19, Down => -9 999999999 999999999 E 0);
+        impl_case!(20, Down => -99 999999999 999999999 E -1);
+        impl_case!(21, Down => -999 999999999 999999999 E -2);
+        impl_case!(22, Down => -9999 999999999 999999999 E -3);
+        impl_case!(27, Down => -999999999 999999999 999999999 E -8);
+        impl_case!(28, Down => -9 999999999 999999999 999999999 E -9);
+
+        impl_case!(18, Up => - 100000000 000000000 E 2);
+        impl_case!(19, Up => -1 000000000 000000000 E 1);
+        impl_case!(20, Up => -10 000000000 000000000 E 0);
+
+
+        impl_case!(22, Up => -1000 000000000 000000000 E -2);
+
+        impl_case!(27, Up => -100000000 000000000 000000000 E -7);
+    }
+
+    mod case_neg_10000000000_e_8 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-10 000000000 E 8) }
+        }
+
+        impl_case!(20, Up, HalfUp, HalfDown => -10 000000000 000000000 E -1);
+
+        impl_case!(20, Down, Ceiling => -99 999999999 999999999 E -2);
+
+        impl_case!(21, Up, HalfUp, HalfDown => -100 000000000 000000000 E -2);
+        impl_case!(21, Down, Ceiling => -999 999999999 999999999 E -3);
+
+        // impl_case!(21, Up, HalfUp, HalfDown => -10 000000000 000000000 E -2);
+    }
+
+    mod case_neg_17801000000000 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-17801 000000000 E 0) }
+        }
+
+
+        impl_case!(3, Up => -179 E 11);
+        impl_case!(4, Up => -1781 E 10);
+        impl_case!(5, Up => -17801 E 9);
+
+        impl_case!(6, Up, Floor => -178010 E 8);
+
+        impl_case!(11, Up, Floor, HalfUp, HalfEven, HalfDown => -17 801000000 E 3);
+        impl_case!(14, Up, Floor => -17801 000000000 E 0);
+
+        impl_case!(22, Up => -1780 100000000 000000000 E -8);
+        impl_case!(23, Up => -17801 000000000 000000000 E -9);
+
+        impl_case!(3, Down, Ceiling => -178 E 11);
+        impl_case!(5, Down, Ceiling => -17800 E 9);
+        impl_case!(6, Down, Ceiling => -178009 E 8);
+        impl_case!(7, Down, Ceiling => -1780099 E 7);
+        impl_case!(8, Down, Ceiling => -17800999 E 6);
+        impl_case!(9, Down, Ceiling => -178009999 E 5);
+        impl_case!(10, Down, Ceiling => -1 780099999 E 4);
+        impl_case!(11, Down, Ceiling => -17 800999999 E 3);
+        impl_case!(12, Down, Ceiling => -178 009999999 E 2);
+        impl_case!(13, Down, Ceiling => -1780 099999999 E 1);
+
+        impl_case!(14, Down, Ceiling => -17800 999999999 E 0);
+        impl_case!(15, Down, Ceiling => -178009 999999999 E -1);
+
+        impl_case!(20, Down, Ceiling => -17 800999999 999999999 E -6);
+        impl_case!(21, Down => -178 009999999 999999999 E -7);
+
+        impl_case!(22, Down => -1780 099999999 999999999 E -8);
+
+        impl_case!(23, Down => -17800 999999999 999999999 E -9);
+    }
+
+    mod case_81710470447344799214256850000_E_neg26 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(81 710470447 344799214 256850000 E -26) }
+        }
+
+
+        impl_case!(15, Up, Ceiling, HalfDown, HalfEven, HalfUp => 817104 704473448 E -12);
+        impl_case!(16, Up, Ceiling, HalfDown, HalfEven, HalfUp => 8171047 044734480 E -13);
+        impl_case!(17, Up, Ceiling => 81710470 447344800 E -14);
+        impl_case!(18, Up, Ceiling => 817104704 473447993 E -15);
+
+
+        impl_case!(15, Down, Floor => 817104 704473447 E -12);
+
+        impl_case!(17, Down, Floor => 81710470 447344799 E -14);
+        impl_case!(18, Down, Floor, HalfDown, HalfEven, HalfUp  => 817104704 473447992 E -15);
+
+        impl_case!(25, Up => 8171047 044734479 921425686 E -22);
+        impl_case!(26, Up => 81710470 447344799 214256851 E -23);
+        impl_case!(27, Up => 817104704 473447992 142568501 E -24);
+        impl_case!(28, Up => 8 171047044 734479921 425685001 E -25);
+        impl_case!(29, Up => 81 710470447 344799214 256850001 E -26);
+        impl_case!(30, Up => 817 104704473 447992142 568500001 E -27);
+    }
+
+    mod case_747349068880200326999999999 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(7 473490688 802003267 999999999 E -14) }
+        }
+
+        impl_case!(28, Up => 7 473490688 802003268 000000000 E -14);
+        impl_case!(28, Down => 7 473490688 802003267 999999999 E -14);
+        impl_case!(30, Up => 747 349068880 200326799 999999901 E -16);
+        impl_case!(30, Down => 747 349068880 200326799 999999900 E -16);
+    }
+
+    mod case_999999999999999995000000000 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999999 999999995 000000000 E 0) }
+        }
+
+        impl_case!(8, Up, HalfUp, HalfDown, HalfEven => 10000000 E 20);
+        impl_case!(9, Up, HalfUp, HalfDown, HalfEven => 100000000 E 19);
+        impl_case!(10, Up, HalfUp, HalfDown, HalfEven => 1 000000000 E 18);
+        impl_case!(11, Up, HalfUp, HalfDown, HalfEven => 10 000000000 E 17);
+
+        impl_case!(16, Up, HalfUp, HalfDown, HalfEven => 1000000 000000000 E 12);
+        impl_case!(17, Up, HalfUp, HalfDown, HalfEven => 10000000 000000000 E 11);
+        impl_case!(18, Up, Ceiling => 999999999 999999996 E 9);
+        impl_case!(19, Up, Ceiling => 9 999999999 999999951 E 8);
+        impl_case!(20, Up, Ceiling => 99 999999999 999999501 E 7);
+
+        impl_case!(8, Down => 99999999 E 19);
+        impl_case!(16, Down, Floor => 9999999 999999999 E 11);
+        impl_case!(17, Down, Floor => 99999999 999999999 E 10);
+        impl_case!(18, Down, Floor, HalfUp, HalfDown, HalfEven => 999999999 999999995 E 9);
+        impl_case!(19, Down, Floor, HalfUp, HalfDown, HalfEven => 9 999999999 999999950 E 8);
+        impl_case!(27, Down => 999999999 999999995 000000000 E 0);
+        impl_case!(28, Down => 9 999999999 999999950 000000000 E -1);
+        impl_case!(29, Down => 99 999999999 999999500 000000000 E -2);
+    }
+
+    mod case_999999999999999999999999999 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(999999999 999999999 999999999 E -2) }
+        }
+
+        impl_case!(20, Up => 10 000000000 000000000 E 6);
+        impl_case!(27, Up => 100000000 000000000 000000000 E -1);
+        impl_case!(27, Down => 999999999 999999999 999999999 E -2);
+        impl_case!(28, Down => 9 999999999 999999999 999999990 E -3);
+    }
+
+    mod case_neg999999999999999999999999999 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-999999999 999999999 999999999 E -2) }
+        }
+
+        impl_case!(27, Up => -999999999 999999999 999999999 E -2);
+        impl_case!(27, Down => -999999999 999999999 999999998 E -2);
+        impl_case!(28, Up, Floor => -9 999999999 999999999 999999990 E -3);
+        impl_case!(28, Down => -9 999999999 999999999 999999989 E -3);
+
+        impl_case!(58, Up, Floor => -9999 999999999 999999999 999990000 000000000 000000000 000000000 E -33);
+        impl_case!(58, Down => -9999 999999999 999999999 999989999 999999999 999999999 999999999 E -33);
+    }
+
+    mod case_3999999999999999999999999999 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(3 999999999 999999999 999999999 E -2) }
+        }
+
+        impl_case!(28, Up => 4 000000000 000000000 000000000 E -2);
+        impl_case!(28, Down => 3 999999999 999999999 999999999 E -2);
+    }
+
+    mod case_neg_3999999999999999999999999999Eneg7 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(-3 999999999 999999999 999999999 E -7) }
+        }
+
+        impl_case!(21, Up => -400 000000000 000000000 E 0);
+        impl_case!(26, Up => -40000000 000000000 000000000 E -5);
+        impl_case!(27, Up => -400000000 000000000 000000000 E -6);
+        impl_case!(28, Up => -3 999999999 999999999 999999999 E -7);
+        impl_case!(32, Up => -39999 999999999 999999999 999990000 E -11);
+
+        impl_case!(21, Down, Ceiling => -399 999999999 999999999 E 0);
+
+        impl_case!(26, Down, Ceiling => -39999999 999999999 999999999 E -5);
+        impl_case!(28, Down => -3 999999999 999999999 999999998 E -7);
+
+        impl_case!(32, Down => -39999 999999999 999999999 999989999 E -11);
+    }
+}
