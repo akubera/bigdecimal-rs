@@ -1444,7 +1444,10 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
     }
 }
 
-impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
+// impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
+impl<'a, I> Iterator for BigDigitSplitterIter<'a, I>
+where
+    I: Iterator<Item=&'a BigDigit>
 {
     type Item = BigDigit;
 
@@ -1474,6 +1477,22 @@ impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
                 None => None,
             },
         }
+    }
+
+    /// Used for optimization
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.digits.size_hint()
+    }
+}
+
+
+impl<'a, I> std::iter::ExactSizeIterator for BigDigitSplitterIter<'a, I>
+where
+    I: std::iter::ExactSizeIterator<Item=&'a BigDigit>
+{
+    /// Used for optimization
+    fn len(&self) -> usize {
+        self.digits.len()
     }
 }
 
