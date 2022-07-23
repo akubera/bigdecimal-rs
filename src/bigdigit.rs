@@ -261,6 +261,36 @@ impl BigDigit {
         }
     }
 
+    /// Return inner 'as' a u8
+    pub(crate) fn as_u8(&self) -> u8 {
+        self.0 as u8
+    }
+
+    /// Return inner 'as' a u32
+    pub(crate) fn as_u32(&self) -> u32 {
+        self.0 as u32
+    }
+
+    /// Return inner 'as' a u64
+    pub(crate) fn as_u64(&self) -> u64 {
+        self.0 as u64
+    }
+
+    /// Return inner 'as' a BigDigitBaseDouble
+    pub(crate) fn as_digit_base(&self) -> BigDigitBase {
+        self.0
+    }
+
+    /// Return inner 'as' a BigDigitBaseDouble
+    pub(crate) fn as_digit_base_double(&self) -> BigDigitBaseDouble {
+        self.0 as BigDigitBaseDouble
+    }
+
+    /// Return inner 'as' a usize
+    pub(crate) fn as_usize(&self) -> usize {
+        self.0 as usize
+    }
+
     /// Split the big digit into masked and shifted non-masked parts
     ///
     /// Mask and shift should be factors of BIGDIGIT_RADIX
