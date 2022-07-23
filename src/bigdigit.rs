@@ -1632,7 +1632,6 @@ impl DigitInfo {
 impl Default for DigitInfo {
     fn default() -> DigitInfo {
         DigitInfo {
-            precision: std::num::NonZeroI64::new(DEFAULT_PRECISION as i64).unwrap(),
             scale: 0,
             digits: BigDigitVec::default(),
             sign: Sign::NoSign,
