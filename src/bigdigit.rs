@@ -459,18 +459,40 @@ impl_partial_eq!(BigDigit <> i32);
 impl_partial_eq!(BigDigit <> i64);
 
 
-impl std::ops::Add for BigDigit {
-    type Output = (BigDigit, bool);
-
-    fn add(self, rhs: BigDigit) -> Self::Output {
-        let sum = self.0 as BigDigitBaseDouble + rhs.0 as BigDigitBaseDouble;
-        if sum < BIG_DIGIT_RADIX {
-            (BigDigit(sum as BigDigitBase), false)
-        } else {
-            (BigDigit((sum - BIG_DIGIT_RADIX) as BigDigitBase), true)
+macro_rules! impl_op {
+    ($p:ident; $func:ident; into BigDigitBase => BigDigit) => {
+        impl<N: Into<BigDigitBase>> std::ops::$p<N> for BigDigit {
+            type Output = BigDigit;
+            fn $func(self, rhs: N) -> Self::Output {
+                let result = self.0.$func(rhs.into());
+                debug_assert!((result as BigDigitBaseDouble) < BIG_DIGIT_RADIX);
+                BigDigit(result)
+            }
         }
-    }
+        impl<N: Into<BigDigitBase>> std::ops::$p<N> for &BigDigit {
+            type Output = BigDigit;
+            fn $func(self, rhs: N) -> Self::Output {
+                let result = self.0.$func(rhs.into());
+                debug_assert!((result as BigDigitBaseDouble) < BIG_DIGIT_RADIX);
+                BigDigit(result)
+            }
+        }
+    };
+    ($p:ident; $func:ident; into BigDigitBase => mut BigDigit) => {
+        impl<N: Into<BigDigitBase>> std::ops::$p<N> for BigDigit {
+            fn $func(&mut self, rhs: N) {
+                self.0.$func(rhs.into())
+            }
+        }
+    };
 }
+
+impl_op!(Div; div; into BigDigitBase => BigDigit);
+impl_op!(DivAssign; div_assign; into BigDigitBase => mut BigDigit);
+
+impl_op!(Rem; rem; into BigDigitBase => BigDigit);
+impl_op!(RemAssign; rem_assign; into BigDigitBase => mut BigDigit);
+
 
 /// Vector of BigDigits
 ///
