@@ -656,6 +656,19 @@ mod test_add_jot_into {
         };
     }
 
+    mod case_84940950305270406218631_Eneg7 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!( 84940 950305270 406218631 E -7 ) }
+        }
+
+        impl_case!(13, Up => 8494 095030528 E 3);
+        impl_case!(14, Up => 84940 950305271 E 2);
+        impl_case!(15, Up => 849409 503052705 E 1);
+        impl_case!(15, Down => 849409 503052704 E 1);
+    }
+
     mod case_93881419894285022eneg14 {
         use super::*;
 
@@ -666,7 +679,8 @@ mod test_add_jot_into {
         impl_case!(8, Down => 93881419 E -5);
         impl_case!(8, Up => 93881420 E -5);
 
-        impl_case!(14, Down => 93881 419894285 E -11);
+        impl_case!(14, Up, Ceiling => 93881 419894286 E -11);
+        impl_case!(14, Down, HalfUp, HalfDown, HalfEven => 93881 419894285 E -11);
 
         impl_case!(17, Down => 93881419 894285022 E -14);
         impl_case!(17, Up => 93881419 894285023 E -14);
