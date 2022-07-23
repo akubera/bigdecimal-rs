@@ -621,19 +621,6 @@ mod test_add_jot_into {
     include!{ "../test_macros.rs" }
 
     macro_rules! impl_case {
-        ($prec:literal, $rounding:ident => - $($n:literal)* E $scale:literal) => {
-            paste! {
-                #[test]
-                fn [< prec_ $prec _round_ $rounding >]() {
-                    let data = case_input!();
-                    let mut result = DigitInfo::default();
-                    add_jot_into(&data, nonzero!($prec;usize), RoundingMode::$rounding, &mut result);
-                    let expected = digit_info!(- $($n)* E $scale);
-                    assert_eq!(result, expected);
-                }
-            }
-
-        };
         ($prec:literal, $rounding:ident => $($n:literal)* E $scale:literal) => {
             paste! {
                 #[test]
