@@ -354,7 +354,7 @@ pub(crate) fn add_jot_into(
                     let incremented_bigdigit = d0.incremented();
                     if incremented_bigdigit.is_power_of_ten() {
                         result.scale += 1;
-                        let scaled_bigdigit = incremented_bigdigit / 10;
+                        let scaled_bigdigit = incremented_bigdigit / 10u8;
                         result.digits.push(scaled_bigdigit);
                     } else {
                         result.digits.push(rounded_d0);
@@ -372,19 +372,19 @@ pub(crate) fn add_jot_into(
                     // first-non-max index and bigdigit
                     Some((fnm_idx, fnm_bigdigit)) if fnm_idx + 1 < n.digits.len() => {
                         result.digits.resize(fnm_idx, BigDigit::zero());
-                        result.digits.push(fnm_bigdigit.add_unchecked(1u32));
+                        result.digits.push(fnm_bigdigit.add_unchecked(1u8));
                         result.digits.extend_from_slice(&n.digits[fnm_idx+1..]);
                     },
                     // handle case where first-non-max bigdigit is the last digit
                     Some((fnm_idx, fnm_bigdigit)) => {
                         result.digits.resize(fnm_idx, BigDigit::zero());
-                        let added_number = fnm_bigdigit.add_unchecked(1u32);
+                        let added_number = fnm_bigdigit.add_unchecked(1u8);
                         if !added_number.is_power_of_ten() {
                             result.digits.push(added_number);
                         } else {
                             // 9999 999999999
                             result.scale += 1;
-                            result.digits.push(added_number / 10);
+                            result.digits.push(added_number / 10u32);
                         }
                     },
                     // very special case of nines going up to big digit boundary [999999999, 999999999]
@@ -597,7 +597,8 @@ pub(crate) fn add_jot_into(
                             result.digits[last_idx - 1] = BigDigit::max_power_of_ten();
                         } else if last_digit.is_power_of_ten() {
                             result.scale += 1;
-                            result.digits[last_idx] /= 10;
+                            result.digits[last_idx] /= 10u8;
+                            debug_assert_ne!(result.digits[last_idx], BigDigit::zero());
                         }
                     }
                 }
