@@ -1613,7 +1613,7 @@ impl DigitInfo {
         }
         let (idx, offset) = div_rem(digit_position, MAX_DIGITS_PER_BIGDIGIT);
         if offset == 0 {
-            let left = self.digits[idx] % 10;
+            let left = self.digits[idx].0 % 10;
             let right = self.digits[idx-1].0 / 100000000;
             (left as u8, right as u8)
         }
@@ -1622,7 +1622,7 @@ impl DigitInfo {
             div_rem(low_two as u8, 10)
         } else {
             let shifter = to_power_of_ten(offset as BigDigitBase - 1);
-            let shifted = self.digits[idx] / shifter;
+            let shifted = self.digits[idx].0 / shifter;
             let low_two = shifted % 100;
             div_rem(low_two as u8, 10)
         }
