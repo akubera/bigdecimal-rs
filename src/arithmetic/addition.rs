@@ -311,7 +311,7 @@ pub(crate) fn add_jot_into(
         // special case where precision matches digit-count and first digit is not zero
         Equal => {
             let d0 = n.digits[0];
-            let high = (d0 % 10) as u8;
+            let high = (d0.as_digit_base() % 10) as u8;
 
             // round with second digit "1" because we're adding the jot
             // let digit_pair = if n.sign == Sign::Minus { (high - 1, 9) } else { (high, 1) };
