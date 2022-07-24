@@ -382,7 +382,7 @@ impl BigDigit {
 
     /// Return the value of self plus carry, store overflow value (0 or 1) in carry
     #[inline]
-    pub fn add_carry(&self, carry: &mut BigDigit) -> BigDigit {
+    pub(crate) fn add_carry(&self, carry: &mut BigDigit) -> BigDigit {
         let tmp = self.0 as BigDigitBaseDouble + carry.0 as BigDigitBaseDouble;
         let (overflow, sum) = div_rem(tmp, BIG_DIGIT_RADIX);
         debug_assert!(overflow < BIG_DIGIT_RADIX);
@@ -392,8 +392,12 @@ impl BigDigit {
 
     /// Return the value of (self + other + carry), store overflow value (0 or 1) in carry
     #[inline]
-    pub fn add_with_carry(&self, other: &BigDigit, carry: &mut BigDigit) -> BigDigit {
-        let tmp = self.0 as BigDigitBaseDouble + other.0 as BigDigitBaseDouble + carry.0 as BigDigitBaseDouble;
+    pub(crate) fn add_with_carry<N>(&self, other: N, carry: &mut BigDigit) -> BigDigit 
+    where N: Into<BigDigitBase>
+    {
+        let tmp = self.0 as BigDigitBaseDouble
+                + other.into() as BigDigitBaseDouble
+                + carry.0 as BigDigitBaseDouble;
         let (overflow, sum) = div_rem(tmp, BIG_DIGIT_RADIX);
         debug_assert!(overflow < BIG_DIGIT_RADIX);
         carry.0 = overflow as BigDigitBase;
@@ -402,14 +406,106 @@ impl BigDigit {
 
     /// Store the value of (self + other + carry) in self, store overflow value (0 or 1) in carry
     #[inline]
-    pub fn add_assign_with_carry(&mut self, other: &BigDigit, carry: &mut BigDigit) {
-        let tmp = other.0 as BigDigitBaseDouble
-                 + self.0 as BigDigitBaseDouble
+    pub fn add_assign_with_carry<N>(&mut self, other: N, carry: &mut BigDigit)
+    where N: Into<BigDigitBase>
+    {
+        let tmp =  self.0 as BigDigitBaseDouble
+                 + other.into() as BigDigitBaseDouble
                  + carry.0 as BigDigitBaseDouble;
         let (overflow, sum) = div_rem(tmp, BIG_DIGIT_RADIX);
         debug_assert!(overflow < BIG_DIGIT_RADIX);
         self.0 = sum as BigDigitBase;
         carry.0 = overflow as BigDigitBase;
+    }
+
+    /// Store the value of self + other in self, ignore overflow value (0 or 1) in carry
+    #[inline]
+    pub(crate) fn add_unchecked<N>(&self, other: N) -> BigDigit
+    where N: Into<BigDigitBase>
+    {
+        let rhs = other.into();
+        let sum = self.0 + rhs;
+        debug_assert!(
+            (sum as BigDigitBaseDouble) < BIG_DIGIT_RADIX,
+            "{} + {} = {} >= RADIX={}", self.0, rhs, sum, BIG_DIGIT_RADIX
+        );
+        BigDigit(sum)
+    }
+
+    /// Add one to this bigdigit
+    ///
+    /// Must not be max
+    ///
+    #[inline]
+    pub(crate) fn incremented(&self) -> BigDigit {
+        debug_assert_ne!(self.0 as BigDigitBaseDouble, (BIG_DIGIT_RADIX - 1));
+        BigDigit(self.0 + 1)
+    }
+
+    /// Return the value of self minus borrow, store overflow value (0 or 1) in borrow
+    #[inline]
+    pub(crate) fn sub_borrow(&self, borrow: &mut BigDigit) -> BigDigit {
+        if self.0 < borrow.0 {
+            let diff = BIG_DIGIT_RADIX - borrow.0 as BigDigitBaseDouble;
+            borrow.0 = 1;
+            BigDigit(diff as BigDigitBase)
+        } else {
+            let diff = self.0 - borrow.0;
+            borrow.0 = 0;
+            BigDigit(diff)
+        }
+    }
+
+    /// Return the value of self minus borrow, store overflow value in borrow
+    #[inline]
+    pub(crate) fn sub_with_borrow<N>(&self, other: N, borrow: &mut BigDigit) -> BigDigit
+    where N: Into<BigDigit>
+    {
+        let mut diff = self.0 as BigDigitBaseSignedDouble
+                      - other.into().0 as BigDigitBaseSignedDouble
+                      - borrow.0 as BigDigitBaseSignedDouble;
+
+        borrow.0 = 0;
+        while diff < 0 {
+            borrow.0 += 1;
+            diff += BIG_DIGIT_RADIX_I64;
+        }
+        debug_assert!(diff < BIG_DIGIT_RADIX_I64);
+        BigDigit(diff as BigDigitBase)
+    }
+
+    /// Store the value of (self - other + carry) in self, store overflow value (0 or 1) in carry
+    /// will panic if underflows
+    #[inline]
+    pub(crate) fn sub_with_carry<N: Into<BigDigit>>(&self, other: N, carry: &mut BigDigit) -> BigDigit {
+        let sum = self.0 as BigDigitBaseSignedDouble
+                 - other.into().0 as BigDigitBaseSignedDouble
+                 + carry.0 as BigDigitBaseSignedDouble;
+        debug_assert!(sum > 0);
+
+        if (sum as BigDigitBaseDouble) < BIG_DIGIT_RADIX {
+            carry.0 = 0;
+            BigDigit(sum as BigDigitBase)
+        } else {
+            let (overflow, sum) = div_rem(sum as BigDigitBaseDouble, BIG_DIGIT_RADIX);
+            debug_assert!(overflow < BIG_DIGIT_RADIX);
+            carry.0 = overflow as BigDigitBase;
+            BigDigit(sum as BigDigitBase)
+        }
+    }
+
+    /// Subtract n from self, returning None if underflow occurs
+    #[inline]
+    pub(crate) fn checked_sub<N: Into<BigDigitBase>>(&self, n: N) -> Option<BigDigit> {
+        self.0.checked_sub(n.into()).map(|diff| BigDigit(diff))
+    }
+
+    /// Unchecked sub
+    #[inline]
+    pub(crate) fn unchecked_sub<N: Into<BigDigitBase>>(&self, n: N) -> BigDigit {
+        let rhs = n.into();
+        debug_assert!(self.0 >= rhs);
+        BigDigit(self.0 - rhs)
     }
 
     /// Calculate quotient and remainder of bigdigit with argument
