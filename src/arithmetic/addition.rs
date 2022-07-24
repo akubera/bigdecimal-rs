@@ -11,6 +11,7 @@ use crate::bigdigit::{
 };
 
 use crate::context::{Context, RoundingMode};
+use crate::Sign;
 
 use num_integer::div_rem;
 
