@@ -837,6 +837,42 @@ impl BigDigitVec {
     pub(crate) fn count_digits(&self) -> usize {
         count_digits(&self.0)
     }
+
+    /// Return left & right digits and whether all trailing digits
+    /// are zero
+    ///
+    #[inline]
+    pub(crate) fn get_rounding_info(&self, idx: usize) -> ((u8, u8), bool)
+    {
+        if idx == 0 {
+            let d0 = self.0[0].0 % 10;
+            return ((d0 as u8, 0), true);
+        }
+
+        let (index, offset) = div_rem(idx, MAX_DIGITS_PER_BIGDIGIT);
+        let all_trailing_zeros = self.0[..index].iter().all(|&d| d.is_zero());
+
+        match offset {
+            0 => {
+                let mask = to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - 1);
+
+                let l = self.0[index].0 % 10;
+                let (r, sub) = div_rem(self.0[index - 1].0, mask as u32);
+                ((l as u8, r as u8), sub == 0 && all_trailing_zeros)
+            },
+            1 => {
+                let d = self.0[index].0 % 100;
+                let pair = div_rem(d as u8, 10);
+                (pair, all_trailing_zeros)
+            }
+            n => {
+                let mask = to_power_of_ten(n as u32- 1);
+                let (d, sub) = div_rem(self.0[index].0, mask);
+                let pair = div_rem((d % 100) as u8, 10);
+                (pair, sub == 0 && all_trailing_zeros)
+            }
+        }
+    }
 }
 
 impl From<bool> for BigDigit {
