@@ -159,7 +159,7 @@ pub(crate) fn add_digit_slices_with_offset_into(
     }
 
     let (skip, a_offset) = div_rem(
-        digit_shift as usize, MAX_DIGITS_PER_BIGDIGIT
+        digit_shift as usize, bigdigit::MAX_DIGITS_PER_BIGDIGIT
     );
 
     result.extend_from_slice(&b[..skip]);
@@ -168,7 +168,9 @@ pub(crate) fn add_digit_slices_with_offset_into(
         return extend_digit_slice_sum_into(a, &b[skip..], result);
     }
 
-    let mut aligned_a_digits = BigDigitSplitterIter::new(a_offset as u32, a.iter());
+    let mut aligned_a_digits = BigDigitSplitterIter::from_slice_shifting_left(
+        &a, a_offset
+    );
     let b_digits = b[skip..].iter();
 
     let mut carry = BigDigit::zero();
