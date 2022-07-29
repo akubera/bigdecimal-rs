@@ -626,8 +626,7 @@ impl_op!(RemAssign; rem_assign; into BigDigitBase => mut BigDigit);
 /// implementations (i.e. smallvec) in the future.
 ///
 // #[derive(Debug,Clone)]
-#[derive(Debug,Default,Clone,Eq,PartialEq)]
-// #[derive(Debug,Default,Clone,Copy,Eq,PartialEq,Ord,PartialOrd)]
+#[derive(Default,Clone,Eq,PartialEq)]
 pub struct BigDigitVec(BigDigitVecBase);
 
 impl BigDigitVec {
@@ -876,6 +875,21 @@ impl BigDigitVec {
                 let pair = div_rem((d % 100) as u8, 10);
                 (pair, sub == 0 && all_trailing_zeros)
             }
+        }
+    }
+}
+
+impl std::fmt::Debug for BigDigitVec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BigDigitVec([")?;
+        if self.0.len() == 0 {
+            write!(f, "])")
+        } else {
+            write!(f, "{}", self.0[0].0)?;
+            for big_digit in self.0.iter().skip(1) {
+                write!(f, ", {}", big_digit.0)?;
+            }
+            write!(f, "])")
         }
     }
 }
