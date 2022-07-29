@@ -1650,6 +1650,14 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
         }
     }
 
+    /// Return the internal 'mask' value
+    pub(crate) fn mask(&self) -> BigDigitBase {
+        return match self.shift {
+            ShiftState::Zero => { 0 },
+            ShiftState::Shifted { mask: ref shift_and_mask, .. } => { shift_and_mask.mask }
+        }
+    }
+
     /// Returns the value of the 'shift' with one subtracted
     ///
     /// Useful for adding nines to first result of `from_slice_starting_bottom`
