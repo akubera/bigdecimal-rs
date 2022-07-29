@@ -654,6 +654,11 @@ impl BigDigitVec {
         v
     }
 
+    /// True if vector contains value zero
+    pub(crate) fn is_zero(&self) -> bool {
+        self.0.len() == 1 && self.0[0].is_zero()
+    }
+
     /// Push bigdigit into vector
     pub fn push(&mut self, digit: BigDigit) {
         self.0.push(digit);
