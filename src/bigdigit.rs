@@ -1573,6 +1573,16 @@ pub(crate) struct BigDigitSplitterIter<'a, I>
 
 impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
 {
+    /// Build without shifting digits
+    #[inline]
+    pub(crate) fn from_slice(slice: &'a [BigDigit]) -> Self {
+        Self {
+            shift: ShiftState::Zero,
+            digits: slice.iter(),
+            phantom: std::marker::PhantomData,
+        }
+    }
+
     /// Stream will behave as if adding n zeros to beginning of digits
     ///
     /// 987654321 : n=3 => 654321000
