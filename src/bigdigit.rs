@@ -711,6 +711,15 @@ impl BigDigitVec {
         self.0.resize(new_len, value)
     }
 
+    /// Shorten the length of internal vector to new length
+    ///
+    /// If current length is shorter, no action is taken
+    ///
+    pub fn truncate(&mut self, new_len: usize)
+    {
+        self.0.truncate(new_len)
+    }
+
     /// Clear internal vector
     pub fn clear(&mut self) {
         self.0.clear()
