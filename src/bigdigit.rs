@@ -437,7 +437,7 @@ impl BigDigit {
 
     /// Return the value of (self + other + carry), store overflow value (0 or 1) in carry
     #[inline]
-    pub(crate) fn add_with_carry<N>(&self, other: N, carry: &mut BigDigit) -> BigDigit 
+    pub(crate) fn add_with_carry<N>(&self, other: N, carry: &mut BigDigit) -> BigDigit
     where N: Into<BigDigitBase>
     {
         let tmp = self.0 as BigDigitBaseDouble
@@ -559,6 +559,57 @@ impl BigDigit {
     pub fn div_rem(self, n: BigDigitBase) -> (BigDigit, BigDigit) {
         let (hi, lo) = div_rem(self.0, n);
         (BigDigit(hi), BigDigit(lo))
+    }
+}
+
+#[cfg(test)]
+mod test_impl_bigdigit {
+    use super::*;
+
+    mod add_with_carry {
+        use super::*;
+
+        macro_rules! impl_case {
+            ($name:ident: $x:literal + $y:literal + $carry:literal = $expected:literal, $ecarry:literal) => {
+                #[test]
+                pub fn $name() {
+                    let (x, y) = (BigDigit($x), BigDigit($y));
+                    let mut carry = BigDigit($carry);
+                    let z = x.add_with_carry(y, &mut carry);
+                    let (expected, expected_carry) = (BigDigit($expected), BigDigit($ecarry));
+                    assert_eq!(z, expected);
+                    assert_eq!(carry, expected_carry);
+                }
+            }
+        }
+
+        impl_case!(case_small: 10 + 9 + 11 = 30, 0);
+        impl_case!(case_add_random: 144316306 + 6 + 7 = 144316319, 0);
+        impl_case!(case_add_overflow: 999999999 + 9 + 10 = 18, 1);
+        impl_case!(case_add_big_overflow: 999999999 + 999999999 + 1 = 999999999, 1);
+        impl_case!(case_add_max: 999999999 + 999999999 + 999999999 = 999999997, 2);
+    }
+
+    mod sub_with_carry {
+        use super::*;
+
+        macro_rules! impl_case {
+            ($name:ident: $x:literal - $y:literal + $carry:literal = $expected:literal, $ecarry:literal) => {
+                #[test]
+                pub fn $name() {
+                    let (x, y) = (BigDigit($x), BigDigit($y));
+                    let mut carry = BigDigit($carry);
+                    let z = x.sub_with_carry(y, &mut carry);
+                    let (expected, expected_carry) = (BigDigit($expected), BigDigit($ecarry));
+                    assert_eq!(z, expected);
+                    assert_eq!(carry, expected_carry);
+                }
+            }
+        }
+
+        impl_case!(case_small: 10 - 9 + 11 = 12, 0);
+        impl_case!(case_remove_9: 999999999 - 9 + 10 = 0, 1);
+        impl_case!(case_remove_random: 144316306 - 6 + 7 = 144316307, 0);
     }
 }
 
