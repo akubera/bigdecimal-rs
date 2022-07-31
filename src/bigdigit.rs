@@ -967,7 +967,7 @@ impl BigDigitVec {
         // get bigdigit index & offset of digit idx
         let (index, offset) = div_rem(idx, MAX_DIGITS_PER_BIGDIGIT);
 
-        match (self.0.len().cmp(&index), offset) {
+        match (index.cmp(&self.0.len()), offset) {
             (Equal, 0) => {
                 let (hi_bigdigit, rest) = self.0.split_last().unwrap();
                 let (lo_digit, lower_digits) = hi_bigdigit.split_highest_digit();
