@@ -951,34 +951,53 @@ impl BigDigitVec {
     /// are zero
     ///
     #[inline]
-    pub(crate) fn get_rounding_info(&self, idx: usize) -> ((u8, u8), bool)
-    {
+    pub(crate) fn get_rounding_info(&self, idx: usize) -> ((u8, u8), bool) {
+        use std::cmp::Ordering::*;
+
         if idx == 0 {
             let d0 = self.0[0].0 % 10;
             return ((d0 as u8, 0), true);
         }
+        else if idx == 1 {
+            let d10 = self.0[0].0 % 100;
+            let pair = div_rem(d10 as u8, 10);
+            return (pair, true);
+        }
 
+        // get bigdigit index & offset of digit idx
         let (index, offset) = div_rem(idx, MAX_DIGITS_PER_BIGDIGIT);
-        let all_trailing_zeros = self.0[..index].iter().all(|&d| d.is_zero());
 
-        match offset {
-            0 => {
-                let mask = to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - 1);
-
-                let l = self.0[index].0 % 10;
-                let (r, sub) = div_rem(self.0[index - 1].0, mask as u32);
-                ((l as u8, r as u8), sub == 0 && all_trailing_zeros)
-            },
-            1 => {
-                let d = self.0[index].0 % 100;
-                let pair = div_rem(d as u8, 10);
+        match (self.0.len().cmp(&index), offset) {
+            (Equal, 0) => {
+                let (hi_bigdigit, rest) = self.0.split_last().unwrap();
+                let (lo_digit, lower_digits) = hi_bigdigit.split_highest_digit();
+                let pair = (0, lo_digit as u8);
+                let all_trailing_zeros = lower_digits == 0 && rest.iter().all(BigDigit::is_zero);
                 (pair, all_trailing_zeros)
             }
-            n => {
-                let mask = to_power_of_ten(n as u32- 1);
+            // idx are beyond all our digits
+            (Equal, _) | (Greater, _) => {
+                let all_trailing_zeros = self.0.iter().all(BigDigit::is_zero);
+                ((0, 0), all_trailing_zeros)
+            }
+            (Less, 1) => {
+                let d0 = (self.0[index].0 % 100) as u8;
+                let all_trailing_zeros = self.0[..index].iter().all(BigDigit::is_zero);
+                (div_rem(d0, 10), all_trailing_zeros)
+            }
+            (Less, 0) => {
+                let mask = to_power_of_ten(MAX_DIGITS_PER_BIGDIGIT as u32 - 1);
+                let l = self.0[index].0 % 10;
+                let (r, sub) = div_rem(self.0[index - 1].0, mask as u32);
+                let all_trailing_zeros = sub == 0 && self.0[..index].iter().all(BigDigit::is_zero);
+                ((l as u8, r as u8), all_trailing_zeros)
+            }
+            _ => {
+                let mask = to_power_of_ten(offset as u32 - 1);
                 let (d, sub) = div_rem(self.0[index].0, mask);
                 let pair = div_rem((d % 100) as u8, 10);
-                (pair, sub == 0 && all_trailing_zeros)
+                let all_trailing_zeros = sub == 0 && self.0[..index].iter().all(BigDigit::is_zero);
+                (pair, all_trailing_zeros)
             }
         }
     }
