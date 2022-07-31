@@ -278,6 +278,404 @@ mod test_add_digit_slices_with_offset_into {
     }
 }
 
+/// Calculate a + b, to the requested precision
+///
+#[allow(unreachable_code)]
+pub(crate) fn add_digits_into(
+    a: &DigitInfo,
+    b: &DigitInfo,
+    precision: NonZeroUsize,
+    rounding: RoundingMode,
+    result: &mut DigitInfo
+) {
+    // route to something
+    match (a.sign, b.sign, a.scale > b.scale) {
+        (Sign::Plus, Sign::Minus, true) => { unimplemented!(); }
+        (Sign::Plus, Sign::Minus, false) => { unimplemented!(); }
+        (Sign::Minus, Sign::Plus, true) => { unimplemented!(); }
+        (Sign::Minus, Sign::Plus, false) => { unimplemented!(); }
+        (Sign::NoSign, _, _) => {
+            result.copy_with_precision(b, precision, rounding)
+        }
+        (_, Sign::NoSign, _) => {
+            result.copy_with_precision(a, precision, rounding)
+        }
+        (_, _, true) => {
+            add_digits_into_impl(b, a, precision, rounding, result)
+        }
+        (_, _, false) => {
+            add_digits_into_impl(a, b, precision, rounding, result)
+        }
+    }
+}
+
+/// Actual implementation of add_digits_into_impl
+///
+#[allow(unreachable_code)]
+pub(crate) fn add_digits_into_impl(
+    a: &DigitInfo,
+    b: &DigitInfo,
+    precision: NonZeroUsize,
+    rounding: RoundingMode,
+    result: &mut DigitInfo
+) {
+    debug_assert_eq!(a.sign, b.sign);
+    debug_assert!(a.scale <= b.scale);
+
+    if a.digits.is_zero() {
+        result.copy_with_precision(b, precision, rounding);
+        return;
+    }
+    if b.digits.is_zero() {
+        result.copy_with_precision(a, precision, rounding);
+        return;
+    }
+
+    result.sign = a.sign;
+
+    // digit positions relative to end of 'a'
+    //
+    //       aaa.aaaa
+    //       │      └─> a-end-pos=0 (always)
+    //       └────────> a-start-pos=6
+    //  bbbbbbbb.b
+    //  │        └─> b-end-pos=3
+    //  └──────────> b-start-pos=11
+    //
+    let a_end_pos = (a.scale - a.scale) as usize;
+    let b_end_pos = (b.scale - a.scale) as usize;
+    let a_start_pos = a.count_digits() - 1;
+    let b_start_pos = b.count_digits() + b_end_pos - 1;
+
+    let max_start_pos = usize::max(a_start_pos, b_start_pos);
+
+    match max_start_pos.checked_sub(precision.get()) {
+        // not enough digits to worry about precision/rounding
+        None => {
+            result.scale = a.scale;
+            let (a_skip, b_shift) = div_rem(b_end_pos, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            let b_digits = BigDigitSplitterIter::from_slice_shifting_left(&b.digits, b_shift);
+            // match a_skip.checked_sub(a.digits.len()) {
+            //    None => {
+            if a_skip < a.digits.len() {
+                    let (only_a, a_digits) = a.digits.split_at(a_skip);
+                    result.digits.extend_from_slice(&only_a);
+                    let a_digits = BigDigitSplitterIter::from_slice_shifting_left(&a_digits, 0);
+                    let mut carry = BigDigit::zero();
+                    _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
+                    if !carry.is_zero() {
+                        result.digits.push(carry);
+                    }
+                }
+                // a & b are "disjoint" - we just copy the values
+                // Some(_) => {
+            else {
+                    result.digits.extend_from_slice(&a.digits);
+                    result.digits.resize(a_skip, BigDigit::zero());
+                    b_digits.extend_vector(&mut result.digits);
+            }
+            return;
+        }
+        // digit count matches precision but digits are disjoint
+        Some(0) if b_end_pos > a_start_pos + 1 => {
+            result.scale = a.scale + 1;
+            let (a_skip, b_shift) = div_rem(b_end_pos - 1, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            debug_assert!(a_skip > a.digits.len());
+            let (rounding_pair, _) = a.digits.get_rounding_info(1);
+            // let rounding_pair = div_rem((a.digits[0] % 100u32).as_u8(), 10);
+            let rounded = rounding.round(result.sign, rounding_pair, true);
+            let mut carry = BigDigit::from_raw_integer(rounded);
+            let mut a_digits = BigDigitSplitterIter::from_slice_shifting_right(&a.digits, 1);
+            let a0 = a_digits.next().unwrap();
+            let rounded_a0 = a0.sub_with_carry(rounding_pair.0, &mut carry);
+            result.digits.push(rounded_a0);
+
+            while !carry.is_zero() {
+                match a_digits.next() {
+                    Some(digit) => result.digits.push(digit.add_carry(&mut carry)),
+                    None => {
+                        result.digits.push(carry);
+                        unimplemented!();
+                    }
+                }
+            }
+            a_digits.extend_vector(&mut result.digits);
+            result.digits.resize(a_skip, BigDigit::zero());
+
+            let b_digits = BigDigitSplitterIter::from_slice_shifting_left(&b.digits, b_shift);
+            b_digits.extend_vector(&mut result.digits);
+            return;
+        }
+        // digit count matches precision - overflow *might* happen
+        Some(0) => {
+            result.scale = a.scale;
+            let (a_skip, b_shift) = div_rem(b_end_pos, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            debug_assert!(a_skip < a.digits.len());
+            let (only_a, a_digits) = a.digits.split_at(a_skip);
+            result.digits.extend_from_slice(&only_a);
+            let a_digits = BigDigitSplitterIter::from_slice(&a_digits);
+            let b_digits = BigDigitSplitterIter::from_slice_shifting_left(&b.digits, b_shift);
+            let mut carry = BigDigit::zero();
+            _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
+            let overflowed = if !carry.is_zero() {
+                result.digits.push(carry);
+                true
+            } else {
+                result.digits.count_digits() > precision.get()
+            };
+            if overflowed {
+                result.scale += 1;
+                // round the sum to one decimal place
+                let rounding_pair = div_rem((result.digits[0].as_digit_base() % 100) as u8, 10);
+                let replacement_digit = rounding.round(result.sign, rounding_pair, true);
+                result.digits.shift_right_and_replace_digit(1, replacement_digit.into());
+            }
+        }
+        // a is too small to affect b
+        Some(insignificant_pos) if b_end_pos > a_start_pos && insignificant_pos > a_start_pos => {
+            add_jot_into(b, precision, rounding, result);
+        }
+        // b digits are all significant, rounding *might* not be affected by a
+        // sum does not "start" before the precision/rounding point
+        Some(insignificant_pos) if insignificant_pos < b_end_pos => {
+            let significant_pos = insignificant_pos + 1;
+            result.scale = a.scale + significant_pos as i64;
+
+            // insignificant_a is the digit-index of the first insignificant digit
+            let (sig_a_index, sig_a_offset) = div_rem(significant_pos, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            let rounded = a.digits.round_at(rounding, result.sign, significant_pos);
+
+            // iterator over significant digits
+            let mut a_digits = BigDigitSplitterIter::from_slice_shifting_right(
+                &a.digits[sig_a_index..], sig_a_offset
+            );
+
+            let (a_skip, b_offset) = div_rem(b_end_pos - significant_pos, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            let mut b_digits = BigDigitSplitterIter::from_slice_shifting_left(&b.digits, b_offset);
+
+            let a0 = match a_digits.next() {
+                Some(a0) => a0,
+                None => unreachable!(),
+            };
+
+            let old_digit = a0 % 10u8;
+            let mut carry = BigDigit::from_raw_integer(rounded);
+            let rounded_a0 = a0.sub_with_carry(old_digit, &mut carry);
+
+            // case where b-digits start within the rounded a-bigdigit
+            if a_skip == 0 {
+                let b0 = b_digits.next().unwrap();
+                let mut tmp = BigDigit::zero();
+                let sum0 = rounded_a0.add_with_carry(&b0, &mut tmp);
+                result.digits.push(sum0);
+                carry.add_assign(tmp);
+            } else {
+                result.digits.push(rounded_a0);
+                for _ in 1..a_skip {
+                    match a_digits.next() {
+                        None => {
+                            result.digits.push(carry);
+                            carry = BigDigit::zero();
+                        }
+                        Some(a_digit) => {
+                            result.digits.push(a_digit.add_carry(&mut carry));
+                        }
+                    }
+                }
+            }
+            _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
+            if !carry.is_zero() {
+                result.digits.push(carry);
+            }
+        }
+        // more digits than precision - we *must* round
+        Some(insignificant_pos) => {
+            let significant_pos = insignificant_pos + 1;
+            result.scale = a.scale + significant_pos as i64;
+
+            // the case where b_end_pos > significant_pos is handled
+            // in the above match arm
+            let significant_b = significant_pos - b_end_pos;
+
+            // align a and b digits to the "significant" position
+            // by (virtually) adding zeros to the end (right side
+            // of the digits)
+
+            // 12345678 => (12345 678000000)
+            //     ^ pos=3        ^^^ bottom_digits=3
+            let a_keeps_bottom_n_digits = significant_pos % bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+            let b_keeps_bottom_n_digits = significant_b % bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+
+            let shift_factor = if a_keeps_bottom_n_digits == 0 {
+                0
+            } else {
+                bigdigit::MAX_DIGITS_PER_BIGDIGIT - a_keeps_bottom_n_digits
+            };
+
+            // shift b's lowest digit position relative to a's lowest digit position
+            let shift_b_end = b_end_pos + shift_factor;
+            let shift_significant_b = significant_b + shift_factor;
+
+            // skip any insignificant 'a' bigdigits which do not overlap
+            // with 'b' digits
+            let shifted_a_digits_to_skip = shift_b_end / bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+            let (sig_b_index, sig_b_offset) = div_rem(
+                shift_significant_b, bigdigit::MAX_DIGITS_PER_BIGDIGIT
+            );
+
+            let mut trailing_zeros = true;
+
+            // we need to know which aligned a-digit matches
+            // the first b digit
+            //
+            // this is an optimization so we don't add the trailing
+            // zeros of 'b'
+            let mut a_digits = if shifted_a_digits_to_skip == 0 {
+                // not skipping any bigdigits in a
+                BigDigitSplitterIter::from_slice_starting_bottom(
+                    &a.digits, a_keeps_bottom_n_digits
+                )
+            } else if shift_factor == 0 {
+                let (insig_a_digits, sig_a_digits) = a.digits.split_at(shifted_a_digits_to_skip);
+                trailing_zeros = insig_a_digits.iter().all(BigDigit::is_zero);
+                BigDigitSplitterIter::from_slice(sig_a_digits)
+            } else {
+                let (insig_a_digits, sig_a_digits) = a.digits.split_at(
+                    shifted_a_digits_to_skip - 1
+                );
+                trailing_zeros = insig_a_digits.iter().all(BigDigit::is_zero);
+
+                if !trailing_zeros {
+                    BigDigitSplitterIter::from_slice_shifting_right(
+                        sig_a_digits, a_keeps_bottom_n_digits
+                    )
+                } else {
+                    let mut digits = BigDigitSplitterIter::from_slice_starting_bottom(
+                        sig_a_digits, a_keeps_bottom_n_digits
+                    );
+                    let skipped_digits = digits.next().unwrap();
+                    trailing_zeros &= skipped_digits.is_zero();
+                    digits
+                }
+            };
+
+            let mut b_digits = BigDigitSplitterIter::from_slice_starting_bottom(
+                &b.digits, b_keeps_bottom_n_digits
+            );
+
+            let mut carry = BigDigit::zero();
+
+            // loop through insignificant sums to calculate the carry
+            // start at 1 to skip the last
+            for i in 1..sig_b_index {
+                match (a_digits.next(), b_digits.next()) {
+                    (None, None) => {
+                        unreachable!();
+                    }
+                    (Some(a_digit), Some(b_digit)) => {
+                        let sum = BigDigit::add_with_carry(&a_digit, &b_digit, &mut carry);
+                        trailing_zeros &= sum.is_zero();
+                    }
+                    (Some(digit), None) | (None, Some(digit)) if carry.is_zero() => {
+                        trailing_zeros &= digit.is_zero();
+                    }
+                    (Some(digit), None) | (None, Some(digit)) => {
+                        let sum = digit.add_carry(&mut carry);
+                        trailing_zeros &= sum.is_zero();
+                    }
+                }
+            }
+
+            // the last insignificant addition
+            let a_digit = a_digits.next().unwrap();
+            let b_digit = b_digits.next().unwrap();
+            let insig_sum = BigDigit::add_with_carry(&a_digit, &b_digit, &mut carry);
+
+            // the first significant addition
+            let a0 = a_digits.next().unwrap_or(BigDigit::zero());
+            let b0 = b_digits.next().unwrap_or(BigDigit::zero());
+            let s0 = BigDigit::add_with_carry(&a0, &b0, &mut carry);
+
+            let (low_digit, remainder) = insig_sum.split_highest_digit();
+            trailing_zeros &= remainder == 0;
+            let high_digit = s0.lowest_digit();
+            let rounding_pair = (high_digit, low_digit as u8);
+
+            let rounded = rounding.round(result.sign, rounding_pair, trailing_zeros);
+            let mut tmp =  BigDigit::from_raw_integer(rounded);
+            let rounded_sum = s0.sub_with_carry(high_digit, &mut tmp);
+            carry.add_assign(tmp);
+
+            result.digits.push(rounded_sum);
+            _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
+            let overflowed = if !carry.is_zero() {
+                result.digits.push(carry);
+                true
+            } else {
+                result.digits.count_digits() > precision.get()
+            };
+
+            if overflowed {
+                result.scale += 1;
+                // round the sum to one decimal place
+                let rounding_pair = div_rem((result.digits[0].as_digit_base() % 100) as u8, 10);
+                let replacement_digit = rounding.round(result.sign, rounding_pair, true);
+                result.digits.shift_right_and_replace_digit(1, replacement_digit.into());
+            }
+        }
+    }
+
+    debug_assert_eq!(result.count_digits(), precision.get() as usize);
+}
+
+
+/// Does not push final carry
+///
+/// Should this return overflow?
+///
+fn _impl_add_digits<'a>(
+    mut a_digits: BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>,
+    mut b_digits: BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>,
+    sum: &mut BigDigitVec,
+    carry: &mut BigDigit,
+)
+{
+    loop {
+        match (a_digits.next(), b_digits.next()) {
+            (Some(a_digit), Some(b_digit)) => {
+                sum.push(
+                    BigDigit::add_with_carry(&a_digit, &b_digit, carry)
+                );
+                continue;
+            }
+            (Some(a_digit), None) => {
+                sum.push(a_digit.add_carry(carry));
+                while !carry.is_zero() {
+                    if let Some(a_digit) = a_digits.next() {
+                        sum.push(a_digit.add_carry(carry));
+                    } else {
+                        return;
+                    }
+                }
+                a_digits.extend_vector(sum);
+            }
+            (None, Some(b_digit)) => {
+                sum.push(b_digit.add_carry(carry));
+                while !carry.is_zero() {
+                    if let Some(b_digit) = b_digits.next() {
+                        sum.push(b_digit.add_carry(carry));
+                    } else {
+                        return;
+                    }
+                }
+                b_digits.extend_vector(sum);
+            }
+            (None, None) => { }
+        }
+        return;
+    }
+}
+
 
 /// Add an insignificant number to n, respecting rounding and precision rules
 ///
