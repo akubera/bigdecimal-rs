@@ -1001,6 +1001,16 @@ impl BigDigitVec {
             }
         }
     }
+
+    /// Round at digit-index
+    #[inline]
+    pub(crate) fn round_at(
+        &self, round: RoundingMode, sign: Sign, idx: usize
+    ) -> BigDigit {
+        let (rounding_pair, trailing_digits) = self.get_rounding_info(idx);
+        let result = round.round(sign, rounding_pair, trailing_digits);
+        BigDigit(result as BigDigitBase)
+    }
 }
 
 impl std::fmt::Debug for BigDigitVec {
