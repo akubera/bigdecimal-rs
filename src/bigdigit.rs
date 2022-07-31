@@ -291,6 +291,51 @@ impl BigDigit {
         self.0 as usize
     }
 
+    /// Return the lowest digit in bigdigit
+    #[inline]
+    pub(crate) fn lowest_digit(&self) -> u8 {
+        (self.0 % 10) as u8
+    }
+
+    /// Return pair of lowest two digits
+    #[inline]
+    pub fn split_lowest_digits(&self) -> (u8, u8)
+    {
+        div_rem((self.0 % 100) as u8, 10)
+    }
+
+    /// Return the highest digit and remaining big
+    #[inline]
+    pub(crate) fn split_highest_digit(&self) -> (u8, BigDigitBase) {
+        let (hi, rest) = div_rem(self.0, BigDigit::max_power_of_ten().0);
+        (hi as u8, rest)
+    }
+
+    /// Return the highest digit and non-zero digit
+    #[inline]
+    pub(crate) fn split_highest_non_zero_digit(&self) -> (u8, BigDigitBase) {
+        let (hi, lo) = if self.0 >= 100000000 {
+            div_rem(self.0, 100000000)
+        } else if self.0 >= 10000000 {
+            div_rem(self.0, 10000000)
+        } else if self.0 >= 1000000 {
+            div_rem(self.0, 1000000)
+        } else if self.0 >= 100000 {
+            div_rem(self.0, 100000)
+        } else if self.0 >= 10000 {
+            div_rem(self.0, 10000)
+        } else if self.0 >= 1000 {
+            div_rem(self.0, 1000)
+        } else if self.0 >= 100 {
+            div_rem(self.0, 100)
+        } else if self.0 >= 10 {
+            div_rem(self.0, 10)
+        } else {
+            (self.0, 0)
+        };
+        return (hi as u8, lo);
+    }
+
     /// Split the big digit into masked and shifted non-masked parts
     ///
     /// Mask and shift should be factors of BIGDIGIT_RADIX
