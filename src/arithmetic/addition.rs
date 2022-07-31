@@ -285,15 +285,13 @@ mod test_add_digit_slices_with_offset_into {
 /// an addition operation is too small to have an effect on the other, but
 /// rounding may be required.
 ///
-#[inline]
 pub(crate) fn add_jot_into(
     n: &DigitInfo,
     precision: NonZeroUsize,
     rounding: RoundingMode,
     result: &mut DigitInfo
 ) {
-    use crate::Sign;
-    use crate::Ordering::*;
+    use std::cmp::Ordering::*;
 
     let digit_count = n.count_digits();
     result.sign = n.sign;
