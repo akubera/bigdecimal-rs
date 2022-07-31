@@ -605,7 +605,7 @@ pub(crate) fn add_jot_into(
                         let last_digit = result.digits[last_idx];
                         if last_digit.is_one() {
                             result.scale += 1;
-                            result.digits.resize(last_idx, BigDigit::zero());
+                            result.digits.truncate(last_idx);
                             debug_assert_eq!(result.digits[last_idx - 1], BigDigit::zero());
                             result.digits[last_idx - 1] = BigDigit::max_power_of_ten();
                         } else if last_digit.is_power_of_ten() {
