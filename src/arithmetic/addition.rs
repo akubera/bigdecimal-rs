@@ -676,6 +676,223 @@ fn _impl_add_digits<'a>(
     }
 }
 
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_add_digits_into {
+    use super::*;
+    use crate::bigdigit::DigitInfo;
+    use crate::bigdigit::BigDigitVec;
+    use crate::bigdigit::BIG_DIGIT_RADIX;
+
+    include!("../test_macros.rs");
+
+    macro_rules! impl_case {
+        ( $prec:literal :: $mode:ident => $($s:literal)+ E $s_exp:literal ) => {
+            paste! {
+                #[test]
+                fn [< prec_ $prec _round_ $mode >]() {
+                    let (a, b) = build_case_input();
+                    let mut result = DigitInfo::default();
+                    let mode = RoundingMode::$mode;
+                    let precision = std::num::NonZeroUsize::new($prec).unwrap();
+                    add_digits_into(&a, &b, precision, mode, &mut result);
+                    let expected = digit_info!($($s)* E $s_exp);
+                    assert_eq!(result, expected);
+                }
+            }
+        };
+        ( $prec:literal :: $mode:ident $(, $modes:ident)+ => $($s:literal)+ E $s_exp:literal ) => {
+            impl_case!($prec :: $mode => $($s)* E $s_exp );
+            impl_case!($prec :: $($modes),* => $($s)* E $s_exp );
+        };
+        ( $prec:literal ::
+            $($amodes:ident),+ => $($as:literal)+ E $as_exp:literal ;
+            $($bmodes:ident),+ => $($bs:literal)+ E $bs_exp:literal
+        ) => {
+            impl_case!($prec :: $($amodes),* => $($as)* E $as_exp );
+            impl_case!($prec :: $($bmodes),* => $($bs)* E $bs_exp );
+        };
+    }
+
+    macro_rules! case_input {
+        ( $($a:literal)+ E $a_exp:literal + $($b:literal)+ E $b_exp:literal ) => {
+            fn build_case_input() -> (DigitInfo, DigitInfo) {
+                let a = digit_info!($($a)* E $a_exp);
+                let b = digit_info!($($b)* E $b_exp);
+                (a, b)
+            }
+        };
+    }
+
+    mod case_32368_E_neg1_73708_E_0 {
+        use super::*;
+
+        case_input! {
+               32368 E -1
+            + 73708 E 0
+        }
+
+        impl_case!(5 :: Up, Ceiling => 76945 E 0; Down => 76944 E 0);
+        impl_case!(6 :: Up, Ceiling => 769448 E -1; Down => 769448 E -1);
+        impl_case!(7 :: Up, Ceiling, Down  => 769448 E -1);
+        impl_case!(8 :: Up, Ceiling, Down  => 769448 E -1);
+    }
+
+    mod case_11332585891914_E_neg100_98868715_E_neg4 {
+        use super::*;
+
+        case_input! { 11332 585891914 E -100 + 98868715 E -4 }
+
+        impl_case!(8 :: Up => 98868716 E -4;
+                        Down => 98868715 E -4 );
+        impl_case!(9 :: Up => 988687151 E -5;
+                        Down => 988687150 E -5 );
+        impl_case!(10 :: Up => 9 886871501 E -6;
+                        Down => 9 886871500 E -6 );
+        impl_case!(100 :: Up => 9 886871500 000000000 000000000 000000000 000000000 000000000 000000000 000000000 000000000 000000001 133258590 E -96;
+                        Down => 9 886871500 000000000 000000000 000000000 000000000 000000000 000000000 000000000 000000000 000000001 133258589 E -96 );
+    }
+
+    mod case_42267449_E_neg1_82651114_E_0 {
+        use super::*;
+
+        //  422.67449
+        // 8265.1114x
+        // 8765 43210
+
+        //    4.2267449
+        // 8265.1114xxx
+        // 0987 6543210
+        case_input! { 42267449 E -5 + 82651114 E -4 }
+
+        impl_case!(8 :: Up => 86877859 E -4;
+                        Down => 86877858 E -4);
+    }
+
+
+    mod case_780728539486935E_neg6_195622692238e_neg4  {
+        use super::*;
+
+        case_input! { 780728 539486935 E -6 + 195 622692238 E -4 }
+
+        // [ a₁   ][    a₀    ]
+        // [780728][539.486935]
+        //  [195][62269.2238]
+        //  [ b₁][     b₀   ]
+        //
+        // a: (0, 14) max_start_pos = 14
+        // b: (2, 13)
+        //
+
+        // prec=11   -> prec_pos = 14 - 11 = 3
+        // [78][0728539.48][6935xxxxx]
+        //  [1][9562269.22][38xxxxxxx]
+        // |-------11-----|
+
+        // prec=10   -> prec_pos = 14 - 10 = 4
+        // [7][80728539.4][86935xxxx]
+        //    [19562269.2][238xxxxxx]
+        // |-------10----|
+
+        impl_case!(11 :: Down => 80 029080871 E -2);
+        impl_case!(10 :: Up => 8 002908088 E -1;
+                        Down => 8 002908087 E -1);
+
+        impl_case!(9 :: Up => 800290809 E 0;
+                        Down => 800290808 E 0);
+    }
+
+    mod case_21182876230333040678_E_neg7_41979135927194856497_E_neg17 {
+        use super::*;
+
+        //           419.79135927194856497
+        // 2118287623033.3040678     |
+        // ↑29      ↑20        ↑10   |   ↑0
+        // prec: |7    |13      |21  |26
+
+        //             [a₂][    a₁    ][    a₀   ]
+        //             [41][9.79135927][194856497]
+        // [21][182876230][33.3040678]
+        // [b₂][   b₁    ][     b₀   ]
+
+        // prec=20
+        //             [4][19.7913592]~[719485649][7...]
+        // [21][182876230][33.3040678]~[xxxxxxxxx]
+        // |-----------------20------|
+
+        // prec=19
+        //               [419.791359]~[271948564][97...]
+        // [2][118287623][033.304067]~[8xxxxxxxx]
+        // |-----------------19-----|
+
+        // prec=18
+        //            [ 419.79135]~[927194856]497
+        // [211828762][3033.30406]~[78xxxxxxx]
+        // |--------------18-----|
+
+        // prec=17
+        //             [419.7913]~[592719485][6497..]
+        // [21182876][23033.3040]~[678xxxxxx]
+        // |--------------17----|
+
+        // prec=11
+        //             [4][19.7913592][719485649][7]
+        // [21][182876230][33.3040678]
+        // |----11-------|
+
+        // 21182876, 234530954, 270719486
+
+        case_input! { 21 182876230 333040678 E -7 + 41 979135927 194856497 E -17 }
+
+        impl_case!(26 :: Up => 21182876 234530954 270719486 E -13;
+                         Down => 21182876 234530954 270719485 E -13);
+
+        impl_case!(23 :: Up => 21182 876234530 954270720 E -10;
+                         Down => 21182 876234530 954270719 E -10);
+        impl_case!(21 :: Up => 211 828762345 309542708 E -8;
+                         Down => 211 828762345 309542707 E -8);
+        impl_case!(20 :: Up => 21 182876234 530954271 E -7;
+                         Down => 21 182876234 530954270 E -7);
+        impl_case!(19 :: Up => 2 118287623 453095428 E -6;
+                         Down => 2 118287623 453095427 E -6);
+        impl_case!(18 :: Up => 211828762 345309543 E -5;
+                         Down => 211828762 345309542 E -5);
+        impl_case!(17 :: Up => 21182876 234530955 E -4;
+                         Down => 21182876 234530954 E -4);
+        impl_case!(16 :: Up => 2118287 623453096 E -3;
+                         Down => 2118287 623453095 E -3);
+        impl_case!(15 :: Up => 211828 762345310 E -2;
+                         Down => 211828 762345309 E -2);
+        impl_case!(11 :: Up => 21 182876235 E 2);
+    }
+
+    mod case_65105089065643509134639_E_neg7_83049409402376021061_E_neg34 {
+        use super::*;
+        case_input! { 65105 089065643 509134639 E -7 + 83 049409402 376021061 E -27 }
+        impl_case!(15 :: Up => 651050 890656436 E 1;
+                         Down => 651050 890656435 E 1);
+        impl_case!(50 :: Up, Down => 6510508 906564350 913463983 049409402 376021061 E -27 );
+    }
+
+    mod case_178450147E_neg3_2392081E6 {
+        use super::*;
+        case_input! { 178450147 E -3 + 2392081 E 6 }
+
+        impl_case!( 18 :: Up => 2392081 178450147 E -3 );
+    }
+
+    mod case_137681612112971086Eneg9_1e20 {
+        use super::*;
+
+        case_input! { 137681612 112971086 E -9 + 1 E 20 }
+
+        impl_case!(31 :: Up => 100 000000000 137681612 112971086 E -9 );
+        impl_case!(30 :: Up => 100 000000000 137681612 112971086 E -9 );
+        impl_case!(29 :: Up => 10 000000000 013768161 211297109 E -8 );
+        impl_case!(20 :: Up => 10 000000000 013768162 E 1 );
+    }
+}
+
 
 /// Add an insignificant number to n, respecting rounding and precision rules
 ///
