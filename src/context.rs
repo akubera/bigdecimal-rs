@@ -8,7 +8,10 @@
 
 use std::cmp;
 
-pub static DEFAULT_PRECISION: u64 = 34;
+use crate::bigdigit::{BigDigit, BigDigitVec};
+use crate::Sign;
+
+pub static DEFAULT_PRECISION: usize = 34;
 pub static DEFAULT_MAX_PRECISION: u64 = 999999999;
 pub static DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::HalfEven;
 

@@ -6,8 +6,7 @@ use std::num::NonZeroUsize;
 use std::ops::Not;
 
 use crate::bigdigit::{
-    self, BigDigit, BigDigitVec, BigDigitBaseDouble, BigDigitSplitterIter,
-    DigitInfo, to_power_of_ten, MAX_DIGITS_PER_BIGDIGIT
+    self, BigDigit, BigDigitVec, BigDigitSplitterIter, DigitInfo
 };
 
 use crate::context::{Context, RoundingMode};
@@ -416,7 +415,9 @@ pub(crate) fn add_jot_into(
             debug_assert_ne!(fnz_digit, 0);
 
             let new_prec_digit_count = precision.get() - digit_count;
-            let (new_prec_bigdigit_count, new_prec_bigdigit_offset) = div_rem(new_prec_digit_count, MAX_DIGITS_PER_BIGDIGIT);
+            let (new_prec_bigdigit_count, new_prec_bigdigit_offset) = div_rem(
+                new_prec_digit_count, bigdigit::MAX_DIGITS_PER_BIGDIGIT
+            );
 
             result.scale -= new_prec_digit_count as i64;
 
@@ -490,7 +491,7 @@ pub(crate) fn add_jot_into(
             let idx = digit_count - precision.get();
             result.scale += idx as i64;
 
-            let (index, offset) = div_rem(idx, MAX_DIGITS_PER_BIGDIGIT);
+            let (index, offset) = div_rem(idx, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
 
             let rounding_info = n.digits.get_rounding_info(idx);
 

@@ -9,14 +9,14 @@ use std::mem::swap;
 use std::ops::RangeFrom;
 use std::marker::PhantomData;
 use num_integer::{div_rem, Integer};
-use num_bigint::Sign;
+use crate::Sign;
 
 use crate::arithmetic::{
     addition::add_digit_slices_into,
     multiplication::multiply_digit_slices_into,
 };
 
-use crate::context::DEFAULT_PRECISION;
+use crate::context::{RoundingMode, DEFAULT_PRECISION};
 
 
 /// The "base type" of the big digit
