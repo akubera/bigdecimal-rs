@@ -1888,6 +1888,7 @@ mod test_big_digit_splitter_iter {
     }
 
     // these include from_slice_starting_top tests
+    impl_test!(from_slice_shifting_left([1], 2) == [100]);
     impl_test!(from_slice_shifting_left([806938958], 0) == [806938958]);
     impl_test!(from_slice_shifting_left([806938958], 1) == [069389580, 8]);
     impl_test!(from_slice_shifting_left([806938958], 3) == [938958000, 806]);
@@ -1897,8 +1898,8 @@ mod test_big_digit_splitter_iter {
 
     // these include from_slice_shifting_right tests
     impl_test!(from_slice_starting_bottom([806938958], 0) == [806938958]);
-    impl_test!(from_slice_starting_bottom([806938958], 1) == [80000000, 80693895]);
-    impl_test!(from_slice_starting_bottom([806938958], 2) == [58000000, 8069389]);
+    impl_test!(from_slice_starting_bottom([806938958], 1) == [800000000, 80693895]);
+    impl_test!(from_slice_starting_bottom([806938958], 2) == [580000000, 8069389]);
 
     impl_test!(from_slice_starting_bottom([127887266, 554762514, 7488], 0) == [127887266, 554762514, 7488]);
     impl_test!(from_slice_starting_bottom([127887266, 554762514, 7488], 5) == [872660000, 625141278, 74885547]);
