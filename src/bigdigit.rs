@@ -109,6 +109,7 @@ impl BigDigit {
     ///      BIG_DIGIT_RADIX = 1000000000
     ///     max ten-to-power =  999999999
     ///
+    #[inline]
     pub fn max() -> BigDigit {
         BigDigit((BIG_DIGIT_RADIX - 1) as BigDigitBase)
     }
@@ -118,6 +119,7 @@ impl BigDigit {
     ///      BIG_DIGIT_RADIX = 1000000000
     ///     max ten-to-power =  100000000
     ///
+    #[inline]
     pub fn max_power_of_ten() -> BigDigit {
         BigDigit((BIG_DIGIT_RADIX / 10) as BigDigitBase)
     }
@@ -402,7 +404,6 @@ impl BigDigit {
     {
         a.fused_multiply_add_into(b, self)
     }
-
 
     /// Store sum of self plus rhs in self
     ///
@@ -1534,6 +1535,7 @@ impl ShiftAndMask {
     /// ShiftAndMask::mask_high(3).split(987654321) => (987000000, 000654321)
     /// ShiftAndMask::mask_low(3).split(987654321)  => (987654000, 000000321)
     ///
+    #[inline]
     fn split(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
         let (hi, lo) = div_rem(n.0, self.mask);
         (BigDigit(hi * self.mask), BigDigit(lo))
@@ -1545,6 +1547,7 @@ impl ShiftAndMask {
     /// ShiftAndMask::mask_high(3).split_and_shift(987654321) => (000000987, 654321000)
     /// ShiftAndMask::mask_low(3).split_and_shift(987654321)  => (000987654, 321000000)
     ///
+    #[inline]
     fn split_and_shift(&self, n: &BigDigit) -> (BigDigit, BigDigit) {
         n.split_and_shift(self.mask, self.shift)
     }
