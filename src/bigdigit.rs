@@ -1694,6 +1694,146 @@ mod test_count_digits {
 }
 
 
+
+#[cfg(test)]
+mod test_bigdigitvec {
+    use super::*;
+
+    macro_rules! rev_bigdigit_vec {
+        ( $a0:literal $($ar:literal)* ) => {
+            rev_bigdigit_vec!(REV $($ar)*; $a0)
+        };
+        ( REV ; $($a:literal)+ ) => {
+            bigdigit_vec![ $($a),* ]
+        };
+        ( REV $a0:literal $($ar:literal)* ; $($a:literal)* ) => {
+            rev_bigdigit_vec!(REV $($ar)*; $a0 $($a)*)
+        };
+    }
+
+    mod shift_right_and_replace_digit {
+        use super::*;
+
+        macro_rules! impl_test {
+            ( $idx:literal, $d:literal => $($expected:literal)+ ) => {
+                paste! {
+                    #[test]
+                    fn [< at_ $idx _digit_ $d >] () {
+                        let mut v = case_input!();
+                        let expected = rev_bigdigit_vec!( $($expected)* );
+                        v.shift_right_and_replace_digit($idx, $d);
+                        assert_eq!(v, expected);
+                    }
+                }
+            }
+        }
+
+        mod case_103_438312901 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(103 438312901) }
+            }
+            impl_test!(0, 5 => 103 438312905);
+            impl_test!(0, 10 => 103 438312910);
+
+            impl_test!(1, 9 => 10 343831299);
+            impl_test!(9, 9 => 109);
+            impl_test!(9, 900 => 1000);
+            impl_test!(9, 99999999 => 100000099);
+            impl_test!(9, 999999999 => 1 000000099);
+        }
+
+        mod case_734999999999 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(734 999999999) }
+            }
+            // impl_test!(3, 5 => 734 999999001);
+
+            impl_test!(0, 0 => 734 999999990);
+            impl_test!(0, 10 => 735 000000000);
+
+            impl_test!(1, 10 => 73 500000000);
+
+            impl_test!(1, 13 => 73 500000003);
+        }
+
+        mod case_2901999999999999999991 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(2901 999999999 999999991) }
+            }
+
+            impl_test!(0, 10 => 2902 000000000 000000000);
+            impl_test!(1, 19 => 290 200000000 000000009);
+            impl_test!(1, 100 => 290 200000000 000000090);
+            // impl_test!(1, 1 => 2901999999999999999991);
+
+            impl_test!(7, 1 => 290199 999999991);
+            impl_test!(14, 1 => 29019991);
+        }
+
+        mod case_999999999999999999999999992 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(999999999 999999999 999999992) }
+            }
+
+            impl_test!(0, 13 => 1 000000000 000000000 000000003);
+            impl_test!(1, 18 => 100000000 000000000 000000008);
+
+            impl_test!(1, 1 => 99999999 999999999 999999991);
+
+            impl_test!(9, 2 => 999999999 999999992);
+            impl_test!(9, 12 => 1 000000000 000000002);
+
+            impl_test!(12, 12 => 1000000 000000002);
+        }
+
+        mod case_6150000001382230669832999999999999999999999999999999999992 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(6150 000001382 230669832 999999999 999999999 999999999 999999992) }
+            }
+
+            impl_test!(0, 15 => 6150 000001382 230669833 000000000 000000000 000000000 000000005);
+            impl_test!(1, 16 =>  615  00000138 223066983 300000000 000000000 000000000 000000006);
+
+            // impl_test!(1, 1 => 2901999999999999999991);
+
+            impl_test!(9, 4 => 6150 1382 230669832 999999999 999999999 999999994);
+            impl_test!(9, 24 => 6150 1382 230669833 000000000 000000000 000000014);
+            impl_test!(12, 12 => 6 150000001 382230669 833000000 000000000 000000002 );
+        }
+
+        mod case_123008747439 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(123 008747439) }
+            }
+
+            impl_test!(0, 0 => 123 8747430);
+            impl_test!(1, 9 => 12 300874749);
+        }
+
+        mod case_8747439123 {
+            use super::*;
+
+            macro_rules! case_input {
+                () => { rev_bigdigit_vec!(8747439 123) }
+            }
+
+            impl_test!(1, 9 => 874743 900000019);
+        }
+    }
+}
+
 /// Object used to shift and mask decimal digits
 ///
 /// Uses div and rem to "mask" decimals using powers of 10.
