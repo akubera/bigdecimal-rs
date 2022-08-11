@@ -1020,7 +1020,193 @@ impl BigDigitVec {
         let result = round.round(sign, rounding_pair, trailing_digits);
         BigDigit(result as BigDigitBase)
     }
+
+    /// Remove the rightmost n digits and replace n+1'th digit with new_digit
+    ///
+    /// Replacement is done via addition, so if new_digit >= 10,
+    /// add-with-carry may occur
+    ///
+    #[inline]
+    pub(crate) fn shift_right_and_replace_digit(&mut self, n: usize, new_digit: BigDigitBase) {
+        let max_pow_of_ten = BigDigit::max_power_of_ten().0;
+        let digitvec = &mut self.0[0..];
+        match div_rem(n, MAX_DIGITS_PER_BIGDIGIT) {
+            (0, 1) => {
+                let d0 = digitvec[0].0 / 10;
+                let old_digit = d0 % 10;
+                let new_d0 = d0 as BigDigitBaseDouble
+                           - old_digit as BigDigitBaseDouble
+                           + new_digit as BigDigitBaseDouble;
+
+                // handle easy case
+                if digitvec.len() == 1 {
+                    if new_d0 < BIG_DIGIT_RADIX {
+                        digitvec[0].0 = new_d0 as BigDigitBase;
+                    } else {
+                        let (overflow, new_d0) = div_rem(new_d0, BIG_DIGIT_RADIX);
+                        digitvec[0].0 = new_d0 as BigDigitBase;
+                        debug_assert!(overflow < BIG_DIGIT_RADIX);
+                        self.0.push(BigDigit(overflow as BigDigitBase));
+                    }
+                    return;
+                }
+
+                // we will be shifting by taking the low 1 digit
+                let shifter = ShiftAndMask::mask_low(1);
+
+                // shift lo digit into
+                let (hi, lo) = shifter.split_and_shift(&digitvec[1]);
+                let (overflow, new_d0) = div_rem(
+                    new_d0 + lo.0 as BigDigitBaseDouble, BIG_DIGIT_RADIX
+                );
+
+                // replace first bigdigit with shifted digit-0
+                digitvec[0].0 = new_d0 as BigDigitBase;
+
+                // replace second digit with new digit
+                digitvec[1].0 = overflow as BigDigitBase + hi.0;
+                debug_assert!((digitvec[1].0  as BigDigitBaseDouble) < BIG_DIGIT_RADIX);
+
+                let mut carry = 0;
+                for src_idx in 2..digitvec.len() {
+                    let digit = &digitvec[src_idx];
+                    let (hi, lo) = shifter.split_and_shift(digit);
+
+                    let tmp = digitvec[src_idx - 1].0 as BigDigitBaseDouble
+                            + lo.0 as BigDigitBaseDouble
+                            + carry as BigDigitBaseDouble;
+
+                    digitvec[src_idx].0 = hi.0;
+                    if tmp < BIG_DIGIT_RADIX {
+                        digitvec[src_idx - 1].0 = tmp as BigDigitBase;
+                        carry = 0;
+                    } else {
+                        digitvec[src_idx - 1].0 = (tmp - BIG_DIGIT_RADIX) as BigDigitBase;
+                        digitvec[src_idx - 1].debug_validate();
+                        carry = 1;
+                    }
+                }
+
+                if carry > 0 {
+                    let last_index = digitvec.len() - 1;
+                    digitvec[last_index].0 += carry as BigDigitBase;
+                    digitvec[last_index].debug_validate();
+                }
+            }
+            // n=0: easy case where we don't have to shift any digits (or bigdigits)
+            (0, 0) => {
+                let old_digit = digitvec[0].0 % 10;
+                let d0 = digitvec[0].0 as BigDigitBaseDouble
+                       - old_digit as BigDigitBaseDouble
+                       + new_digit as BigDigitBaseDouble;
+                if d0 < BIG_DIGIT_RADIX {
+                    digitvec[0].0 = d0 as BigDigitBase;
+                    return;
+                }
+                digitvec[0].0 = (d0 - BIG_DIGIT_RADIX) as BigDigitBase;
+                match digitvec.iter().skip(1).position(|d| !BigDigit::is_max(d)) {
+                    // They are all max
+                    None => {
+                       digitvec[1..].fill_with(BigDigit::zero);
+                       self.0.push(BigDigit::one());
+                    }
+                    // Find location of first non-zero
+                    Some(fnz_index) => {
+                        digitvec[1..=fnz_index].fill_with(BigDigit::zero);
+                        digitvec[fnz_index + 1].0 += 1;
+                    }
+                }
+            }
+            (idx, _) if idx >= digitvec.len() => {
+                panic!("shifting right by too many digits ({} >= {})", idx, digitvec.len());
+            }
+            // offset is zero: special case avoiding shifting digits
+            (idx, 0) => {
+                let old_digit = digitvec[idx].0 % 10;
+                let d0 = digitvec[idx].0 as BigDigitBaseDouble
+                       - old_digit as BigDigitBaseDouble
+                       + new_digit as BigDigitBaseDouble;
+
+                let new_len = digitvec.len() - idx;
+                if d0 < BIG_DIGIT_RADIX {
+                    digitvec[0].0 = d0 as BigDigitBase;
+                    for i in 1..(digitvec.len() - idx) {
+                        digitvec[i] = digitvec[i + idx];
+                    }
+                    self.0.truncate(new_len);
+                    return;
+                }
+
+                digitvec[0].0 = (d0 - BIG_DIGIT_RADIX) as BigDigitBase;
+
+                match digitvec.iter().skip(idx + 1).position(|d| !BigDigit::is_max(d)) {
+                    // They are all max
+                    None => {
+                        digitvec[1..new_len].fill_with(BigDigit::zero);
+                        digitvec[new_len].0 = 1;
+                        self.0.truncate(new_len + 1);
+                    }
+                    // Find location of first non-zero
+                    Some(fnz_index) => {
+                        let dest_fnz_index = fnz_index + 1;
+                        let src_fnz_index = fnz_index + idx + 1;
+
+                        digitvec[1..dest_fnz_index].fill_with(BigDigit::zero);
+                        digitvec[dest_fnz_index].0 = digitvec[src_fnz_index].0 + 1;
+                        for i in 1..(digitvec.len() - src_fnz_index) {
+                            digitvec[dest_fnz_index + i] = digitvec[src_fnz_index + i];
+                        }
+                        self.0.truncate(new_len);
+                    }
+                }
+            }
+            // most generic case
+            (idx, offset) => {
+
+                let new_len = digitvec.len() - idx;
+
+                // we will be shifting by taking the low 'n' digits
+                let shifter = ShiftAndMask::mask_low(offset);
+                let d0 = digitvec[idx].0 / to_power_of_ten((offset) as u32);
+                let new_d0 = d0 as BigDigitBaseDouble
+                           - (d0 % 10) as BigDigitBaseDouble
+                           + new_digit as BigDigitBaseDouble;
+
+                let (new_d1, new_d0) = div_rem(new_d0, BIG_DIGIT_RADIX);
+                digitvec[0].0 = new_d0 as BigDigitBase;
+                digitvec[1].0 = new_d1 as BigDigitBase;
+
+                for i in 1..new_len {
+                    let digit = digitvec[i + idx];
+                    let (hi, lo) = shifter.split_and_shift(&digit);
+
+                    let tmp = digitvec[i-1].0 as BigDigitBaseDouble
+                            + lo.0 as BigDigitBaseDouble;
+
+                    if tmp < BIG_DIGIT_RADIX {
+                        digitvec[i-1].0 = tmp as BigDigitBase;
+                        digitvec[i].0 = hi.0;
+                        for i in i+1..new_len {
+                            let digit = digitvec[i + idx];
+                            let (hi, lo) = shifter.split_and_shift(&digit);
+                            digitvec[i-1].0 += lo.0;
+                            digitvec[i].0 = hi.0;
+                        }
+                        break;
+                    }
+
+                    // is overflow always 1?
+                    let (overflow, lo) = div_rem(tmp, BIG_DIGIT_RADIX);
+                    digitvec[i-1].0 = lo as BigDigitBase;
+                    digitvec[i].0 = hi.0 + overflow as BigDigitBase;
+                }
+
+                self.0.truncate(if self.0[new_len - 1].0 == 0 { new_len - 1 } else { new_len });
+            }
+        }
+    }
 }
+
 
 impl std::fmt::Debug for BigDigitVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
