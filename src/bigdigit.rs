@@ -808,6 +808,14 @@ impl BigDigitVec {
         self.0.resize(new_len, value)
     }
 
+    /// Call resize_with
+    pub fn resize_with<F>(&mut self, new_len: usize, f: F)
+    where
+        F: FnMut() -> BigDigit
+    {
+        self.0.resize_with(new_len, f)
+    }
+
     /// Shorten the length of internal vector to new length
     ///
     /// If current length is shorter, no action is taken
