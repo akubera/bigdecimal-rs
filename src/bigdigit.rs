@@ -956,6 +956,38 @@ impl BigDigitVec {
         count_digits(&self.0)
     }
 
+    /// Shift all digits right by given amount
+    ///
+    /// This drops the lowest n digits
+    ///
+    #[inline]
+    pub(crate) fn shift_digits_right_by(&mut self, n: usize) {
+        if n == 0 {
+            return;
+        }
+        let (skip, offset) = div_rem(n as usize, MAX_DIGITS_PER_BIGDIGIT);
+        let new_len = self.0.len() - skip;
+        let digits = &mut self.0[0..];
+
+        if offset == 0 {
+            for i in 0..new_len {
+                digits[i] = digits[skip + i];
+            }
+            self.0.truncate(new_len);
+            return;
+        }
+
+        let shifter = ShiftAndMask::mask_low(offset);
+        digits[0] = digits[skip] / shifter.mask;
+        for i in 1..new_len {
+            let (hi, lo) = shifter.split_and_shift(&digits[skip + i]);
+            digits[i-1].add_assign(lo);
+            digits[i] = hi;
+        }
+
+        self.0.truncate(if self.0[new_len - 1].0 == 0 { new_len - 1 } else { new_len });
+    }
+
     /// Return left & right digits and whether all trailing digits
     /// are zero
     ///
