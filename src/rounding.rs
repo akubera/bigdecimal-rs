@@ -95,3 +95,56 @@ pub enum RoundingMode {
     ///
     HalfEven,
 }
+
+
+impl RoundingMode {
+    /// Perform the rounding operation
+    ///
+    /// Parameters
+    /// ----------
+    /// * sign (Sign) - Sign of the number to be rounded
+    /// * pair (u8, u8) - The two digits in question to be rounded.
+    ///     i.e. to round 0.345 to two places, you would pass (4, 5).
+    ///          As decimal digits, they
+    ///     must be less than ten!
+    /// * trailing_zeros (bool) - True if all digits after the pair are zero.
+    ///       This has an effect if the right hand digit is 0 or 5.
+    ///
+    /// Returns
+    /// -------
+    /// Returns the first number of the pair, rounded. The sign is not preserved.
+    ///
+    /// Examples
+    /// --------
+    /// - To round 2341, pass in `Plus, (4, 1), true` → get 4 or 5 depending on scheme
+    /// - To round -0.1051, to two places: `Minus, (0, 5), false` → returns either 0 or 1
+    /// - To round -0.1, pass in `true, (0, 1)` → returns either 0 or 1
+    ///
+    /// Calculation of pair of digits from full number, and the replacement of that number
+    /// should be handled separately
+    ///
+    pub fn round_pair(&self, sign: Sign, pair: (u8, u8), trailing_zeros: bool) -> u8 {
+        use self::RoundingMode::*;
+        use stdlib::cmp::Ordering::*;
+
+        let (lhs, rhs) = pair;
+        // if all zero after digit, never round
+        if rhs == 0 && trailing_zeros {
+            return lhs;
+        }
+        let up = lhs + 1;
+        let down = lhs;
+        match (*self, rhs.cmp(&5)) {
+            (Up,        _) => up,
+            (Down,      _) => down,
+            (Floor,     _) => if sign == Sign::Minus { up } else { down },
+            (Ceiling,   _) => if sign == Sign::Minus { down } else { up },
+            (_,      Less) => down,
+            (_,      Greater) => up,
+            (_,        Equal) if !trailing_zeros => up,
+            (HalfUp,   Equal) => up,
+            (HalfDown, Equal) => down,
+            (HalfEven, Equal) => if lhs % 2 == 0 { down } else { up },
+        }
+    }
+}
