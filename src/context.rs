@@ -229,6 +229,32 @@ impl RoundingMode {
             HalfEven => if rhs > 5 || rhs == 5 && lhs % 2 != 0 { lhs + 1 } else { lhs },
         }
     }
+
+    /// Round digit pair
+    pub fn round(&self, sign: Sign, pair: (u8, u8), trailing_zeros: bool) -> u8
+    {
+        use RoundingMode::*;
+        use std::cmp::Ordering::*;
+        let (lhs, rhs) = pair;
+        // if all zero after digit, never round
+        if rhs == 0 && trailing_zeros {
+            return lhs;
+        }
+        let up = lhs + 1;
+        let down = lhs;
+        match (*self, rhs.cmp(&5)) {
+            (Up,        _) => up,
+            (Down,      _) => down,
+            (Floor,     _) => if sign == Sign::Minus { up } else { down },
+            (Ceiling,   _) => if sign == Sign::Minus { down } else { up },
+            (_,      Less) => down,
+            (_,      Greater) => up,
+            (_,        Equal) if !trailing_zeros => up,
+            (HalfUp,   Equal) => up,
+            (HalfDown, Equal) => down,
+            (HalfEven, Equal) => if lhs % 2 == 0 { down } else { up },
+        }
+    }
 }
 
 
