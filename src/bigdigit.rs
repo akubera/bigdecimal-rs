@@ -1130,6 +1130,18 @@ impl BigDigitVec {
             position, rounded_digit.into(), &mut self
         );
     }
+
+    /// Copies digits to the left of the given index into dest, replacing
+    /// first digit with new_digit.
+    ///
+    /// Used for rounding digits to precision
+    ///
+    #[inline]
+    pub(crate) fn shift_right_and_replace_digit_into(&self, n: usize, new_digit: BigDigitBase, dest: &mut BigDigitVec) {
+        dest.0.clear();
+        dest.0.extend_from_slice(&self.0);
+        dest.shift_right_and_replace_digit(n, new_digit);
+    }
 }
 
 
