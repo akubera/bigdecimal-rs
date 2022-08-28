@@ -527,7 +527,7 @@ impl BigDigit {
         let sum = self.0 as BigDigitBaseSignedDouble
                  - other.into().0 as BigDigitBaseSignedDouble
                  + carry.0 as BigDigitBaseSignedDouble;
-        debug_assert!(sum > 0);
+        debug_assert!(sum >= 0);
 
         if (sum as BigDigitBaseDouble) < BIG_DIGIT_RADIX {
             carry.0 = 0;
