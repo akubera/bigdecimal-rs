@@ -1119,6 +1119,17 @@ impl BigDigitVec {
             }
         }
     }
+
+    /// Replace contents of self with given digits, rounded at location
+    pub(crate) fn fill_with_rounded_digits(
+        &mut self, digits: &BigDigitVec, position: usize, sign: Sign, mode: RoundingMode
+    ) {
+        let (rounding_pair, trailing_zeros) = digits.get_rounding_info(position);
+        let rounded_digit = mode.round(sign, rounding_pair, trailing_zeros);
+        digits.shift_right_and_replace_digit_into(
+            position, rounded_digit.into(), &mut self
+        );
+    }
 }
 
 
