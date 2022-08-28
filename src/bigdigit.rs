@@ -1142,6 +1142,12 @@ impl BigDigitVec {
         dest.0.extend_from_slice(&self.0);
         dest.shift_right_and_replace_digit(n, new_digit);
     }
+
+    /// Get index and digit-offset of digit-index
+    #[inline]
+    pub fn digit_position_to_bigdigit_index_offset(n: usize) -> (usize, usize) {
+        div_rem(n, MAX_DIGITS_PER_BIGDIGIT)
+    }
 }
 
 
@@ -2249,7 +2255,34 @@ impl DigitInfo {
         }
         result
     }
+
+    /// Copy other DigitInfo into this object, respecting given precision and rounding
+    pub fn copy_with_precision(
+        &mut self,
+        other: &DigitInfo,
+        precision: std::num::NonZeroUsize,
+        rounding_mode: RoundingMode
+    ) {
+        self.sign = other.sign;
+        self.digits.reserve_precision(precision);
+        let digit_count = self.count_digits();
+        match digit_count.checked_sub(precision.get()) {
+            // Not enough digits means we don't need to round
+            Some(0) | None => {
+                self.scale = other.scale;
+                self.digits.extend_from_slice(other.digits.as_slice());
+            }
+            // We need to round to lower precision
+            Some(digit_position) => {
+                self.digits.fill_with_rounded_digits(
+                    &other.digits, digit_position, other.sign, rounding_mode
+                );
+                self.scale = other.scale + digit_position as i64;
+            }
+        }
+    }
 }
+
 
 impl Default for DigitInfo {
     fn default() -> DigitInfo {
