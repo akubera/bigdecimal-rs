@@ -2212,6 +2212,20 @@ impl DigitInfo {
             div_rem(low_two as u8, 10)
         }
     }
+
+    /// Return as a vector of individual decimal digits in little endian order
+    pub fn as_decimal_digits(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(MAX_DIGITS_PER_BIGDIGIT * self.digits.0.len());
+        if let Some((last, rest)) = self.digits.0.split_last() {
+            last.extend_significant_digits_into(&mut result);
+            for d in rest.iter().rev() {
+                d.extend_digits_into(&mut result);
+            }
+        } else {
+            result.push(0);
+        }
+        result
+    }
 }
 
 impl Default for DigitInfo {
