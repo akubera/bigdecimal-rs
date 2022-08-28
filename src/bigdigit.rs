@@ -1127,7 +1127,7 @@ impl BigDigitVec {
         let (rounding_pair, trailing_zeros) = digits.get_rounding_info(position);
         let rounded_digit = mode.round(sign, rounding_pair, trailing_zeros);
         digits.shift_right_and_replace_digit_into(
-            position, rounded_digit.into(), &mut self
+            position, rounded_digit.into(), self
         );
     }
 
