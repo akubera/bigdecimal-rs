@@ -561,6 +561,39 @@ impl BigDigit {
         let (hi, lo) = div_rem(self.0, n);
         (BigDigit(hi), BigDigit(lo))
     }
+
+    /// Push individual decimal digits in dest
+    ///
+    /// smallest digit first
+    ///
+    fn extend_digits_into(&self, dest: &mut Vec<u8>) {
+        let mut a = [0u8; MAX_DIGITS_PER_BIGDIGIT];
+        let mut d = self.0;
+        for i in 1..=MAX_DIGITS_PER_BIGDIGIT {
+            a[MAX_DIGITS_PER_BIGDIGIT - i] = (d % 10) as u8;
+            d /= 10;
+        }
+        dest.extend_from_slice(&a[..]);
+    }
+
+    /// Push individual decimal digits in dest, ignoring leading zeros
+    ///
+    /// smallest digit first
+    ///
+    fn extend_significant_digits_into(&self, dest: &mut Vec<u8>) {
+        if self.0 == 0 {
+            dest.push(0);
+            return;
+        }
+        let mut a = [0u8; MAX_DIGITS_PER_BIGDIGIT];
+        let mut d = self.0;
+        for i in 1..=MAX_DIGITS_PER_BIGDIGIT {
+            a[MAX_DIGITS_PER_BIGDIGIT - i] = (d % 10) as u8;
+            d /= 10;
+        }
+        let fnz_index = a.iter().position(|&x| x != 0).unwrap();
+        dest.extend_from_slice(&a[fnz_index..]);
+    }
 }
 
 #[cfg(test)]
