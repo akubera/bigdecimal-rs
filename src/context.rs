@@ -23,7 +23,7 @@ static MIN_EXP: i32 = -999999999;
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Context {
     /// The maximum number of digits to store
-    pub precision: u64,
+    pub precision: std::num::NonZeroUsize,
 
     /// Method to round numbers
     pub rounding_mode: RoundingMode,
@@ -47,7 +47,7 @@ pub struct Context {
 impl Default for Context {
     fn default() -> Context {
         Context {
-            precision: DEFAULT_PRECISION,
+            precision: std::num::NonZeroUsize::new(DEFAULT_PRECISION).unwrap(),
             rounding_mode: DEFAULT_ROUNDING_MODE,
             exp_max: MAX_EXP,
             exp_min: MIN_EXP,
