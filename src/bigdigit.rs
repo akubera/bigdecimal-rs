@@ -2335,3 +2335,68 @@ impl Default for DigitInfo {
         }
     }
 }
+
+
+/// Python compatibility module
+#[cfg(feature = "pyo3")]
+mod python_compat {
+    use super::*;
+    use pyo3::prelude::*;
+    use pyo3::exceptions::*;
+    use pyo3::types::*;
+    use pyo3::conversion::FromPyObject;
+
+    fn digitinfo_from_tuple(src: &PyTuple) -> PyResult<DigitInfo> {
+        let py_sign = src.get_item(0)?.downcast::<PyInt>()?;
+        let sign = if py_sign.is_true()? {
+            Sign::Minus
+        } else {
+            Sign::Plus
+        };
+
+        let py_scale = src.get_item(2)?.downcast::<PyInt>()?;
+        let scale: i64 = py_scale.extract()?;
+        let digit_vec: Vec<u8> = src.get_item(1)?.iter()?.map(|obj| {
+            obj.unwrap().extract().unwrap()
+        }).collect();
+
+        let bigdigit_vec: Vec<BigDigit> = digit_vec.as_slice().rchunks(9).map(|chunk| {
+            chunk.iter().fold(0u32, |a, &d| (d as u32) + a * 10)
+        }).map(BigDigit::from_raw_integer).collect();
+
+        let mut digits = BigDigitVec::new();
+        digits.extend_from_slice(&bigdigit_vec[..]);
+
+        Ok(DigitInfo { sign, scale, digits })
+    }
+
+    #[allow(non_snake_case)]
+    fn pyDecimal<'py>(py: Python<'py>) -> &'py PyAny {
+        let decimal_mod = py.import("decimal").unwrap();
+        decimal_mod.getattr(pyo3::intern!(py, "Decimal")).unwrap()
+    }
+
+    impl<'source> FromPyObject<'source> for DigitInfo {
+        fn extract(ob: &'source PyAny) -> PyResult<Self>
+        {
+            if let Ok(py_tuple) = ob.downcast() {
+                digitinfo_from_tuple(py_tuple)
+            } else {
+                Err(PyNotImplementedError::new_err("not implemented"))
+            }
+        }
+    }
+
+    impl IntoPy<PyObject> for &DigitInfo {
+        fn into_py(self, py: Python<'_>) -> PyObject {
+            let sign = if self.sign == Sign::Minus { 1 } else { 0 };
+            let py_sign = sign.to_object(py);
+            let exponent = self.scale.to_object(py);
+
+            let digits: Vec<u8> = self.as_digit_list();
+            let py_tuple = (py_sign, digits.to_object(py), exponent).to_object(py);
+            let py_decimal = pyDecimal(py).call1((py_tuple, )).unwrap();
+            py_decimal.to_object(py)
+        }
+    }
+}

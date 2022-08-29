@@ -15,6 +15,7 @@ num-integer = "0.1"
 num-traits = "0.2"
 serde = { version = "1.0", optional = true }
 bitflags = "1"
+pyo3 = { version = "0.16", optional = true }
 
 [dev-dependencies]
 paste = "1.0"
