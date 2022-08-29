@@ -2283,6 +2283,48 @@ impl DigitInfo {
     }
 }
 
+#[cfg(test)]
+mod test_digitinfo {
+    use super::*;
+
+    mod as_decimal_digits {
+        use super::*;
+
+        #[test]
+        fn case_48436552() {
+            let input = DigitInfo {
+                digits: bigdigit_vec![48436552],
+                sign: Sign::Plus,
+                scale: -8,
+            };
+            let result = input.as_decimal_digits();
+            assert_eq!(result, vec![4,8,4,3,6,5,5,2]);
+        }
+
+        #[test]
+        fn case_378733622200546197652039567() {
+            let input = DigitInfo {
+                digits: bigdigit_vec![652039567, 200546197, 378733622],
+                sign: Sign::Plus,
+                scale: 0,
+            };
+            let result = input.as_decimal_digits();
+            assert_eq!(result, vec![3,7,8,7,3,3,6,2,2,2,0,0,5,4,6,1,9,7,6,5,2,0,3,9,5,6,7]);
+        }
+
+        #[test]
+        fn case_454125077141748() {
+            let input = DigitInfo {
+                digits: bigdigit_vec![077141748, 454125],
+                sign: Sign::Minus,
+                scale: 12,
+            };
+            let result = input.as_decimal_digits();
+            assert_eq!(result, vec![4,5,4,1,2,5,0,7,7,1,4,1,7,4,8]);
+        }
+    }
+}
+
 
 impl Default for DigitInfo {
     fn default() -> DigitInfo {
