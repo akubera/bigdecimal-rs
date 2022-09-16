@@ -1787,6 +1787,7 @@ mod test_bigdigitvec {
 /// ShiftAndMask(4).split_and_shift(98765321) -> (98760000, 000005321)
 /// ShiftAndMask(1).split_and_shift(98765321) -> (98760000, 000005321)
 ///
+#[derive(Debug,Copy,Clone)]
 struct ShiftAndMask {
     shift: BigDigitBase,
     mask: BigDigitBase,
@@ -1883,6 +1884,7 @@ mod test_shift_and_mask {
 
 /// Wrap shift-and-mask type with special-case for zero shift
 ///
+#[derive(Clone)]
 enum ShiftState {
     Zero,
     Shifted { mask: ShiftAndMask, prev: BigDigit },
@@ -1968,6 +1970,7 @@ impl ShiftState {
 
 /// Object for iterating big-digits which have been split for realignment
 ///
+#[derive(Clone)]
 pub(crate) struct BigDigitSplitterIter<'a, I>
 {
     shift: ShiftState,
