@@ -61,3 +61,75 @@ macro_rules! impl_test_for_radix {
         };
     }};
 }
+
+
+/// Reverse order of interior literal digits
+///
+/// Used for converting easy-to-ready big-endian numbers with correctly-ordered
+/// little-endian numbers.
+///
+macro_rules! reverse_digits {
+    (; $($nr:literal)+) => {
+        $($nr),*
+    };
+    ($($n:literal)+) => {
+        reverse_digits!($($n)* ;)
+    };
+    ($($n:literal),+) => {
+        reverse_digits!($($n)* ;)
+    };
+    ($n0:literal $($n:literal)* ; $($nr:literal)*) => {
+        reverse_digits!($($n)* ; $n0 $($nr)*)
+    };
+}
+
+
+/// Standard construction of a DigitInfo
+///
+/// Allows sign, digits, and exponent set in a natural notation.
+///
+macro_rules! digit_info {
+    (- $($n:literal)+ E $scale:literal) => {
+        digit_info!($($n)* ; ; E $scale sign=Minus)
+    };
+    ($($n:literal)+ E $scale:literal) => {
+        digit_info!($($n)* ; ; E $scale sign=Plus)
+    };
+    ( $n0:literal $($n:literal)* ; $($nr:literal)* ; E $scale:literal sign=$sign:ident) => {
+        digit_info!($($n)* ; $n0 $($nr)* ; E $scale sign=$sign)
+    };
+    (; $($n:literal)+ ; E $scale:literal sign=$sign:ident) => {
+        DigitInfo {
+            digits: BigDigitVec::from_literal_slice(
+                &[$($n),*]
+            ),
+            scale: $scale,
+            // precision: std::num::NonZeroI64::new($prec).unwrap(),
+            sign: num_bigint::Sign::$sign,
+        }
+    };
+    (- $($n:literal)+ E $scale:literal precision=$prec:literal) => {
+        DigitInfo {
+            digits: BigDigitVec::from_literal_slice(&[reverse_digits!($($n)*)]),
+            scale: $scale,
+            // precision: std::num::NonZeroI64::new($prec).unwrap(),
+            sign: num_bigint::Sign::Minus,
+        }
+    };
+    ([$($n:literal),+] scale=$scale:literal precision=$prec:literal) => {
+        DigitInfo {
+            digits: BigDigitVec::from_literal_slice(&[$($n),*]),
+            scale: $scale,
+            // precision: std::num::NonZeroI64::new($prec).unwrap(),
+            sign: num_bigint::Sign::Plus,
+        }
+    };
+    (-[$($n:literal),+] scale=$scale:literal precision=$prec:literal) => {
+        DigitInfo {
+            digits: BigDigitVec::from_literal_slice(&[$($n),*]),
+            scale: $scale,
+            // precision: std::num::NonZeroI64::new($prec).unwrap(),
+            sign: num_bigint::Sign::Minus,
+        }
+    }
+}
