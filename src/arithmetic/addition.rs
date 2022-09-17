@@ -712,6 +712,12 @@ mod test_add_digits_into {
             impl_case!($prec :: $($amodes),* => $($as)* E $as_exp );
             impl_case!($prec :: $($bmodes),* => $($bs)* E $bs_exp );
         };
+        ( $prec:literal :: $($amodes:ident),+ => $($as:literal)+ E $as_exp:literal
+                         : $($bmodes:ident),+ => $($bs:literal)+ E $bs_exp:literal
+        ) => {
+            impl_case!($prec :: $($amodes),* => $($as)* E $as_exp );
+            impl_case!($prec :: $($bmodes),* => $($bs)* E $bs_exp );
+        };
     }
 
     macro_rules! case_input {
