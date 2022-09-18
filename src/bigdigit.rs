@@ -106,8 +106,10 @@ impl BigDigit {
 
     /// Return maximum value of a single bigdigit (i.e. RADIX - 1)
     ///
-    ///      BIG_DIGIT_RADIX = 1000000000
-    ///     max ten-to-power =  999999999
+    /// ```txt
+    /// BIG_DIGIT_RADIX = 1000000000 | 4294967296
+    ///             max =  999999999 | 4294967295
+    /// ```
     ///
     #[inline]
     pub fn max() -> BigDigit {
@@ -116,8 +118,10 @@ impl BigDigit {
 
     /// Return maximum power of ten a bigdigit may hold
     ///
-    ///      BIG_DIGIT_RADIX = 1000000000
-    ///     max ten-to-power =  100000000
+    /// ```txt
+    /// BIG_DIGIT_RADIX  = 1000000000
+    /// max_ten_to_power =  100000000
+    /// ```
     ///
     #[inline]
     pub fn max_power_of_ten() -> BigDigit {
