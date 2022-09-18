@@ -261,4 +261,10 @@ macro_rules! nonzero {
     ( $exp:expr, $t:ty ) => {
         std::num::NonZeroU128::new($exr as $t).unwrap()
     };
+    ($exp:expr; usize) => {
+        std::num::NonZeroUsize::new($exp as usize).unwrap()
+    };
+    ($exp:expr; i64) => {
+        std::num::NonZeroI64::new($exp as i64).unwrap()
+    };
 }
