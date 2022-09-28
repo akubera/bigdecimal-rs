@@ -353,26 +353,23 @@ pub(crate) fn add_digits_into_impl(
         // not enough digits to worry about precision/rounding
         None => {
             result.scale = a.scale;
-            let (a_skip, b_shift) = div_rem(b_end_pos, bigdigit::MAX_DIGITS_PER_BIGDIGIT);
+            let (a_skip, b_shift) = BigDigitVec::digit_position_to_bigdigit_index_offset(b_end_pos);
             let b_digits = BigDigitSplitterIter::from_slice_shifting_left(&b.digits, b_shift);
-            // match a_skip.checked_sub(a.digits.len()) {
-            //    None => {
             if a_skip < a.digits.len() {
-                    let (only_a, a_digits) = a.digits.split_at(a_skip);
-                    result.digits.extend_from_slice(&only_a);
-                    let a_digits = BigDigitSplitterIter::from_slice_shifting_left(&a_digits, 0);
-                    let mut carry = BigDigit::zero();
-                    _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
-                    if !carry.is_zero() {
-                        result.digits.push(carry);
-                    }
-                }
                 // a & b are "disjoint" - we just copy the values
-                // Some(_) => {
-            else {
-                    result.digits.extend_from_slice(&a.digits);
-                    result.digits.resize(a_skip, BigDigit::zero());
-                    b_digits.extend_vector(&mut result.digits);
+                let (only_a, a_digits) = a.digits.split_at(a_skip);
+                result.digits.extend_from_slice(&only_a);
+                let a_digits = BigDigitSplitterIter::from_slice_shifting_left(&a_digits, 0);
+                let mut carry = BigDigit::zero();
+                _impl_add_digits(a_digits, b_digits, &mut result.digits, &mut carry);
+                if !carry.is_zero() {
+                    result.digits.push(carry);
+                }
+            } else {
+                // a & b are "disjoint" - we just copy the values
+                result.digits.extend_from_slice(&a.digits);
+                result.digits.resize(a_skip, BigDigit::zero());
+                b_digits.extend_vector(&mut result.digits);
             }
             return;
         }
