@@ -490,84 +490,80 @@ pub(crate) fn add_digits_into_impl(
         }
         // more digits than precision - we *must* round
         Some(insignificant_pos) => {
+            // position of first significant digit (as 'digit-index') in relation to
+            // last (smalest) digit of 'a'
             let significant_pos = insignificant_pos + 1;
-            result.scale = a.scale + significant_pos as i64;
 
-            // the case where b_end_pos > significant_pos is handled
-            // in the above match arm
-            let significant_b = significant_pos - b_end_pos;
+            let (
+                b_end_idx,
+                b_end_offset,
+            ) = BigDigitVec::digit_position_to_bigdigit_index_offset(b_end_pos);
 
-            // align a and b digits to the "significant" position
-            // by (virtually) adding zeros to the end (right side
-            // of the digits)
+            // number of "real" (non-shifted) a-bigdigts to ignore
+            // These digits are both smaller than precision and any digits in
+            // in 'b', so we may ignore them except for the trailing-zeros calculation
+            let ignorable_a_bigdigits = b_end_idx;
 
-            // 12345678 => (12345 678000000)
-            //     ^ pos=3        ^^^ bottom_digits=3
-            let a_keeps_bottom_n_digits = significant_pos % bigdigit::MAX_DIGITS_PER_BIGDIGIT;
-            let b_keeps_bottom_n_digits = significant_b % bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+            // shift "significant" position relative the last aligned digit of 'b'
+            // This skipps the ignored 'a' digits, and makes subsequent calculations
+            // and logic much easier
+            let shifted_significant_pos = significant_pos + b_end_offset - b_end_pos;
+            let (
+                shifted_pos_idx,
+                shifted_pos_offset,
+            ) = BigDigitVec::digit_position_to_bigdigit_index_offset(shifted_significant_pos);
+            let a_shift_left_by = shifted_pos_offset;
 
-            let shift_factor = if a_keeps_bottom_n_digits == 0 {
-                0
-            } else {
-                bigdigit::MAX_DIGITS_PER_BIGDIGIT - a_keeps_bottom_n_digits
+            // equal to number of zeros to add to 'a' to align the
+            // 'significant' position with resulting bigdigit index
+            let digit_shift = match shifted_pos_offset {
+                0 => 0,
+                m => bigdigit::MAX_DIGITS_PER_BIGDIGIT - m
             };
 
-            // shift b's lowest digit position relative to a's lowest digit position
-            let shift_b_end = b_end_pos + shift_factor;
-            let shift_significant_b = significant_b + shift_factor;
+            // new position of last digit of 'b', relative to shifted non-ignored 'a' digits
+            let (
+                shifted_b_idx,
+                shifted_b_offset,
+            ) = BigDigitVec::digit_position_to_bigdigit_index_offset(b_end_offset + digit_shift);
+            let b_shift_left_by = shifted_b_offset;
 
-            // skip any insignificant 'a' bigdigits which do not overlap
-            // with 'b' digits
-            let shifted_a_digits_to_skip = shift_b_end / bigdigit::MAX_DIGITS_PER_BIGDIGIT;
-            let (sig_b_index, sig_b_offset) = div_rem(
-                shift_significant_b, bigdigit::MAX_DIGITS_PER_BIGDIGIT
-            );
+            // there are digits in 'a' between end of 'b' and first ignored bigdigit
+            let a_has_underflow_digits = shifted_b_idx > 0;
 
-            let mut trailing_zeros = true;
-
-            // we need to know which aligned a-digit matches
-            // the first b digit
-            //
-            // this is an optimization so we don't add the trailing
-            // zeros of 'b'
-            let mut a_digits = if shifted_a_digits_to_skip == 0 {
-                // not skipping any bigdigits in a
-                BigDigitSplitterIter::from_slice_starting_bottom(
-                    &a.digits, a_keeps_bottom_n_digits
-                )
-            } else if shift_factor == 0 {
-                let (insig_a_digits, sig_a_digits) = a.digits.split_at(shifted_a_digits_to_skip);
-                trailing_zeros = insig_a_digits.iter().all(BigDigit::is_zero);
-                BigDigitSplitterIter::from_slice(sig_a_digits)
+            // how many digits to read before starting storing sum in result
+            let insignificant_bigdigit_count = if a_has_underflow_digits || digit_shift == 0 {
+                shifted_pos_idx
             } else {
-                let (insig_a_digits, sig_a_digits) = a.digits.split_at(
-                    shifted_a_digits_to_skip - 1
-                );
-                trailing_zeros = insig_a_digits.iter().all(BigDigit::is_zero);
-
-                if !trailing_zeros {
-                    BigDigitSplitterIter::from_slice_shifting_right(
-                        sig_a_digits, a_keeps_bottom_n_digits
-                    )
-                } else {
-                    let mut digits = BigDigitSplitterIter::from_slice_starting_bottom(
-                        sig_a_digits, a_keeps_bottom_n_digits
-                    );
-                    let skipped_digits = digits.next().unwrap();
-                    trailing_zeros &= skipped_digits.is_zero();
-                    digits
-                }
+                shifted_pos_idx + 1
             };
 
-            let mut b_digits = BigDigitSplitterIter::from_slice_starting_bottom(
-                &b.digits, b_keeps_bottom_n_digits
+            // split 'a' digits into slices of ignored & relevant bigdigits
+            let (skipped_a_digits, overlap_a_digits) = a.digits.split_at(ignorable_a_bigdigits);
+
+            // aligned a & b digits
+            let mut a_digits = BigDigitSplitterIter::from_slice_starting_bottom(
+                overlap_a_digits, a_shift_left_by
+            );
+            let mut b_digits = BigDigitSplitterIter::from_slice_shifting_left(
+                &b.digits, b_shift_left_by
             );
 
-            let mut carry = BigDigit::zero();
+            let mut trailing_zeros = skipped_a_digits.iter().all(BigDigit::is_zero);
+
+            // pull underflow digits from a
+            if a_has_underflow_digits {
+                let a0 = a_digits.next().unwrap();
+                trailing_zeros &= a0.is_zero();
+            }
+
+            // at this point `a_digits` and `b_digits` are aligned, starting at
+            // the first overlapping bigdigit to be summed
 
             // loop through insignificant sums to calculate the carry
-            // start at 1 to skip the last
-            for i in 1..sig_b_index {
+            // start at 1 to skip the last digit
+            let mut carry = BigDigit::zero();
+            for _ in 1..insignificant_bigdigit_count {
                 match (a_digits.next(), b_digits.next()) {
                     (None, None) => {
                         unreachable!();
@@ -615,11 +611,17 @@ pub(crate) fn add_digits_into_impl(
                 result.digits.count_digits() > precision.get()
             };
 
+            // result scale is a's scale dropping insiginificant digits
+            result.scale = a.scale + significant_pos as i64;
+
             if overflowed {
                 result.scale += 1;
-                // round the sum to one decimal place
-                let rounding_pair = div_rem((result.digits[0].as_digit_base() % 100) as u8, 10);
-                let replacement_digit = rounding.round(result.sign, rounding_pair, true);
+                let ov_low_digit = high_digit;
+                let ov_high_digit = (s0.as_u32() / 10) % 10;
+                let ov_rounding_pair = (ov_high_digit as u8, ov_low_digit);
+                let replacement_digit = rounding.round(
+                    result.sign, ov_rounding_pair, trailing_zeros && low_digit == 0
+                );
                 result.digits.shift_right_and_replace_digit(1, replacement_digit.into());
             }
         }
