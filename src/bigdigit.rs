@@ -932,6 +932,11 @@ impl BigDigitVec {
         self.push_integer(num);
     }
 
+    /// length of internal vector
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// As slice
     pub fn as_slice(&self) -> &[BigDigit] {
         self.0.as_slice()
