@@ -2294,7 +2294,7 @@ impl DigitInfo {
     ) {
         self.sign = other.sign;
         self.digits.reserve_precision(precision);
-        let digit_count = self.count_digits();
+        let digit_count = other.count_digits();
         match digit_count.checked_sub(precision.get()) {
             // Not enough digits means we don't need to round
             Some(0) | None => {
