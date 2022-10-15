@@ -2067,6 +2067,23 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
         }
     }
 
+    /// Copy all remaining digits into destination vector, adding carry
+    ///
+    /// Note: carry is not zeroed after being pushed into the vector
+    ///
+    pub(crate) fn extend_vector_adding_carry(mut self, mut carry: BigDigit, dest: &mut BigDigitVec) {
+        while !carry.is_zero() {
+            if let Some(mut next_digit) = self.next() {
+                next_digit.add_assign_carry(&mut carry);
+                dest.push(next_digit);
+            } else {
+                dest.push(carry);
+                return;
+            }
+        }
+        self.extend_vector(dest)
+    }
+
     /// Return the internal 'mask' value
     pub(crate) fn mask(&self) -> BigDigitBase {
         return match self.shift {
