@@ -762,9 +762,11 @@ pub(crate) fn add_digits_into_impl(
 }
 
 
-/// Does not push final carry
+/// Adds the digit iterators together into sum
 ///
-/// Should this return overflow?
+/// Non-standard behavior: the carry is not cleared after being added to the sum.
+///     This is for the optimization that if a carry is one, we have certainly overflowed
+///     and do not need to count digits.
 ///
 fn _impl_add_digits<'a>(
     mut a_digits: BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>,
@@ -774,40 +776,32 @@ fn _impl_add_digits<'a>(
 )
 {
     loop {
-        match (a_digits.next(), b_digits.next()) {
+        match dbg!(a_digits.next(), b_digits.next()) {
             (Some(a_digit), Some(b_digit)) => {
                 sum.push(
                     BigDigit::add_with_carry(&a_digit, &b_digit, carry)
                 );
-                continue;
             }
             (Some(a_digit), None) => {
                 sum.push(a_digit.add_carry(carry));
-                while !carry.is_zero() {
-                    if let Some(a_digit) = a_digits.next() {
-                        sum.push(a_digit.add_carry(carry));
-                    } else {
-                        return;
-                    }
-                }
-                a_digits.extend_vector(sum);
+                a_digits.extend_vector_adding_carry(*carry, sum);
+                return;
             }
             (None, Some(b_digit)) => {
                 sum.push(b_digit.add_carry(carry));
-                while !carry.is_zero() {
-                    if let Some(b_digit) = b_digits.next() {
-                        sum.push(b_digit.add_carry(carry));
-                    } else {
-                        return;
-                    }
-                }
-                b_digits.extend_vector(sum);
+                b_digits.extend_vector_adding_carry(*carry, sum);
+                return;
             }
-            (None, None) => { }
+            (None, None) => {
+                if !carry.is_zero() {
+                    sum.push(*carry);
+                }
+                return;
+            }
         }
-        return;
     }
 }
+
 
 #[cfg(test)]
 #[allow(non_snake_case)]
