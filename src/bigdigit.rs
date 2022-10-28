@@ -1129,6 +1129,33 @@ impl BigDigitVec {
         }
     }
 
+    /// handle overflow
+    #[inline]
+    pub(crate) fn shift_right_1_and_replace_bigdigit(&mut self, new_bigdigit: BigDigit) {
+        self.0[0] = new_bigdigit;
+        let (last, middle) = self.0.split_last_mut().unwrap();
+        if middle.len() == 0 {
+            return;
+        }
+
+        let shifter = ShiftAndMask::mask_low(1);
+        let mut carry = BigDigit::zero();
+        for i in 1..middle.len() {
+            let (hi, lo) = shifter.split_and_shift(&middle[i]);
+            middle[i-1].add_assign_with_carry(lo, &mut carry);
+            middle[i] = hi.add_carry(&mut carry);
+        }
+        debug_assert_eq!(carry.0, 0);
+
+        let (hi, lo) = shifter.split_and_shift(&last);
+        middle.last_mut().unwrap().add_assign_with_carry(lo, &mut carry);
+        if hi == 0 {
+            self.0.truncate(self.0.len()-1);
+        } else {
+            *last = hi.add_carry(&mut carry);
+        }
+    }
+
     /// Replace contents of self with given digits, rounded at location
     pub(crate) fn fill_with_rounded_digits(
         &mut self, digits: &BigDigitVec, position: usize, sign: Sign, mode: RoundingMode
