@@ -1129,31 +1129,42 @@ impl BigDigitVec {
         }
     }
 
-    /// handle overflow
+    /// Used to compensate when digits overflow after an operation
+    ///
+    /// The new bigdigit replaces the first bigdigit in the vector,
+    /// and all remaining digits are shifted right and added to
+    /// previous digit appropriately.
+    ///
+    /// It is up to the caller to determine the correctly shifted
+    /// first value; often this involves dropping the lowest digit
+    /// and re-rounding the value appropriately.
+    ///
     #[inline]
     pub(crate) fn shift_right_1_and_replace_bigdigit(&mut self, new_bigdigit: BigDigit) {
         self.0[0] = new_bigdigit;
-        let (last, middle) = self.0.split_last_mut().unwrap();
-        if middle.len() == 0 {
+        let n = self.0.len() - 1;
+        if n == 0 {
             return;
         }
-
         let shifter = ShiftAndMask::mask_low(1);
-        let mut carry = BigDigit::zero();
-        for i in 1..middle.len() {
-            let (hi, lo) = shifter.split_and_shift(&middle[i]);
-            middle[i-1].add_assign_with_carry(lo, &mut carry);
-            middle[i] = hi.add_carry(&mut carry);
-        }
-        debug_assert_eq!(carry.0, 0);
 
-        let (hi, lo) = shifter.split_and_shift(&last);
-        middle.last_mut().unwrap().add_assign_with_carry(lo, &mut carry);
-        if hi == 0 {
-            self.0.truncate(self.0.len()-1);
-        } else {
-            *last = hi.add_carry(&mut carry);
+        let digits = self.0.as_mut_slice();
+        let mut carry = BigDigit::zero();
+        // shift and add all intermediate bigdigits
+        for i in 1..n {
+            let (hi, lo) = shifter.split_and_shift(&digits[i]);
+            digits[i-1].add_assign_with_carry(lo, &mut carry);
+            digits[i] = hi.add_carry(&mut carry);
         }
+        // handle special case of final bigdigit
+        let (hi, lo) = shifter.split_and_shift(&digits[n]);
+        digits[n - 1].add_assign_with_carry(lo, &mut carry);
+        if hi == 0 {
+            self.0.truncate(n);
+        } else {
+            digits[n] = hi.add_carry(&mut carry);
+        }
+        debug_assert!(carry.is_zero());
     }
 
     /// Replace contents of self with given digits, rounded at location
