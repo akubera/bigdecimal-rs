@@ -2329,15 +2329,16 @@ impl DigitInfo {
     }
 
     /// Copy other DigitInfo into this object, respecting given precision and rounding
-    pub fn copy_with_precision(
+    pub fn copy_with_precision<'a, IntoDigitInfo: Into<DigitInfoRef<'a>>>(
         &mut self,
-        other: &DigitInfo,
+        other: IntoDigitInfo,
         precision: std::num::NonZeroUsize,
         rounding_mode: RoundingMode
     ) {
+        let other = other.into();
         self.sign = other.sign;
         self.digits.reserve_precision(precision);
-        let digit_count = other.count_digits();
+        let digit_count = other.digits.count_digits();
         match digit_count.checked_sub(precision.get()) {
             // Not enough digits means we don't need to round
             Some(0) | None => {
@@ -2347,7 +2348,7 @@ impl DigitInfo {
             // We need to round to lower precision
             Some(digit_position) => {
                 self.digits.fill_with_rounded_digits(
-                    &other.digits, digit_position, other.sign, rounding_mode
+                    other.digits, digit_position, other.sign, rounding_mode
                 );
                 self.scale = other.scale + digit_position as i64;
             }
