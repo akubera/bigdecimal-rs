@@ -2353,6 +2353,24 @@ impl DigitInfo {
             }
         }
     }
+
+    // Non-copy reference to DigitInfo
+    pub fn as_ref(&self) -> DigitInfoRef {
+        DigitInfoRef {
+            digits: &self.digits,
+            scale: self.scale,
+            sign: self.sign,
+        }
+    }
+
+    // Non-copy reference to DigitInfo with sign flipped
+    pub fn neg_ref(&self) -> DigitInfoRef {
+        DigitInfoRef {
+            digits: &self.digits,
+            scale: self.scale,
+            sign: std::ops::Neg::neg(self.sign),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2408,6 +2426,22 @@ impl Default for DigitInfo {
     }
 }
 
+
+/// DigitInfo with reference to the BigDigitVec
+pub struct DigitInfoRef<'a> {
+    /// digits
+    pub(crate) digits: &'a BigDigitVec,
+    /// scale
+    pub(crate) scale: i64,
+    /// Signed
+    pub(crate) sign: Sign,
+}
+
+impl<'a> From<&'a DigitInfo> for DigitInfoRef<'a> {
+    fn from(digit_info: &'a DigitInfo) -> Self {
+        digit_info.as_ref()
+    }
+}
 
 /// Python compatibility module
 #[cfg(feature = "pyo3")]
