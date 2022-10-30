@@ -14,7 +14,8 @@ sum mut: 48.00000000000000
 0.000000000000000 IS equal to zero
 24.00000000000000 / 1.000000000000000 = 24.00000000000000
 24.0 / 1.000000000000000 = 24.0
-24.0 / 1.500 = 16
+24.0 / 1.5 = 16
+24.000 / 1.50 = 16.0
 */
 
 fn main() {
@@ -60,7 +61,11 @@ fn main() {
     print_division(bd_div1, bd_div2);
 
     let bd_num = &BigDecimal::from_str("24.0").unwrap();
-    let bd_den = &BigDecimal::from_str("1.500").unwrap();
+    let bd_den = &BigDecimal::from_str("1.5").unwrap();
+    print_division(bd_num, bd_den);
+
+    let bd_num = &BigDecimal::from_str("24.000").unwrap();
+    let bd_den = &BigDecimal::from_str("1.50").unwrap();
     print_division(bd_num, bd_den);
 }
 

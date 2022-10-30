@@ -179,6 +179,7 @@ macro_rules! impl_div_for_float_primitive {
             type Output = BigDecimal;
 
             #[inline]
+            #[allow(clippy::float_cmp)]
             fn div(self, den: $res) -> Self::Output {
                 if den.is_nan() {
                     BigDecimal::zero()
@@ -249,5 +250,21 @@ macro_rules! impl_div_for_primitives {
         forward_primitive_types!(floats => impl_div_for_float_primitive);
         forward_primitive_types!(ints => impl_div_for_int_primitive);
         forward_primitive_types!(uints => impl_div_for_uint_primitive);
+    };
+}
+
+
+macro_rules! nonzero {
+    ( $n:expr ) => {
+        std::num::NonZeroU128::new($n as u128).unwrap()
+    };
+    ( $exp:expr, $t:ty ) => {
+        std::num::NonZeroU128::new($exr as $t).unwrap()
+    };
+    ($exp:expr; usize) => {
+        std::num::NonZeroUsize::new($exp as usize).unwrap()
+    };
+    ($exp:expr; i64) => {
+        std::num::NonZeroI64::new($exp as i64).unwrap()
     };
 }
