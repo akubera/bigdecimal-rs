@@ -2444,6 +2444,20 @@ impl<'a> From<&'a DigitInfo> for DigitInfoRef<'a> {
     }
 }
 
+impl<'a> std::ops::Neg for DigitInfoRef<'a> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        use std::ops::Neg;
+
+        Self {
+            digits: self.digits,
+            scale: self.scale,
+            sign: self.sign.neg(),
+        }
+    }
+}
+
+
 /// Python compatibility module
 #[cfg(feature = "pyo3")]
 mod python_compat {
