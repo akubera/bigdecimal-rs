@@ -2025,6 +2025,11 @@ pub(crate) struct BigDigitSplitterIter<'a, I>
     phantom: std::marker::PhantomData<&'a ()>,
 }
 
+/// Shorthand for BigDigitSplitterIter for slices of BigDigit
+///
+pub(crate) type BigDigitSliceSplitterIter<'a> =
+    BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>;
+
 
 impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
 {

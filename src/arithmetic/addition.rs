@@ -10,6 +10,7 @@ use crate::bigdigit::{
     BigDigit,
     BigDigitVec,
     BigDigitSplitterIter,
+    BigDigitSliceSplitterIter,
     DigitInfo,
     BigDigitLoc,
     align_with_insignificance,
