@@ -2467,3 +2467,122 @@ mod python_compat {
         }
     }
 }
+
+
+/// Digit location used for alignment
+///
+/// Location specifies either zero or more significant digits
+/// or one or more insignificant digits.
+///
+#[derive(Debug)]
+pub(crate) enum BigDigitLoc {
+    Significant(usize),
+    Insignificant(std::num::NonZeroUsize),
+}
+
+/// Aligned BigDigits to significant_pos, ignoring_digits before ignorable_pos
+///
+/// Used by addition algorithm to align 'a' digits.
+///
+/// digits: Source digits
+/// significant_pos: boundary of digits
+/// ignorable_pos: point where digits do not need to be aligned
+///
+/// Returns tuple of:
+///     - BigDigitSplitterIter yielding aligned BigDigits
+///     - usize of the number of aligned BigDigits to read before significant point
+///     - slice of skipped digits
+///
+pub(crate) fn align_with_insignificance<'a>(
+    digits: &'a [BigDigit],
+    significant_pos: usize,
+    ignorable_pos: usize,
+) -> (BigDigitSliceSplitterIter<'a>, usize, &'a [BigDigit]) {
+    let (
+        pos_idx, pos_offset
+    ) = BigDigitVec::digit_position_to_bigdigit_index_offset(significant_pos);
+
+    let (
+        ignore_idx, _
+    ) = BigDigitVec::digit_position_to_bigdigit_index_offset(ignorable_pos);
+
+    // dbg!(ignore_idx, digits.len());
+
+    if ignore_idx >= digits.len() {
+        let iter = BigDigitSliceSplitterIter::from_slice(&[]);
+        return (iter, digits.len(), digits);
+    }
+
+    let (skipped_digits, digit_slice) = digits.split_at(ignore_idx);
+    let aligned_digits = BigDigitSliceSplitterIter::from_slice_starting_bottom(
+         digit_slice, pos_offset
+    );
+
+    let insignificant_count = pos_idx - ignore_idx + (pos_offset > 0) as usize;
+
+    (aligned_digits, insignificant_count, skipped_digits)
+}
+
+
+/// Align big digits to a position of significance, assuming digits starts
+/// at position digit_pos
+///
+/// Used for 'b-digits' in addition algorithm.
+///
+/// Returns tuple of:
+///     - BigDigitSplitterIter properly aligned
+///     - The DigitLoc specifying the location of first BigDigit: either
+///       0 or more significant, or 1 or more insigificant bigdigits
+///
+pub(crate) fn align_with_shift<'a>(
+    digits: &'a [BigDigit],
+    significant_pos: usize,
+    digit_pos: usize,
+) -> (BigDigitSliceSplitterIter<'a>, BigDigitLoc) {
+    let b_digits;
+    let b_count;
+
+    if significant_pos > digit_pos {
+        // digits start before alignment point: we have insigificant digits
+        let (
+            shifted_b_idx,
+            shifted_b_offset
+        ) = BigDigitVec::digit_position_to_bigdigit_index_offset(
+            significant_pos - digit_pos
+        );
+
+        let insig_digit_count = shifted_b_idx + (shifted_b_offset > 0) as usize;
+        b_count = BigDigitLoc::Insignificant(
+            std::num::NonZeroUsize::new(insig_digit_count).unwrap()
+        );
+
+        // bbbbbbbb
+        //     ^~~~ start with bottom {offset} digits
+        // [bbbbb][bbb______]
+        // |-sig-||--insig--|
+        //
+        b_digits = BigDigitSliceSplitterIter::from_slice_starting_bottom(
+            digits, shifted_b_offset
+        );
+    } else {
+        // digits after alignment: they are all sigificant
+        let (
+            shifted_b_idx,
+            shifted_b_offset
+        ) = BigDigitVec::digit_position_to_bigdigit_index_offset(
+            digit_pos - significant_pos
+        );
+
+        b_count = BigDigitLoc::Significant(shifted_b_idx);
+
+        // bbbbbbb___
+        //          ^ shift left by {offset} digits
+        //  [b][bbbbbb___]
+        //
+        b_digits = BigDigitSliceSplitterIter::from_slice_shifting_left(
+            digits, shifted_b_offset
+        );
+    }
+
+    (b_digits, b_count)
+}

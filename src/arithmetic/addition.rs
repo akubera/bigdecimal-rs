@@ -6,7 +6,14 @@ use std::num::NonZeroUsize;
 use std::ops::Not;
 
 use crate::bigdigit::{
-    self, BigDigit, BigDigitVec, BigDigitSplitterIter, DigitInfo
+    self,
+    BigDigit,
+    BigDigitVec,
+    BigDigitSplitterIter,
+    DigitInfo,
+    BigDigitLoc,
+    align_with_insignificance,
+    align_with_shift
 };
 
 use crate::context::{Context, RoundingMode};
