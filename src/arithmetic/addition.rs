@@ -12,6 +12,7 @@ use crate::bigdigit::{
     BigDigitSplitterIter,
     BigDigitSliceSplitterIter,
     DigitInfo,
+    DigitInfoRef,
     BigDigitLoc,
     align_with_insignificance,
     align_with_shift
@@ -71,6 +72,7 @@ pub(crate) fn extend_digit_slice_sum_into(a: &[BigDigit], b: &[BigDigit], v: &mu
         v.push(a_digit);
     }
 }
+
 #[cfg(test)]
 #[allow(overflowing_literals)]
 #[allow(unreachable_patterns)]
@@ -309,10 +311,10 @@ pub(crate) fn add_digits_into(
             result.copy_with_precision(a, precision, rounding)
         }
         (_, _, true) => {
-            add_digits_into_impl(b, a, precision, rounding, result)
+            add_digits_into_impl(b.as_ref(), a.as_ref(), precision, rounding, result)
         }
         (_, _, false) => {
-            add_digits_into_impl(a, b, precision, rounding, result)
+            add_digits_into_impl(a.as_ref(), b.as_ref(), precision, rounding, result)
         }
     }
 }
@@ -320,9 +322,9 @@ pub(crate) fn add_digits_into(
 /// Actual implementation of add_digits_into_impl
 ///
 #[allow(unreachable_code)]
-pub(crate) fn add_digits_into_impl(
-    a: &DigitInfo,
-    b: &DigitInfo,
+pub(crate) fn add_digits_into_impl<'a, 'b>(
+    a: DigitInfoRef<'a>,
+    b: DigitInfoRef<'b>,
     precision: NonZeroUsize,
     rounding: RoundingMode,
     result: &mut DigitInfo
@@ -353,8 +355,8 @@ pub(crate) fn add_digits_into_impl(
     //  └──────────> b-start-pos=12
     //
     let b_end_pos = (b.scale - a.scale) as usize;
-    let b_start_pos = b.count_digits() + b_end_pos;
-    let a_start_pos = a.count_digits();
+    let b_start_pos = b.digits.count_digits() + b_end_pos;
+    let a_start_pos = a.digits.count_digits();
 
     let max_start_pos = usize::max(a_start_pos, b_start_pos);
 
