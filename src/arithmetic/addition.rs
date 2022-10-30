@@ -1929,11 +1929,14 @@ pub(crate) fn add_jot_into(
 
             result.scale -= new_prec_digit_count as i64;
 
-            let rounded = if n.sign == Sign::Minus {
-                rounding.round_digits(true, (9, 9))
+            let (rounding_pair, all_trailing_zeros) = if n.sign == Sign::Minus {
+                ((9, 9), false)
             } else {
-                rounding.round_digits(false, (0, 1))
+                ((0, 1), true)
             };
+            // dbg!(rounding_pair);
+            let rounded = rounding.round(n.sign, rounding_pair, all_trailing_zeros);
+            // dbg!(rounding_pair, all_trailing_zeros, rounded);
 
             // TODO: skip trailing zeros before making splitter
             let mut splitter = BigDigitSplitterIter::from_slice_shifting_left(&n.digits, new_prec_bigdigit_offset);
@@ -1987,6 +1990,7 @@ pub(crate) fn add_jot_into(
                 }
                 (_, 1) if new_prec_bigdigit_count > 0 => {
                     result.digits.push(BigDigit::one());
+                    result.digits.resize(new_prec_bigdigit_count, BigDigit::zero());
                 }
                 _ => {
                     unreachable!();
@@ -2586,6 +2590,21 @@ mod test_add_jot_into {
         impl_case!(30, Up => 817 104704473 447992142 568500001 E -27);
     }
 
+    mod case_78868715Eneg4 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(78868715 E -4) }
+        }
+
+        impl_case!(8, Up => 78868716 E -4);
+        impl_case!(9, Up => 788687151 E -5);
+        impl_case!(10, Up => 7 886871501 E -6);
+        impl_case!(18, Up => 788687150 000000001 E -14);
+        impl_case!(50, Up => 78868 715000000 000000000 000000000 000000000 000000001 E -46);
+    }
+
+
     mod case_747349068880200326999999999 {
         use super::*;
 
@@ -2686,6 +2705,17 @@ mod test_add_jot_into {
         impl_case!(28, Down => -3 999999999 999999999 999999998 E -7);
 
         impl_case!(32, Down => -39999 999999999 999999999 999989999 E -11);
+    }
+
+    mod case_1000 {
+        use super::*;
+
+        macro_rules! case_input {
+            () => { digit_info!(1000 E 0) }
+        }
+
+        impl_case!(11, Up => 10 000000001 E -7);
+        impl_case!(11, Down, HalfUp, HalfDown, HalfEven => 10 000000000 E -7);
     }
 }
 
