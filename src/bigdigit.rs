@@ -2751,3 +2751,64 @@ pub(crate) fn cmp_bigdigitvecs(
         }
     }
 }
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_cmp_bigdigitvecs {
+    use super::*;
+    use std::cmp::Ordering::*;
+
+    macro_rules! rev_vec {
+        ( $($x:literal)* ) => { rev_vec!( $($x)* ; ) };
+        ( $x0:literal $($x:literal)*; $($y:literal)* ) => {
+            rev_vec!( $($x)* ; $x0 $($y)* )
+        };
+        ( ; $($y:literal)* ) => { bigdigit_vec![$($y),*] };
+    }
+
+    macro_rules! impl_case {
+        ([$($a:literal)*], - $as:literal <=> [$($b:literal)*],-$bs:literal : $r:ident) => {
+            impl_case!(NAME Eneg $as, E $bs; $($a)*; -$as; $($b)*; $bs; : $r);
+        };
+        ([$($a:literal)*], - $as:literal <=> [$($b:literal)*],$bs:literal: $r:ident) => {
+            impl_case!(NAME Eneg $as, E $bs; $($a)*; -$as; $($b)*; $bs: $r);
+        };
+        ([$($a:literal)*], $as:literal <=> [$($b:literal)*],-$bs:literal: $r:ident) => {
+            impl_case!(NAME E $as, Eneg $bs; $($a)*; $as; $($b)*; -$bs: $r);
+        };
+        ( [$($a:literal)+], $as:literal <=> [$($b:literal)+],$bs:literal: $r:ident ) => {
+            impl_case!(NAME E $as, E $bs; $($a)*; $as; $($b)*; $bs: $r);
+        };
+        ( NAME $($nas:expr)*, $($nbs:expr)*; $($a:literal)*; $as:literal; $($b:literal)*; $bs:literal : Greater) => {
+            paste! {
+                #[test]
+                fn [< case_ $($a)* $($nas)* _ $($b)* $($nbs)* >] ()  {
+                    let a = rev_vec![$($a)*];
+                    let b = rev_vec![$($b)*];
+                    let order = cmp_bigdigitvecs(&a, $as, &b, $bs);
+                    assert_eq!(order, Greater);
+                    let order = cmp_bigdigitvecs(&b, $bs, &a, $as);
+                    assert_eq!(order, Less);
+                }
+            }
+        };
+        ( NAME $($nas:expr)*, $($nbs:expr)*; $($a:literal)*; $as:literal; $($b:literal)*; $bs:literal : $r:ident) => {
+            paste! {
+                #[test]
+                fn [< case_ $($a)* $($nas)* _ $($b)* $($nbs)* >] ()  {
+                    let a = rev_vec![$($a)*];
+                    let b = rev_vec![$($b)*];
+                    let order = cmp_bigdigitvecs(&a, $as, &b, $bs);
+                    assert_eq!(order, $r);
+                }
+            }
+        };
+    }
+
+    impl_case!([74635],0 <=> [123],2 : Greater);
+    impl_case!([746350],0 <=> [74635],1 : Equal);
+    impl_case!([746350],-1 <=> [74635],0 : Equal);
+    impl_case!([661611837 963897084],4 <=> [661 611837963 897084000],1 : Equal);
+    impl_case!([661611837 963897084],3 <=> [66 151183796 389708400],1 : Greater);
+}
