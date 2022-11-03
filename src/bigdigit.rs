@@ -2640,3 +2640,114 @@ pub(crate) fn align_with_shift<'a>(
 
     (b_digits, b_count)
 }
+
+
+/// Ordering of BigDigitVec values and scale
+///
+/// Positive values only
+///
+#[inline]
+pub(crate) fn cmp_bigdigitvecs(
+    a: &BigDigitVec,
+    a_scale: i64,
+    b: &BigDigitVec,
+    b_scale: i64,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering::*;
+
+    // useful macros
+    macro_rules! return_if_unequal {
+        ($x:ident, $y:ident) => {
+            match $x.cmp(&$y) {
+                Equal => {},
+                cmp => { return cmp; }
+            }
+        };
+        (($x:expr, $y:expr)) => {
+            match ($x, $y) {
+                (None, None) => { return Equal; }
+                (Some(_), None) => { return Greater; }
+                (None, Some(_)) => { return Less; }
+                (Some(a_digit), Some(b_digit)) => {
+                    return_if_unequal!(a_digit, b_digit);
+                }
+            }
+        };
+    }
+
+    let a_digit_count = a.count_digits();
+    let b_digit_count = b.count_digits();
+
+    let a_max_position = a_digit_count as i64 + a_scale;
+    let b_max_position = b_digit_count as i64 + b_scale;
+
+    return_if_unequal!(a_max_position, b_max_position);
+
+    let mut a_rev = a.iter().rev();
+    let mut b_rev = b.iter().rev();
+
+    // the digits are already aligned
+    if a_scale == b_scale {
+        for (a_digit, b_digit) in a_rev.zip(b_rev) {
+            return_if_unequal!(a_digit, b_digit);
+        }
+        return Equal;
+    }
+
+    let a_factor = a_digit_count % MAX_DIGITS_PER_BIGDIGIT;
+    let b_factor = b_digit_count % MAX_DIGITS_PER_BIGDIGIT;
+
+    if a_factor == b_factor {
+        loop {
+            return_if_unequal!((a_rev.next(), b_rev.next()));
+        }
+    }
+
+    let a_shifter = ShiftAndMask::mask_low(a_factor);
+    let b_shifter = ShiftAndMask::mask_low(b_factor);
+
+    let mut a_tmp = Some(0);
+    let mut b_tmp = Some(0);
+
+    // prime the iterators if not full
+    if a_factor != 0 {
+        let a0 = _get_next_digit(&mut a_rev, &mut a_tmp, a_shifter);
+        assert!(a0.unwrap().is_zero());
+    }
+    if b_factor != 0 {
+        let b0 = _get_next_digit(&mut b_rev, &mut b_tmp, b_shifter);
+        assert!(b0.unwrap().is_zero());
+    }
+
+    loop {
+        let next_a = _get_next_digit(&mut a_rev, &mut a_tmp, a_shifter);
+        let next_b = _get_next_digit(&mut b_rev, &mut b_tmp, b_shifter);
+        return_if_unequal!((next_a, next_b));
+    }
+
+    fn _get_next_digit<'d, D>(
+        digits: &mut D,
+        prev: &mut Option<BigDigitBase>,
+        shifter: ShiftAndMask
+    ) -> Option<BigDigit>
+        where D: Iterator<Item=&'d BigDigit>
+    {
+        let p = match prev {
+            Some(p) => *p,
+            None => { return None; }
+        };
+        match digits.next() {
+            None => {
+                let result = BigDigit::from_raw_integer(p);
+                *prev = None;
+                return Some(result);
+            }
+            Some(digit) => {
+                let (hi, lo) = shifter.split_and_shift(digit);
+                let result = BigDigit::from_raw_integer(p + hi.0);
+                *prev = Some(lo.0);
+                return Some(result);
+            },
+        }
+    }
+}
