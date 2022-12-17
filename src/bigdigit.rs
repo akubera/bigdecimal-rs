@@ -2149,6 +2149,15 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
             }
         }
     }
+
+    /// True if iterator has no more values
+    pub fn is_exhausted(&self) -> bool {
+        match (&self.shift, self.digits.as_slice()) {
+            (ShiftState::Zero, slice) => slice.is_empty(),
+            (ShiftState::Shifted { prev, .. }, []) => prev.is_zero(),
+            _ => false
+        }
+    }
 }
 
 // impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
