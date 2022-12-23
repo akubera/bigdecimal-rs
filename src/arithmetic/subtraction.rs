@@ -219,4 +219,77 @@ mod test_add_digits_into {
 
         impl_case!(2 :: Up => -11 E 0);
     }
+
+
+/// Perform subtraction of the region where the digits dont overlap
+///
+/// Handles both cases where 'a' digits or 'b' digts extend
+/// beyond (i.e. to the right) of the other.
+///
+fn perform_nonoverlap_subtraction<'a, 'b, A: Iterator<Item = &'a BigDigit>, B: Iterator<Item = &'b BigDigit>>(
+    a_digits: &mut BigDigitSplitterIter<'a, A>,
+    b_digits: &mut BigDigitSplitterIter<'b, B>,
+    a_start_pos: usize,
+    b_start_pos: usize,
+    borrow: &mut BigDigit,
+    dest: &mut BigDigitVec,
+) {
+    if b_start_pos > a_start_pos {
+        let count = b_start_pos - a_start_pos;
+        copy_values_into(
+            a_digits,
+            count,
+            dest
+        );
+    } else if a_start_pos > b_start_pos {
+        let count = a_start_pos - b_start_pos;
+        subtract_digits_from_zero(
+            b_digits,
+            count,
+            borrow,
+            dest
+        );
+    }
+}
+
+
+/// Perform <digits> - 0
+///
+fn copy_values_into<'a, I: Iterator<Item = &'a BigDigit>>(
+    digits: &mut BigDigitSplitterIter<'a, I>,
+    count: usize,
+    dest: &mut BigDigitVec,
+) {
+    for i in 0..count {
+        match digits.next() {
+            None => {
+                dest.resize(count - i, BigDigit::zero());
+                break;
+            }
+            Some(digit) => {
+                dest.push(digit)
+            }
+        }
+    }
+}
+
+
+/// Perform 0 - <digits>
+fn subtract_digits_from_zero<'a, I: Iterator<Item = &'a BigDigit>>(
+    digits: &mut BigDigitSplitterIter<'a, I>,
+    count: usize,
+    borrow: &mut BigDigit,
+    dest: &mut BigDigitVec,
+) {
+    let zero = BigDigit::zero();
+    for _ in 0..count {
+        match digits.next() {
+            None => todo!(),
+            Some(digit) => {
+                dest.push(
+                    zero.sub_with_borrow(digit, borrow)
+                );
+            }
+        }
+    }
 }
