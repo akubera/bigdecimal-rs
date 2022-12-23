@@ -17,6 +17,7 @@ use crate::bigdigit::{
     align_with_insignificance,
     align_with_shift
 };
+use crate::arithmetic::subtraction;
 
 use crate::context::{Context, RoundingMode};
 use crate::Sign;
@@ -298,17 +299,23 @@ pub(crate) fn add_digits_into(
     rounding: RoundingMode,
     result: &mut DigitInfo
 ) {
-    // route to something
+    // route to some implemenation
     match (a.sign, b.sign, a.scale > b.scale) {
-        (Sign::Plus, Sign::Minus, true) => { unimplemented!(); }
-        (Sign::Plus, Sign::Minus, false) => { unimplemented!(); }
-        (Sign::Minus, Sign::Plus, true) => { unimplemented!(); }
-        (Sign::Minus, Sign::Plus, false) => { unimplemented!(); }
+        (Sign::Plus, Sign::Minus, _) => {
+            subtraction::_call_subtract_digits_into_impl(
+                a.as_ref(), b.neg_ref(), precision, rounding, result
+            )
+        }
+        (Sign::Minus, Sign::Plus, _) => {
+            subtraction::_call_subtract_digits_into_impl(
+                b.as_ref(), a.neg_ref(), precision, rounding, result
+            )
+        }
         (Sign::NoSign, _, _) => {
-            result.copy_with_precision(b, precision, rounding)
+            result.copy_with_precision(b.as_ref(), precision, rounding)
         }
         (_, Sign::NoSign, _) => {
-            result.copy_with_precision(a, precision, rounding)
+            result.copy_with_precision(a.as_ref(), precision, rounding)
         }
         (_, _, true) => {
             add_digits_into_impl(b.as_ref(), a.as_ref(), precision, rounding, result)

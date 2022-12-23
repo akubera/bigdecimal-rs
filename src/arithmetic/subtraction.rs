@@ -50,7 +50,36 @@ pub(crate) fn subtract_digits_into(
             result.copy_with_precision(a.as_ref(), precision, rounding)
         }
         _ => {
-            subtract_digits_into_impl(a.as_ref(), b.as_ref(), precision, rounding, result)
+            _call_subtract_digits_into_impl(a.as_ref(), b.as_ref(), precision, rounding, result)
+        }
+    }
+}
+
+
+pub(crate) fn _call_subtract_digits_into_impl(
+    a: DigitInfoRef,
+    b: DigitInfoRef,
+    precision: NonZeroUsize,
+    rounding: RoundingMode,
+    result: &mut DigitInfo
+) {
+    use std::cmp::Ordering::*;
+    debug_assert_eq!(a.sign, b.sign);
+
+    match bigdigit::cmp_bigdigitvecs(&a.digits, a.scale, &b.digits, b.scale) {
+        Equal => {
+            result.digits.push(BigDigit::zero());
+            result.sign = Sign::NoSign;
+            result.scale = 0;
+            return;
+        }
+        Greater => {
+            subtract_digits_into_impl(a, b, precision, rounding, result)
+        }
+        Less => {
+            subtract_digits_into_impl(b, a, precision, rounding, result);
+            result.sign = result.sign.neg();
+            return;
         }
     }
 }
