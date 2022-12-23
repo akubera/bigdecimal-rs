@@ -119,15 +119,51 @@ pub(crate) fn subtract_digits_into_impl(
         }
     };
 
-    let a0 = a.digits[a_fnz_idx];
-    let b0 = b.digits[b_fnz_idx];
+    let trailing_zero_count_a = a_fnz_idx * bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+    let trailing_zero_count_b = b_fnz_idx * bigdigit::MAX_DIGITS_PER_BIGDIGIT;
+
+    // ignore the trailing zeros
+    let a_scale = a.scale + trailing_zero_count_a as i64;
+    let b_scale = b.scale + trailing_zero_count_b as i64;
+
+    // digit positions relative to smallest end of number
+    //
+    //   aaaaaaaa.aaaaaa
+    //   │             └──────> a-low-pos=2
+    //   └────────────────────> a-high-pos=15
+    //       bbbb.bbbbbbbb
+    //       │           └────> b-low-pos=0
+    //       └────────────────> b-high-pos=11
+    //
+    let min_scale = i64::min(a_scale, b_scale);
+    let a_low_pos = (a_scale - min_scale) as usize;
+    let b_low_pos = (b_scale - min_scale) as usize;
+
+    let a_high_pos = a.digits.count_digits() - trailing_zero_count_a + a_low_pos - 1;
+    let b_high_pos = b.digits.count_digits() - trailing_zero_count_b + b_low_pos - 1;
+
+    let digit_boundary = usize::max(a_high_pos, b_high_pos) + 1;
+
+    if digit_boundary < precision.get() {
+        todo!("Precision is greater than number of digits");
+    }
+
+    // position of first significant digit relative to smallest known digit
+    let rounding_point = digit_boundary - precision.get();
+
+    result.scale = a.scale + rounding_point as i64 - a_low_pos as i64;
+    result.sign = a.sign;
+
+    // trim trailing zeros from digit slices
+    let (_, a_digits_nz) = a.digits.split_at(a_fnz_idx);
+    let (_, b_digits_nz) = b.digits.split_at(b_fnz_idx);
+
+    let a0 = a_digits_nz[0];
+    let b0 = b_digits_nz[0];
 
     let mut borrow = BigDigit::zero();
-
-    result.scale = a.scale;
-    result.sign = a.sign;
     result.digits.push(BigDigit::sub_with_borrow(&a0, b0, &mut borrow));
-    debug_assert_eq!(borrow, BigDigit::zero())
+    debug_assert_eq!(borrow, BigDigit::zero());
 }
 
 #[cfg(test)]
