@@ -133,3 +133,20 @@ macro_rules! digit_info {
         }
     }
 }
+
+
+/// Make BigDigitVec from digits in big-endian order
+macro_rules! bigdigitvec_from_be_digits {
+    () => {
+        bigdigit_vec![]
+    };
+    ($n0:literal $($n:literal)*) => {
+        bigdigitvec_from_be_digits!($($n)* ; $n0)
+    };
+    ($n0:literal $($n:literal)* ; $($nr:literal)*) => {
+        bigdigitvec_from_be_digits!($($n)* ; $n0 $($nr)*)
+    };
+    ( ; $($nr:literal)+) => {
+        BigDigitVec::from_literal_slice(&[$($nr),*])
+    }
+}
