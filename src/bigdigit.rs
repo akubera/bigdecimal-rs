@@ -544,6 +544,36 @@ impl BigDigit {
         }
     }
 
+    /// return value of (self - other + carry - borrow)
+    #[inline]
+    pub(crate) fn sub_with_carry_borrow(
+        &self,
+        other: &BigDigit,
+        carry: &mut BigDigit,
+        borrow: &mut BigDigit,
+    ) -> BigDigit {
+        let mut result = self.0 as BigDigitBaseSignedDouble
+                       - other.0 as BigDigitBaseSignedDouble
+                       + carry.0 as BigDigitBaseSignedDouble
+                       - borrow.0 as BigDigitBaseSignedDouble;
+
+        borrow.0 = 0;
+        while result < 0 {
+            borrow.0 += 1;
+            result += BIG_DIGIT_RADIX_I64;
+        }
+
+        if (result as BigDigitBaseDouble) >= BIG_DIGIT_RADIX {
+            let (overflow, digit) = div_rem(result as BigDigitBaseDouble, BIG_DIGIT_RADIX);
+            debug_assert!(overflow < BIG_DIGIT_RADIX);
+            carry.0 = overflow as BigDigitBase;
+            return BigDigit(digit as BigDigitBase);
+        }
+
+        carry.0 = 0;
+        return BigDigit(result as BigDigitBase);
+    }
+
     /// Subtract n from self, returning None if underflow occurs
     #[inline]
     pub(crate) fn checked_sub<N: Into<BigDigitBase>>(&self, n: N) -> Option<BigDigit> {
