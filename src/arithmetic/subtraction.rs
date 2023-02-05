@@ -474,7 +474,7 @@ fn subtract_insig_digits<'a>(
 
     debug_assert_eq!(borrow, &BigDigit::zero());
 
-    match dbg!(a_range.low, b_range.low) {
+    match (a_range.low, b_range.low) {
         (Significant(_), Significant(_)) => unreachable!(),
 
         // "subtract" zeros from 'a'
@@ -508,6 +508,16 @@ fn subtract_insig_digits<'a>(
                 }
                 _ => todo!(),
             }
+        }
+
+        // handle case where 𝑏 has more insignificant digits than 𝑎
+        (Insignificant(a_lo), Insignificant(b_lo)) => {
+            assert!(b_lo > a_lo);
+            for _ in 0..(b_lo.get() - a_lo.get()) {
+                b_digits.next();
+            }
+            *borrow = BigDigit::one();
+            return subtract_n_digits(a_digits, b_digits, a_lo.get(), borrow);
         }
 
         _ => todo!()
