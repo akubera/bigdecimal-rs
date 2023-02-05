@@ -2646,6 +2646,128 @@ impl std::fmt::Debug for AlignmentRange {
     }
 }
 
+/// Aligned iterator of BigDigits
+///
+/// Create BigDigitSplitterIter yielding correctly aligned BigDigits,
+/// the first location of which is the 'low' field of the returned
+/// AlignmentRange object.
+///
+/// Params
+/// ------
+/// digits:
+///     source digits
+/// digit_pos:
+///     position of the first digit in digits relative to
+///     some arbitrary point
+/// significant_pos:
+///     position of the first significant digit, relative to the
+///     same point as digit_pos
+/// ignorable_pos:
+///     position of the first digit used by a , relative to the
+///     same point as digit_pos
+///
+/// Returns
+/// -------
+/// Tuple of BigDigitSplitterIter, Alignment range of BigDigits,
+/// and slice of digits ignored by the iterator.
+///
+pub(crate) fn align_with<'a>(
+    digits: &'a [BigDigit],
+    digit_low_pos: usize,
+    digit_high_pos: usize,
+    significant_pos: usize,
+    ignorable_pos: usize,
+) -> (BigDigitSliceSplitterIter<'a>, Option<AlignmentRange>, &'a [BigDigit]) {
+    use std::cmp::Ordering::*;
+    use self::BigDigitLoc::*;
+
+    // digits is not empty
+    debug_assert_ne!(digits.len(), 0);
+
+    // if significant-pos was less than ignorable point,
+    // then it would *be* the ignorable point
+    debug_assert!(significant_pos >= ignorable_pos);
+
+    // obviously high digit position must be higher than low digit,
+    // or equal if there's only one digit
+    debug_assert!(digit_high_pos >= digit_low_pos);
+
+    let digit_count = digit_high_pos - digit_low_pos + 1;
+    debug_assert_eq!(count_digits(digits.into()), digit_count);
+
+    let bigdigit_high_index = num_integer::div_ceil(digit_high_pos, MAX_DIGITS_PER_BIGDIGIT).max(1);
+
+    // all digits are insignificant
+    if ignorable_pos > digit_high_pos {
+        return (
+            BigDigitSliceSplitterIter::from_slice(&[]),
+            None,
+            digits,
+        );
+    }
+
+    // shift global-digit "positions" into local-digit "locations"
+    let ignorable_loc = ignorable_pos.saturating_sub(digit_low_pos);
+    let fully_ignorable_digits = ignorable_loc / MAX_DIGITS_PER_BIGDIGIT;
+
+    // trim ignorable digits
+    let (ignorable_digits, digits) = digits.split_at(fully_ignorable_digits);
+
+    let digit_low_pos = digit_low_pos + ignorable_digits.len() * MAX_DIGITS_PER_BIGDIGIT;
+    let digit_high_loc = digit_high_pos - digit_low_pos;
+
+    if digit_low_pos >= significant_pos {
+        // there are no insignificant digits
+        let shifted_low = digit_low_pos - significant_pos;
+        let (skipped_sig_digits, rounding_shift) = div_rem(
+            shifted_low, MAX_DIGITS_PER_BIGDIGIT
+        );
+
+        let digit_it = BigDigitSliceSplitterIter::from_slice_shifting_left(digits, rounding_shift);
+        let align_low = BigDigitLoc::sig(skipped_sig_digits);
+
+        let shifted_high = digit_high_pos - significant_pos;
+        let align_high = BigDigitLoc::sig(num_integer::div_floor(shifted_high, MAX_DIGITS_PER_BIGDIGIT) + 1);
+
+        return (
+            digit_it,
+            Some(AlignmentRange { low: align_low, high: align_high }),
+            ignorable_digits,
+        );
+    } else {
+        // there is at least one insignificant digit
+        let significant_loc = significant_pos - digit_low_pos;
+        debug_assert_ne!(significant_loc, 0);
+
+        let rounding_shift = significant_loc % MAX_DIGITS_PER_BIGDIGIT;
+
+        let digit_it = BigDigitSliceSplitterIter::from_slice_starting_bottom(digits, rounding_shift);
+
+        let low_sig_delta = digit_low_pos as isize - significant_pos as isize;
+        let n_insig_digits = num_integer::div_floor(low_sig_delta, MAX_DIGITS_PER_BIGDIGIT as isize);
+        let align_low = if n_insig_digits >= 0 {
+            BigDigitLoc::sig(n_insig_digits as usize)
+        } else {
+            BigDigitLoc::insig((-n_insig_digits) as usize)
+        };
+
+        let high_sig_delta = digit_high_loc as isize - significant_loc as isize;
+        let n_sig_digits = num_integer::div_floor(high_sig_delta, MAX_DIGITS_PER_BIGDIGIT as isize);
+
+        let align_high = if n_sig_digits >= -1 {
+            BigDigitLoc::sig((n_sig_digits + 1) as usize)
+        } else {
+            BigDigitLoc::insig((-1 - n_sig_digits) as usize)
+        };
+
+        return (
+            digit_it,
+            Some(AlignmentRange { low: align_low, high: align_high }),
+            ignorable_digits,
+        );
+    }
+}
+
 
 /// Aligned BigDigits to significant_pos, ignoring_digits before ignorable_pos
 ///
