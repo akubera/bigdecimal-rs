@@ -456,7 +456,7 @@ fn subtract_insig_digits<'a>(
     a_digits: &mut BigDigitSliceSplitterIter<'a>,
     a_range: AlignmentRange,
     a_trailing_digits: &'a [BigDigit],
-    b_digit_it: &mut BigDigitSliceSplitterIter<'a>,
+    b_digits: &mut BigDigitSliceSplitterIter<'a>,
     b_range: AlignmentRange,
     b_trailing_digits: &'a [BigDigit],
     borrow: &mut BigDigit,
@@ -491,7 +491,7 @@ fn subtract_insig_digits<'a>(
 
         // handle case where 𝑎 has more insignificant digits than 𝑏
         (Insignificant(a_lo), Insignificant(b_lo)) if a_lo >= b_lo => {
-            match dbg!(a_range.high, b_range.high) {
+            match (a_range.high, b_range.high) {
                 (Insignificant(_), Insignificant(_)) => unreachable!(),
                 (Significant(a_high), Insignificant(b_high)) => todo!(),
 
@@ -503,28 +503,12 @@ fn subtract_insig_digits<'a>(
                         a_digits.next().unwrap();
                     }
 
-                    for _ in 1..b_lo.get() {
-                        match (a_digits.next(), b_digit_it.next()) {
-                            (Some(a_digit), Some(b_digit)) => {
-                                let diff = a_digit.sub_with_borrow(b_digit, borrow);
-                                dbg!(a_digit, b_digit, diff, &borrow);
-                            }
-                            _ => unreachable!()
-                        }
-                    }
-
-                    match (a_digits.next(), b_digit_it.next()) {
-                        (Some(a_digit), Some(b_digit)) => {
-                            let diff = a_digit.sub_with_borrow(b_digit, borrow);
-                            dbg!(a_digit, b_digit, diff, &borrow);
-                            return diff;
-                        }
-                        _ => unreachable!()
-                    }
+                    return subtract_n_digits(a_digits, b_digits, b_lo.get(), borrow);
                 }
                 _ => todo!(),
             }
         }
+
         _ => todo!()
     }
 }
