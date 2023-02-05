@@ -275,3 +275,81 @@ mod case_974397965206906100072489 {
     make_test!(start=23, round=10, insig=10 : (9 743979652 069061000 724890000) BigDigitLoc::sig(1));
     make_test!(start=24, round=10, insig=10 : (97 439796520 690610007 248900000) BigDigitLoc::sig(1));
 }
+
+mod case_6000003005000000104 {
+    use super::*;
+
+    macro_rules! case_input {
+        () => { bigdigitvec_from_be_digits![6 000003005 000000104] };
+    }
+
+    make_test!(start=0, round=0 : (6 000003005 000000104) BigDigitLoc::sig(3); BigDigitLoc::sig(0); 0);
+    make_test!(start=0, round=1 : (600000300 500000010 400000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=2 : (60000030 050000001 040000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=3 : (6000003 005000000 104000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=4 : (600000 300500000 010400000) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=5 : (60000 030050000 001040000) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=7 : (600 000300500 000010400) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=8 : (60 000030050 000001040) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=9 : (6 000003005 000000104) BigDigitLoc::sig(2); BigDigitLoc::insig(1); 0);
+    make_test!(start=0, round=10 : (600000300 500000010 400000000) BigDigitLoc::sig(1); BigDigitLoc::insig(2); 0);
+    make_test!(start=0, round=11 : (60000030 050000001 040000000) BigDigitLoc::sig(1); BigDigitLoc::insig(2); 0);
+    make_test!(start=0, round=13 : (600000 300500000 010400000) BigDigitLoc::sig(1); BigDigitLoc::insig(2); 0);
+    make_test!(start=0, round=18 : (6 000003005 000000104) BigDigitLoc::sig(1); BigDigitLoc::insig(2); 0);
+    make_test!(start=0, round=19 : (600000300 500000010 400000000) BigDigitLoc::sig(0); BigDigitLoc::insig(3); 0);
+    make_test!(start=0, round=20 : (060000030 050000001 040000000) BigDigitLoc::sig(0); BigDigitLoc::insig(3); 0);
+    make_test!(start=0, round=22 : (600000 300500000 010400000) BigDigitLoc::sig(0); BigDigitLoc::insig(3); 0);
+    make_test!(start=0, round=27 : (6 000003005 000000104) BigDigitLoc::sig(0); BigDigitLoc::insig(3); 0);
+
+    // x xxxxxxxx6 000003005 000000104
+    // ~         ^18       ^9        ^0
+    make_test!(start=0, round=28 : (600000300 500000010 400000000) BigDigitLoc::insig(1); BigDigitLoc::insig(4); 0);
+    make_test!(start=0, round=29 : (60000030 050000001 040000000) BigDigitLoc::insig(1); BigDigitLoc::insig(4); 0);
+
+    make_test!(start=1, round=1 : (6 000003005 000000104) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+
+    // 6 000003005 000000104
+    // ^19         ~9      ^1
+    make_test!(start=1, round=9 :(60 000030050 000001040) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+
+    // 6 000003005 000000104
+    // ^19       ~ ^9      ^1
+    make_test!(start=1, round=10 : (6 000003005 000000104) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+
+    // 600000300 5000000104
+    // ^19     ~  ^9      ^1
+    make_test!(start=1, round=11 : (600000300 500000010 400000000) BigDigitLoc::sig(1); BigDigitLoc::insig(2));
+
+    // 6 000003005 000000104 xx
+    // ^18       ^11       ^2 ~
+    make_test!(start=2, round=0 : (600 000300500 000010400) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=2, round=1 : (60 000030050 000001040) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=2, round=2 : (6 000003005 000000104) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=2, round=3 : (600000300 500000010 400000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+    make_test!(start=2, round=8 : (6000 003005000 000104000) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+
+
+    make_test!(start=8, round=0 : (600000300 500000010 400000000) BigDigitLoc::sig(3); BigDigitLoc::sig(0); 0);
+
+    make_test!(start=10, round=0 : (60 000030050 000001040) BigDigitLoc::sig(4); BigDigitLoc::sig(1));
+    make_test!(start=10, round=1 : (6 000003005 000000104) BigDigitLoc::sig(4); BigDigitLoc::sig(1));
+    make_test!(start=10, round=2 : (600000300 500000010 400000000) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=10, round=3 : (60000030 050000001 040000000) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=10, round=10 : (6 000003005 000000104) BigDigitLoc::sig(3); BigDigitLoc::sig(0));
+    make_test!(start=10, round=12 : (60000030 050000001 040000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+    make_test!(start=10, round=13 : (6000003 005000000 104000000) BigDigitLoc::sig(2); BigDigitLoc::insig(1));
+
+}
+
+
+mod case_814429153000887347023467281325801612174818597801769978 {
+    use super::*;
+
+    macro_rules! case_input {
+        () => { bigdigitvec_from_be_digits![814429153 000887347 023467281 325801612 174818597 801769978] };
+    }
+
+    make_test!(start=0, round=36, insig=21 : (814429153 000887347 023467281 325801612) BigDigitLoc::insig(2); ignored=2);
+    make_test!(start=1, round=40, insig=21 : (814429 153000887 347023467 281325801 612000000) BigDigitLoc::insig(3); ignored=2);
+    make_test!(start=1, round=40, insig=28 : (814429 153000887 347023467 281000000) BigDigitLoc::insig(2); ignored=3);
+}
