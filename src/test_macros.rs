@@ -89,6 +89,9 @@ macro_rules! reverse_digits {
 /// Allows sign, digits, and exponent set in a natural notation.
 ///
 macro_rules! digit_info {
+    (0 E 0) => {
+        digit_info!(; 0 ; E 0 sign=NoSign)
+    };
     (- $($n:literal)+ E $scale:literal) => {
         digit_info!($($n)* ; ; E $scale sign=Minus)
     };
