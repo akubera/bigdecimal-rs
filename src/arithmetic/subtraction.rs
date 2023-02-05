@@ -93,7 +93,11 @@ pub(crate) fn subtract_digits_into_impl(
     rounding: RoundingMode,
     result: &mut DigitInfo
 ) {
+    use arithmetic::subtraction::BigDigitLoc::*;
+    use std::cmp::Ordering::*;
+
     debug_assert_eq!(a.sign, b.sign);
+    debug_assert_eq!(bigdigit::cmp_bigdigitvecs(a.digits, a.scale, b.digits, b.scale), Greater);
 
     // index of first non-zero bigdigit
     let (a_fnz_idx, b_fnz_idx) = {
@@ -158,12 +162,100 @@ pub(crate) fn subtract_digits_into_impl(
     let (_, a_digits_nz) = a.digits.split_at(a_fnz_idx);
     let (_, b_digits_nz) = b.digits.split_at(b_fnz_idx);
 
-    let a0 = a_digits_nz[0];
-    let b0 = b_digits_nz[0];
+    let (
+        mut a_digits,
+        a_loc,
+        skipped_a_digits,
+    ) = bigdigit::align_with(
+        a_digits_nz,
+        a_low_pos,
+        a_high_pos,
+        rounding_point,
+        usize::min(b_low_pos, rounding_point),
+    );
+
+    let (
+        mut b_digits,
+        b_loc,
+        skipped_b_digits,
+    ) = bigdigit::align_with(
+        b_digits_nz,
+        b_low_pos,
+        b_high_pos,
+        rounding_point,
+        usize::min(a_low_pos, rounding_point),
+    );
+
+    assert!(
+          ((skipped_a_digits.len() > 0) ^ (skipped_b_digits.len() > 0))
+        || (skipped_a_digits.len() == 0 && skipped_b_digits.len() == 0)
+    );
+
+    // handle cases where all digits are ignorable
+    let (a_loc, b_loc) = match (a_loc, b_loc) {
+        (None, None) => unreachable!(),
+        (Some(a_loc), Some(b_loc)) => (a_loc, b_loc),
+        (Some(a_loc), None) => {
+            todo!("b is ignorable");
+        }
+        (None, Some(b_loc)) => {
+            todo!("a is ignorable");
+        }
+    };
 
     let mut borrow = BigDigit::zero();
-    result.digits.push(BigDigit::sub_with_borrow(&a0, b0, &mut borrow));
-    debug_assert_eq!(borrow, BigDigit::zero());
+    let mut carry = BigDigit::zero();
+
+    match (a_loc.low, b_loc.low) {
+        (Insignificant(_), Insignificant(_)) => {
+            let insig_digit = subtract_insig_digits(
+                &mut a_digits, a_loc, skipped_a_digits,
+                &mut b_digits, b_loc, skipped_b_digits,
+                &mut borrow,
+            );
+            let (rounding_digit0, remaining) = insig_digit.split_highest_digit();
+            let trailing_zeros = remaining == 0;
+
+            match (a_digits.next(), b_digits.next()) {
+                (Some(a_digit), Some(b_digit)) => {
+                    let d0 = a_digit.sub_with_borrow(b_digit, &mut borrow);
+                    let (
+                        rounding_digit2,
+                        rounding_digit1,
+                    ) = rounding_digits(d0.as_digit_base());
+
+                    let mut rounding_carry = BigDigit::zero();
+                    let mut rounding_borrow = BigDigit::zero();
+                    let rounded_d0 = make_rounded_value(
+                        d0,
+                        rounding,
+                        result.sign,
+                        (rounding_digit1, rounding_digit0),
+                        trailing_zeros,
+                        &mut rounding_borrow,
+                        &mut borrow,
+                        &mut carry,
+                    );
+                    result.digits.clear();
+                    result.digits.push(rounded_d0);
+                }
+                _ => todo!(),
+            }
+        }
+        _ => todo!()
+    }
+
+
+    loop {
+        match (a_digits.next(), b_digits.next()) {
+            (None, None) => break,
+            (Some(a_digit), Some(b_digit)) => {
+                let d = a_digit.sub_with_carry_borrow(&b_digit, &mut carry, &mut borrow);
+                result.digits.push(d);
+            }
+            _ => todo!(),
+        }
+    }
 }
 
 #[cfg(test)]
