@@ -13,6 +13,7 @@ use crate::bigdigit::{
     DigitInfoRef,
     BigDigitLoc,
 };
+use crate::bigdigit::AlignmentRange;
 
 use crate::context::{Context, RoundingMode};
 use crate::Sign;
