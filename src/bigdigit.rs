@@ -2188,6 +2188,33 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
             _ => false
         }
     }
+
+    /// Return the next bigdigit (if available) without advancing the
+    pub fn peek_next(&self) -> Option<BigDigit> {
+       let next_digit = match self.digits.as_slice() {
+            [] => None,
+            [d0, ..] => Some(*d0)
+       };
+       match self {
+            BigDigitSplitterIter {
+                shift: ShiftState::Zero, ..
+            } => {
+                next_digit.map(BigDigit::from_raw_integer)
+            },
+            BigDigitSplitterIter {
+                shift: ShiftState::Shifted { mask: shifter, prev }, ..
+            } => match next_digit {
+                Some(next_digit) => {
+                    let (_, lo) = shifter.split_and_shift(&next_digit);
+                    Some(BigDigit(lo.0 + prev.0))
+                }
+                None if !prev.is_zero() => {
+                    Some(*prev)
+                }
+                None => None,
+            },
+        }
+    }
 }
 
 // impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
