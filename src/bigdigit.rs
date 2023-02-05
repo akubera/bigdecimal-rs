@@ -2567,12 +2567,36 @@ mod python_compat {
 /// Location specifies either zero or more significant digits
 /// or one or more insignificant digits.
 ///
-#[derive(Debug)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BigDigitLoc {
     Significant(usize),
     Insignificant(std::num::NonZeroUsize),
 }
 
+impl BigDigitLoc {
+    fn sig(n: usize) -> Self {
+        BigDigitLoc::Significant(n)
+    }
+
+    fn insig(n: usize) -> Self {
+        BigDigitLoc::Insignificant(std::num::NonZeroUsize::new(n).unwrap())
+    }
+}
+
+impl std::fmt::Debug for BigDigitLoc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::BigDigitLoc::*;
+
+        match self {
+            Significant(n) => {
+                write!(f, "Significant({})", n)
+            }
+            Insignificant(n) => {
+                write!(f, "Insignificant({})", n.get())
+            }
+        }
+    }
+}
 /// Aligned BigDigits to significant_pos, ignoring_digits before ignorable_pos
 ///
 /// Used by addition algorithm to align 'a' digits.
