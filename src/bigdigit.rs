@@ -2597,6 +2597,56 @@ impl std::fmt::Debug for BigDigitLoc {
         }
     }
 }
+
+/// Range specifying aligned locations of the high and low
+#[derive(Clone, Copy)]
+pub(crate) struct AlignmentRange {
+    pub(crate) high: BigDigitLoc,
+    pub(crate) low: BigDigitLoc,
+}
+
+impl AlignmentRange {
+    fn len(&self) -> usize {
+        use self::BigDigitLoc::*;
+
+        match (self.high, self.low) {
+            (Significant(hi_pos), Significant(lo_pos)) => {
+                return hi_pos - lo_pos;
+            }
+            (Significant(hi_pos), Insignificant(lo_pos)) => {
+                return hi_pos + lo_pos.get();
+            }
+            (Insignificant(hi_pos), Insignificant(lo_pos)) => {
+                return lo_pos.get() - hi_pos.get();
+            }
+            _ => unreachable!()
+        }
+    }
+}
+
+impl std::fmt::Debug for AlignmentRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use self::BigDigitLoc::*;
+
+        match (self.high, self.low) {
+            (
+                Significant(hi_pos),
+                Significant(lo_pos)
+            ) => write!(f, "Significant[{}, {}]", hi_pos, lo_pos),
+            (
+                Insignificant(hi_pos),
+                Insignificant(lo_pos)
+            ) => write!(f, "Insignificant[{}, {}]", hi_pos, lo_pos),
+            (
+                Significant(hi_pos),
+                Insignificant(lo_pos)
+            ) => write!(f, "Significant({}), Insignificant({})", hi_pos, lo_pos),
+            _ => unreachable!()
+        }
+    }
+}
+
+
 /// Aligned BigDigits to significant_pos, ignoring_digits before ignorable_pos
 ///
 /// Used by addition algorithm to align 'a' digits.
