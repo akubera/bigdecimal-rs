@@ -2769,6 +2769,16 @@ pub(crate) fn align_with<'a>(
 }
 
 
+#[cfg(test)]
+mod test_align_with {
+    use super::*;
+    use std::num::NonZeroUsize;
+
+    include!("test_macros.rs");
+    include!("bigdigit_test_align_with.rs");
+}
+
+
 /// Aligned BigDigits to significant_pos, ignoring_digits before ignorable_pos
 ///
 /// Used by addition algorithm to align 'a' digits.
