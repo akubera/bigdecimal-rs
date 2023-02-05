@@ -521,11 +521,32 @@ fn subtract_insig_digits<'a>(
                         }
                         _ => unreachable!()
                     }
-
                 }
                 _ => todo!(),
             }
         }
         _ => todo!()
+    }
+}
+
+/// Subtract n digits between A and B, returning final diff. assumes iterators have n or more digits
+fn subtract_n_digits(
+    a_digits: &mut BigDigitSliceSplitterIter,
+    b_digits: &mut BigDigitSliceSplitterIter,
+    mut n: usize,
+    borrow: &mut BigDigit,
+) -> BigDigit {
+    debug_assert_ne!(n, 0);
+    loop {
+        n -= 1;
+        match (a_digits.next(), b_digits.next()) {
+            (Some(a), Some(b)) => {
+                let diff = a.sub_with_borrow(b, borrow);
+                if n == 0 {
+                    return diff;
+                }
+            }
+            _ => unreachable!()
+        }
     }
 }
