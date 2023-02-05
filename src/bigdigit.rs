@@ -2775,7 +2775,7 @@ mod test_align_with {
     use std::num::NonZeroUsize;
 
     include!("test_macros.rs");
-    include!("bigdigit_test_align_with.rs");
+    include!("bigdigit.rs→test::align_with");
 }
 
 
