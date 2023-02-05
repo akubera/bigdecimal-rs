@@ -168,7 +168,7 @@ pub(crate) fn subtract_digits_into_impl(
 
 #[cfg(test)]
 #[allow(non_snake_case)]
-mod test_add_digits_into {
+mod test_subtract_digits_into {
     use super::*;
     use crate::bigdigit::DigitInfo;
     use crate::bigdigit::BigDigitVec;
