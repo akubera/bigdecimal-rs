@@ -450,3 +450,82 @@ fn subtract_digits_from_zero<'a, I: Iterator<Item = &'a BigDigit>>(
         }
     }
 }
+
+
+fn subtract_insig_digits<'a>(
+    a_digits: &mut BigDigitSliceSplitterIter<'a>,
+    a_range: AlignmentRange,
+    a_trailing_digits: &'a [BigDigit],
+    b_digit_it: &mut BigDigitSliceSplitterIter<'a>,
+    b_range: AlignmentRange,
+    b_trailing_digits: &'a [BigDigit],
+    borrow: &mut BigDigit,
+) -> BigDigit
+{
+    use arithmetic::subtraction::BigDigitLoc::*;
+    use std::cmp::Ordering::*;
+
+    // either must have insignificant digits
+    debug_assert!(
+         match a_range.low { Insignificant(_) => true, _ => false }
+      || match b_range.low { Insignificant(_) => true, _ => false }
+    );
+
+    debug_assert_eq!(borrow, &BigDigit::zero());
+
+    match dbg!(a_range.low, b_range.low) {
+        (Significant(_), Significant(_)) => unreachable!(),
+
+        // "subtract" zeros from 'a'
+        (Insignificant(a_lo), Significant(_)) => {
+            for _ in 1..a_lo.get() {
+                match a_digits.next() {
+                    Some(_) => { }
+                    None => { return BigDigit::zero(); }
+                }
+            }
+
+            // return the last 'a' (or zero)
+            return a_digits.next().unwrap_or(BigDigit::zero());
+        }
+
+        // handle case where 𝑎 has more insignificant digits than 𝑏
+        (Insignificant(a_lo), Insignificant(b_lo)) if a_lo >= b_lo => {
+            match dbg!(a_range.high, b_range.high) {
+                (Insignificant(_), Insignificant(_)) => unreachable!(),
+                (Significant(a_high), Insignificant(b_high)) => todo!(),
+
+                // both digits span the rounding point
+                (Significant(a_high), Significant(b_high)) => {
+                    debug_assert!(a_high >= b_high);
+
+                    for _ in 0..(a_lo.get() - b_lo.get()) {
+                        a_digits.next().unwrap();
+                    }
+
+                    for _ in 1..b_lo.get() {
+                        match (a_digits.next(), b_digit_it.next()) {
+                            (Some(a_digit), Some(b_digit)) => {
+                                let diff = a_digit.sub_with_borrow(b_digit, borrow);
+                                dbg!(a_digit, b_digit, diff, &borrow);
+                            }
+                            _ => unreachable!()
+                        }
+                    }
+
+                    match (a_digits.next(), b_digit_it.next()) {
+                        (Some(a_digit), Some(b_digit)) => {
+                            let diff = a_digit.sub_with_borrow(b_digit, borrow);
+                            dbg!(a_digit, b_digit, diff, &borrow);
+                            return diff;
+                        }
+                        _ => unreachable!()
+                    }
+
+                }
+                _ => todo!(),
+            }
+        }
+        _ => todo!()
+    }
+}
