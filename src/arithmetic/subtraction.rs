@@ -243,6 +243,43 @@ pub(crate) fn subtract_digits_into_impl(
                 _ => todo!(),
             }
         }
+
+        (Significant(0), Insignificant(insig_b_count)) => {
+            match b_loc.high {
+                Significant(_) => {
+                    b_digits.advance_by_n(insig_b_count.get() - 1);
+                }
+                // These digits should have been 'ignored'
+                _ => unreachable!()
+            }
+            let insig_digit = BigDigit::zero().sub_with_borrow(b_digits.next().unwrap(), &mut borrow);
+            let (rounding_digit0, remaining) = insig_digit.split_highest_digit();
+            let trailing_zeros = remaining == 0;
+            match (a_digits.next(), b_digits.next()) {
+                (Some(a_digit), Some(b_digit)) => {
+                    let d0 = a_digit.sub_with_borrow(b_digit, &mut borrow);
+                    let (
+                        rounding_digit2,
+                        rounding_digit1,
+                    ) = rounding_digits(d0.as_digit_base());
+
+                    let mut rounding_carry = BigDigit::zero();
+                    let mut rounding_borrow = BigDigit::zero();
+                    let rounded_d0 = make_rounded_value(
+                        d0,
+                        rounding,
+                        result.sign,
+                        (rounding_digit1, rounding_digit0),
+                        trailing_zeros,
+                        &mut rounding_borrow,
+                        &mut borrow,
+                        &mut carry,
+                    );
+                    result.digits.push(rounded_d0);
+                }
+                _ => todo!(),
+            }
+        }
         _ => todo!()
     }
 
