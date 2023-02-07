@@ -450,11 +450,10 @@ fn subtract_insignificant_digits<'a, 'b>(
     };
 
     for _ in 1..count {
-        match dbg!(a.next(), b.next())  {
+        match (a.next(), b.next())  {
             (None, None) => { break; }
             (Some(a_digit), Some(b_digit)) => {
                 let diff = a_digit.sub_with_borrow(b_digit, borrow);
-                dbg!(diff);
                 trailing_zeros &= diff.is_zero();
             }
             _ => { todo!() }
@@ -464,7 +463,6 @@ fn subtract_insignificant_digits<'a, 'b>(
     let a_digit = a.next().unwrap_or(BigDigit::zero());
     let b_digit = b.next().unwrap_or(BigDigit::zero());
     let diff = a_digit.sub_with_borrow(b_digit, borrow);
-    dbg!(a_digit, b_digit, diff);
     let (rounding0, remaining) = diff.split_highest_digit();
     trailing_zeros &= remaining == 0;
 
