@@ -469,6 +469,145 @@ fn subtract_insignificant_digits<'a, 'b>(
     (rounding0, trailing_zeros)
 }
 
+
+/// Called when subtraction has some number of leading zeros
+///
+fn handle_subtract_underflow(
+    a_digits_nz: &[BigDigit],
+    a_scale: i64,
+    a_high_pos: usize,
+    a_low_pos: usize,
+    b_digits_nz: &[BigDigit],
+    b_scale: i64,
+    b_high_pos: usize,
+    b_low_pos: usize,
+    orig_precision: NonZeroUsize,
+    precision: NonZeroUsize,
+    rounding: RoundingMode,
+    result: &mut DigitInfo
+) {
+    use bigdigit::AlignmentRange;
+    use arithmetic::subtraction::BigDigitLoc::*;
+    use std::cmp::Ordering::*;
+
+    let digit_boundary = usize::max(a_high_pos, b_high_pos) + 1;
+    let rounding_point = digit_boundary - precision.get();
+
+    result.scale -= (precision.get() - orig_precision.get()) as i64;
+
+    let (
+        mut a_digits,
+        a_loc,
+        skipped_a_digits,
+    ) = bigdigit::align_with(
+        a_digits_nz,
+        a_low_pos,
+        a_high_pos,
+        rounding_point,
+        usize::min(b_low_pos, rounding_point),
+    );
+
+    let (
+        mut b_digits,
+        b_loc,
+        skipped_b_digits,
+    ) = bigdigit::align_with(
+        b_digits_nz,
+        b_low_pos,
+        b_high_pos,
+        rounding_point,
+        usize::min(a_low_pos, rounding_point),
+    );
+
+    let a_loc = a_loc.unwrap();
+    let b_loc = b_loc.unwrap();
+
+    let mut borrow = BigDigit::zero();
+    match (a_loc.low, b_loc.low) {
+        (Significant(n), Significant(m)) => {
+            perform_nonoverlap_subtraction(
+                &mut a_digits,
+                &mut b_digits,
+                n,
+                m,
+                &mut borrow,
+                &mut result.digits
+            );
+            loop {
+                match (a_digits.next(), b_digits.next()) {
+                    (Some(a_digit), Some(b_digit)) => {
+                        let diff = a_digit.sub_with_borrow(b_digit, &mut borrow);
+                        result.digits.push(diff);
+                    }
+                    (None, None) => {
+                        break;
+                    }
+                    _ => todo!()
+                }
+            }
+        }
+        (Insignificant(n), Insignificant(m)) => {
+            let (
+                rounding_digit0,
+                trailing_zeros
+            ) = subtract_insignificant_digits(
+                &mut a_digits,
+                n.get(),
+                &mut b_digits,
+                m.get(),
+                &mut borrow
+            );
+
+            let d0;
+            match (a_digits.next(), b_digits.next()) {
+                (Some(a_digit), Some(b_digit)) => {
+                    d0 = a_digit.sub_with_borrow(b_digit, &mut borrow);
+                }
+                (Some(a_digit), None) => {
+                    d0 = a_digit.sub_borrow(&mut borrow);
+                    if d0 == 0 && a_digits.is_exhausted() {
+                        return handle_subtract_underflow(
+                            a_digits_nz,
+                            a_scale,
+                            a_high_pos,
+                            a_low_pos,
+                            b_digits_nz,
+                            b_scale,
+                            b_high_pos,
+                            b_low_pos,
+                            precision,
+                            NonZeroUsize::new(precision.get() * 2).unwrap(),
+                            rounding,
+                            result,
+                        );
+                    }
+                }
+                _ => {
+                    todo!()
+                }
+            }
+            let (rounding_digit2, rounding_digit1) = rounding_digits(d0);
+            let mut rounding_borrow = BigDigit::zero();
+            let mut carry = BigDigit::zero();
+            let rounded_d0 = make_rounded_value(
+                d0,
+                rounding,
+                result.sign,
+                (rounding_digit1, rounding_digit0),
+                trailing_zeros,
+                &mut rounding_borrow,
+                &mut borrow,
+                &mut carry,
+            );
+            todo!()
+        }
+        _ => {
+            todo!()
+        }
+    }
+}
+
+
 /// Perform subtraction of the region where the digits dont overlap
 ///
 /// Handles both cases where 'a' digits or 'b' digts extend
