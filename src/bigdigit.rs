@@ -2215,6 +2215,16 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
             },
         }
     }
+
+    /// skip n digits
+    pub fn advance_by_n(&mut self, n: usize) {
+        // naive loop implementation
+        for _ in 0..n {
+            if self.next().is_none() {
+                break;
+            }
+        }
+    }
 }
 
 // impl<'a> Iterator for BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
