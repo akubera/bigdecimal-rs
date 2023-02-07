@@ -603,9 +603,7 @@ fn subtract_insig_digits<'a>(
         // handle case where 𝑏 has more insignificant digits than 𝑎
         (Insignificant(a_lo), Insignificant(b_lo)) => {
             assert!(b_lo > a_lo);
-            for _ in 0..(b_lo.get() - a_lo.get()) {
-                b_digits.next();
-            }
+            b_digits.advance_by_n(b_lo.get() - a_lo.get());
             *borrow = BigDigit::one();
             return subtract_n_digits(a_digits, b_digits, a_lo.get(), borrow);
         }
