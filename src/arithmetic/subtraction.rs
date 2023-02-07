@@ -423,6 +423,53 @@ mod test_subtract_digits_into {
     }
 }
 
+/// Get rounding information after subtraction data
+fn subtract_insignificant_digits<'a, 'b>(
+    a: &mut BigDigitSliceSplitterIter<'a>,
+    a_count: usize,
+    b: &mut BigDigitSliceSplitterIter<'b>,
+    b_count: usize,
+    borrow: &mut BigDigit,
+) -> (u8, bool)
+{
+    let (mut trailing_zeros, count) = match usize::cmp(&a_count, &b_count) {
+        std::cmp::Ordering::Greater => {
+            debug_assert_eq!(a_count - b_count, 1);
+            a.next();
+            (false, b_count)
+        }
+        std::cmp::Ordering::Less => {
+            debug_assert_eq!(b_count - a_count, 1);
+            b.next();
+            *borrow = BigDigit::one();
+            (false, a_count)
+        }
+        std::cmp::Ordering::Equal => {
+            (true, a_count)
+        }
+    };
+
+    for _ in 1..count {
+        match dbg!(a.next(), b.next())  {
+            (None, None) => { break; }
+            (Some(a_digit), Some(b_digit)) => {
+                let diff = a_digit.sub_with_borrow(b_digit, borrow);
+                dbg!(diff);
+                trailing_zeros &= diff.is_zero();
+            }
+            _ => { todo!() }
+        }
+    }
+
+    let a_digit = a.next().unwrap_or(BigDigit::zero());
+    let b_digit = b.next().unwrap_or(BigDigit::zero());
+    let diff = a_digit.sub_with_borrow(b_digit, borrow);
+    dbg!(a_digit, b_digit, diff);
+    let (rounding0, remaining) = diff.split_highest_digit();
+    trailing_zeros &= remaining == 0;
+
+    (rounding0, trailing_zeros)
+}
 
 /// Perform subtraction of the region where the digits dont overlap
 ///
