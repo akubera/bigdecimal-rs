@@ -470,6 +470,50 @@ fn subtract_insignificant_digits<'a, 'b>(
 }
 
 
+fn rounding_digits<N: Into<bigdigit::BigDigitBase>>(n: N) -> (u8, u8)
+{
+    let x = n.into() % 100;
+    num_integer::div_rem(x as u8, 10)
+}
+
+/// Calculate
+///
+/// digit - digit[0] + rounded
+///
+fn make_rounded_value(
+    digit: BigDigit,
+    rounding: RoundingMode,
+    sign: Sign,
+    pair: (u8, u8),
+    trailing_zeros: bool,
+    rounding_borrow: &mut BigDigit,
+    borrow: &mut BigDigit,
+    carry: &mut BigDigit,
+) -> BigDigit
+{
+    debug_assert_eq!(*rounding_borrow, BigDigit::zero());
+    debug_assert_eq!(*carry, BigDigit::zero());
+    let rounded_digit = rounding.round(sign, pair, trailing_zeros);
+    let d = digit.as_digit_base();
+    let reduced_d = BigDigit::from_raw_integer(d - (d % 10));
+    *carry = BigDigit::from_raw_integer(rounded_digit);
+    let rounded_value = reduced_d.add_carry(carry);
+    debug_assert!(!(borrow.is_one() && rounding_borrow.is_one()));
+
+    if carry.is_one() {
+        // carry and borrow cancel
+        if borrow.is_one() {
+            *borrow = BigDigit::zero();
+        }
+    } else {
+        debug_assert!(carry.is_zero());
+    }
+
+    borrow.add_assign(*rounding_borrow);
+    return rounded_value;
+}
+
+
 /// Called when subtraction has some number of leading zeros
 ///
 fn handle_subtract_underflow(
