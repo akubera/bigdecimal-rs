@@ -2157,6 +2157,39 @@ impl<'a> BigDigitSplitterIter<'a, std::slice::Iter<'a, BigDigit>>
         self.extend_vector(dest)
     }
 
+    /// Extend vector with digits in self, adding carry and subtracting borrow
+    #[inline]
+    pub(crate) fn extend_vector_with_carry_borrow(mut self, carry: &mut BigDigit, borrow: &mut BigDigit, dest: &mut BigDigitVec) {
+        if borrow.is_zero() && carry.is_zero() {
+            return self.extend_vector(dest);
+        }
+
+        // the two cancel
+        if carry == borrow {
+            borrow.0 = 0;
+            carry.0 = 0;
+            return self.extend_vector(dest);
+        }
+
+        match self.next() {
+            Some(digit) => {
+                let d = digit.sub_with_carry_borrow(&BigDigit::zero(), carry, borrow);
+                dest.push(d);
+                // TODO: is there a cost to recursion?
+                self.extend_vector_with_carry_borrow(borrow, carry, dest);
+            }
+            None if carry == borrow => { }
+            None if carry > borrow => {
+                dest.push(carry.unchecked_sub(*borrow));
+                carry.0 = 0;
+                borrow.0 = 0;
+            }
+            None => {
+                unreachable!("borrow underflow");
+            }
+        }
+    }
+
     /// Return the internal 'mask' value
     pub(crate) fn mask(&self) -> BigDigitBase {
         return match self.shift {
