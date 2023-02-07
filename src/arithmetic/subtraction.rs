@@ -291,7 +291,14 @@ pub(crate) fn subtract_digits_into_impl(
                 let d = a_digit.sub_with_carry_borrow(&b_digit, &mut carry, &mut borrow);
                 result.digits.push(d);
             }
-            _ => todo!(),
+            (Some(a_digit), None) => {
+                let d = a_digit.sub_with_carry_borrow(&BigDigit::zero(), &mut carry, &mut borrow);
+                result.digits.push(d);
+                a_digits.extend_vector_with_carry_borrow(&mut carry, &mut borrow, &mut result.digits);
+                break;
+            }
+            // |a| >= |b|
+            (None, Some(_)) => unreachable!()
         }
     }
 }
@@ -414,6 +421,7 @@ mod test_subtract_digits_into {
 
         impl_case!(2 :: Up => -11 E 0);
     }
+}
 
 
 /// Perform subtraction of the region where the digits dont overlap
