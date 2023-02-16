@@ -1,5 +1,5 @@
 =============
-bigdecimal-no-std
+bigdecimal-rs
 =============
 
 |travis-badge| |codecov-badge| |gitter-badge| |badge-rust-min-version|
