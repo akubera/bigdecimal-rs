@@ -1,5 +1,5 @@
 =============
-bigdecimal-rs
+bigdecimal-no-std (fork of bigdecimal-rs adding no-std compatibility)
 =============
 
 |travis-badge| |codecov-badge| |gitter-badge| |badge-rust-min-version|
