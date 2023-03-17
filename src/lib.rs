@@ -1178,9 +1178,15 @@ impl Mul<BigDecimal> for BigDecimal {
 
     #[inline]
     fn mul(mut self, rhs: BigDecimal) -> BigDecimal {
-        self.scale += rhs.scale;
-        self.int_val *= rhs.int_val;
-        self
+        if self.is_one() {
+            rhs
+        } else if rhs.is_one() {
+            self
+        } else {
+            self.scale += rhs.scale;
+            self.int_val *= rhs.int_val;
+            self
+        }
     }
 }
 
@@ -1189,9 +1195,18 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
 
     #[inline]
     fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
-        self.scale += rhs.scale;
-        MulAssign::mul_assign(&mut self.int_val, &rhs.int_val);
-        self
+        if self.is_one() {
+            self.scale = rhs.scale;
+            self.int_val.set_zero();
+            self.int_val.add_assign(&rhs.int_val);
+            self
+        } else if rhs.is_one() {
+            self
+        } else {
+            self.scale += rhs.scale;
+            MulAssign::mul_assign(&mut self.int_val, &rhs.int_val);
+            self
+        }
     }
 }
 
@@ -1209,8 +1224,14 @@ impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        let scale = self.scale + rhs.scale;
-        BigDecimal::new(&self.int_val * &rhs.int_val, scale)
+        if self.is_one() {
+            rhs.normalized()
+        } else if rhs.is_one() {
+            self.normalized()
+        } else {
+            let scale = self.scale + rhs.scale;
+            BigDecimal::new(&self.int_val * &rhs.int_val, scale)
+        }
     }
 }
 
@@ -1249,8 +1270,14 @@ impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
 
     #[inline]
     fn mul(self, rhs: &BigInt) -> BigDecimal {
-        let value = &self.int_val * rhs;
-        BigDecimal::new(value, self.scale)
+        if rhs.is_one() {
+            self.normalized()
+        } else if self.is_one() {
+            BigDecimal::new(self.int_val.clone(), 0)
+        } else {
+            let value = &self.int_val * rhs;
+            BigDecimal::new(value, self.scale)
+        }
     }
 }
 
@@ -1259,6 +1286,9 @@ forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: &BigDecimal) {
+        if rhs.is_one() {
+            return;
+        }
         self.scale += rhs.scale;
         self.int_val = &self.int_val * &rhs.int_val;
     }
