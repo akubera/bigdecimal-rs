@@ -2315,7 +2315,7 @@ mod bigdecimal_tests {
         }
     }
 
-    /// Test big decimal times big integer
+    /// Test multiplication between big decimal and big integer
     #[test]
     fn test_mul_bigint() {
         let vals = vec![
@@ -2336,9 +2336,13 @@ mod bigdecimal_tests {
             let c = BigDecimal::from_str(z).unwrap();
 
             assert_eq!(a.clone() * b.clone(), c);
+            assert_eq!(b.clone() * a.clone(), c);
             assert_eq!(a.clone() * &b, c);
+            // assert_eq!(b.clone() * &a, c);
             assert_eq!(&a * b.clone(), c);
+            assert_eq!(&b * a.clone(), c);
             assert_eq!(&a * &b, c);
+            assert_eq!(&b * &a, c);
         }
     }
 
