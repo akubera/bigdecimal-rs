@@ -1333,6 +1333,22 @@ impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
     }
 }
 
+impl<'a> Mul<&'a BigDecimal> for BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
+        if self.is_one() {
+            rhs.normalized()
+        } else if rhs.is_one() {
+            BigDecimal::new(self, 0)
+        } else {
+            self *= &rhs.int_val;
+            BigDecimal::new(self, rhs.scale)
+        }
+    }
+}
+
 
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
@@ -2338,7 +2354,7 @@ mod bigdecimal_tests {
             assert_eq!(a.clone() * b.clone(), c);
             assert_eq!(b.clone() * a.clone(), c);
             assert_eq!(a.clone() * &b, c);
-            // assert_eq!(b.clone() * &a, c);
+            assert_eq!(b.clone() * &a, c);
             assert_eq!(&a * b.clone(), c);
             assert_eq!(&b * a.clone(), c);
             assert_eq!(&a * &b, c);
