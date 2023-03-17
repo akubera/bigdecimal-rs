@@ -1273,7 +1273,7 @@ impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
         if rhs.is_one() {
             self.normalized()
         } else if self.is_one() {
-            BigDecimal::new(self.int_val.clone(), 0)
+            BigDecimal::new(rhs.clone(), 0)
         } else {
             let value = &self.int_val * rhs;
             BigDecimal::new(value, self.scale)
