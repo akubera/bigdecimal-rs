@@ -1281,6 +1281,59 @@ impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
     }
 }
 
+impl Mul<BigDecimal> for BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
+        if rhs.is_one() {
+            rhs.scale = 0;
+            std::mem::swap(&mut rhs.int_val, &mut self);
+        } else if !self.is_one() {
+            rhs.int_val *= self;
+        }
+        rhs
+    }
+}
+
+
+impl<'a> Mul<BigDecimal> for &'a BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
+        if self.is_one() {
+            rhs.normalized()
+        } else if rhs.is_one() {
+            rhs.int_val.set_zero();
+            rhs.int_val += self;
+            rhs.scale = 0;
+            rhs
+        } else {
+            rhs.int_val *= self;
+            rhs
+        }
+    }
+}
+
+
+impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: &BigDecimal) -> BigDecimal {
+        if self.is_one() {
+            rhs.normalized()
+        } else if rhs.is_one() {
+            BigDecimal::new(self.clone(), 0)
+        } else {
+            let value = &rhs.int_val * self;
+            BigDecimal::new(value, rhs.scale)
+        }
+    }
+}
+
+
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
 impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
@@ -1293,6 +1346,25 @@ impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
         self.int_val = &self.int_val * &rhs.int_val;
     }
 }
+
+impl<'a> MulAssign<&'a BigInt> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &BigInt) {
+        if rhs.is_one() {
+            return;
+        }
+        self.int_val *= rhs;
+    }
+}
+
+impl MulAssign<BigInt> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: BigInt) {
+        *self *= &rhs
+    }
+}
+
+
 
 impl_div_for_primitives!();
 
