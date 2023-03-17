@@ -100,10 +100,11 @@ fn count_decimal_digits(int: &BigInt) -> u64 {
     if int.is_zero() {
         return 1;
     }
+    let uint = int.magnitude();
+    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
     // guess number of digits based on number of bits in UInt
-    let mut digits = (int.bits() as f64 / LOG2_10) as u64;
-    let mut num = ten_to_the(digits);
-    while *int >= num {
+    let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
+    while *uint >= num {
         num *= 10u8;
         digits += 1;
     }
@@ -2546,6 +2547,10 @@ mod bigdecimal_tests {
             ("199999911199999999999999999999999999999999999999999999999999999999999999999999999999999999999000", 96),
             ("999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999991", 192),
             ("199999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999", 192),
+            ("-1", 1),
+            ("-6", 1),
+            ("-10", 2),
+            ("-999999999999999999999999", 24),
         ];
         for &(x, y) in vals.iter() {
             let a = BigInt::from_str(x).unwrap();
