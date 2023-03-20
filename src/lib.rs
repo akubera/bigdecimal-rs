@@ -617,23 +617,55 @@ impl BigDecimal {
 
     /// Return number rounded to round_digits precision after the decimal point
     pub fn round(&self, round_digits: i64) -> BigDecimal {
-        let (bigint, decimal_part_digits) = self.as_bigint_and_exponent();
-        let need_to_round_digits = decimal_part_digits - round_digits;
-        if round_digits >= 0 && need_to_round_digits <= 0 {
-            return self.clone();
+        // we have fewer digits than we need, no rounding
+        if round_digits >= self.scale {
+            return self.with_scale(round_digits);
         }
 
-        let (sign, uint) = bigint.into_parts();
-        let double_digits = uint.to_radix_le(100);
+        let (sign, double_digits) = self.int_val.to_radix_le(100);
 
-        let double_digits_to_remove = decimal_part_digits - round_digits;
+        let last_is_double_digit = *double_digits.last().unwrap() >= 10;
+        let digit_count = (double_digits.len() - 1) * 2 + 1 + last_is_double_digit as usize;
 
-        if double_digits_to_remove <= 0 {
-            return self.clone();
+        // relevant digit positions: each "pos" is position of 10^{pos}
+        let least_significant_pos = -self.scale;
+        let most_sig_digit_pos = digit_count as i64 + least_significant_pos - 1;
+        let rounding_pos = -round_digits;
+
+        // digits are too small, round to zero
+        if rounding_pos > most_sig_digit_pos + 1 {
+            return BigDecimal::zero();
         }
+
+        // highest digit is next to rounding point
+        if rounding_pos == most_sig_digit_pos + 1 {
+            let (&last_double_digit, remaining) = double_digits.split_last().unwrap();
+
+            let mut trailing_zeros = remaining.iter().all(|&d| d == 0);
+
+            let last_digit = if last_is_double_digit {
+                let (high, low) = num_integer::div_rem(last_double_digit, 10);
+                trailing_zeros &= low == 0;
+                high
+            } else {
+                last_double_digit
+            };
+
+            if last_digit > 5 || (last_digit == 5 && !trailing_zeros) {
+                return BigDecimal::new(BigInt::one(), round_digits);
+            }
+
+            return BigDecimal::zero();
+        }
+
+        let double_digits_to_remove = self.scale - round_digits;
+        debug_assert!(double_digits_to_remove > 0);
 
         let (rounding_idx, rounding_offset) = num_integer::div_rem(double_digits_to_remove as usize, 2);
+        debug_assert!(rounding_idx <= double_digits.len());
+
         let (low_digits, high_digits) = double_digits.as_slice().split_at(rounding_idx);
+        debug_assert!(high_digits.len() > 0);
 
         let mut unrounded_uint = num_bigint::BigUint::from_radix_le(high_digits, 100).unwrap();
 
