@@ -1,8 +1,8 @@
 # bigdecimal-rs
 
 
-[![Documentation](https://docs.rs/bigdecimal/badge.svg)](https://docs.rs/bigdecimal)
 [![crate](https://img.shields.io/crates/v/bigdecimal.svg)](https://crates.io/crates/bigdecimal)
+[![Documentation](https://docs.rs/bigdecimal/badge.svg)](https://docs.rs/bigdecimal)
 
 [![minimum rustc 1.34](https://img.shields.io/badge/rustc-1.34+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
 
@@ -29,12 +29,11 @@ use bigdecimal::BigDecimal;
 
 fn main() {
     let two = BigDecimal::from(2);
-
     println!("sqrt(2) = {}", two.sqrt().unwrap());
 }
 ```
 
-The above will print
+this code will print
 
 ```
 sqrt(2) = 1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573
