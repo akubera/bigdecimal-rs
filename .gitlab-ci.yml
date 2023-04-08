@@ -1,32 +1,46 @@
 
-.cargo-check:
-  stage: test
+cache: &global_cache
+  policy: pull-push
+  # should we only share cache between jobs on one tag?
+  #   key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cargo/bin
+    - .cargo/registry/index
+    - .cargo/registry/cache
+    - target/debug/deps
+    - target/debug/build
 
+variables:
+  # store cargo registry in the project directory
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+
+  # this fixes an error when updating cargo registry
+  CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+
+
+cargo-build:
+  stage: build
   parallel:
     matrix:
       - IMAGE:
         - "akubera/rust-kcov:1.34.2-stretch"
         - "akubera/rust-kcov:1.54.0-buster"
-
-  variables:
-    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+        - "rust:latest"
+        - "akubera/rust-grcov:testing"
 
   image: $IMAGE
   script:
     - rustc --version && cargo --version
-    - cargo check --verbose
+    - cargo build
 
-cargo-test:
-  stage: build
 
 cargo-test:
   stage: test
 
-#   parallel:
-#     matrix:
-#       - IMAGE:
-#         #- "akubera/rust-grcov:1.68.2-bullseye"
-#         - ""
+  parallel:
+    matrix:
+      - IMAGE:
+        - "akubera/rust-grcov:testing"
 
   variables:
     CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
@@ -34,19 +48,12 @@ cargo-test:
     RUSTFLAGS: "-Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off "
     # RUSTDOCFLAGS: "-Cpanic=abort"
     CARGO_INCREMENTAL: "0"
-    CARGO_HOME: "/cache/cargo/"
 
-#   image: $IMAGE
-  image: "akubera/rust-grcov:testing"
-  cache:
-    - paths:
-      - target/
-      - /cache/cargo/registry/
+  image: $IMAGE
 
   coverage: '/Code Coverage: \d+\.\d+/'
   script:
     - rustc --version && cargo --version
-    - cargo build
     - cargo test --verbose
     - ls -l target/coverage
     - grcov target/coverage --binary-path target/debug -s . --keep-only 'src/*' -tcobertura -o cobertura.xml
@@ -61,15 +68,7 @@ cargo-test:
         coverage_format: cobertura
         path: cobertura.xml
 
-.rust-latest:
-  stage: test
-  image: rust:latest
-  script:
-    - rustc --version && cargo --version
-    - cargo build --verbose
-    - cargo test --verbose
-
-.rust-nightly:
+rust-nightly:
   stage: test
   image: rustlang/rust:nightly
   script:
