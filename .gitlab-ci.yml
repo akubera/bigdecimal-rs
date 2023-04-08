@@ -1,0 +1,79 @@
+
+.cargo-check:
+  stage: test
+
+  parallel:
+    matrix:
+      - IMAGE:
+        - "akubera/rust-kcov:1.34.2-stretch"
+        - "akubera/rust-kcov:1.54.0-buster"
+
+  variables:
+    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+
+  image: $IMAGE
+  script:
+    - rustc --version && cargo --version
+    - cargo check --verbose
+
+cargo-test:
+  stage: build
+
+cargo-test:
+  stage: test
+
+#   parallel:
+#     matrix:
+#       - IMAGE:
+#         #- "akubera/rust-grcov:1.68.2-bullseye"
+#         - ""
+
+  variables:
+    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+    LLVM_PROFILE_FILE: "target/coverage/%p-%m.profraw"
+    RUSTFLAGS: "-Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off "
+    # RUSTDOCFLAGS: "-Cpanic=abort"
+    CARGO_INCREMENTAL: "0"
+    CARGO_HOME: "/cache/cargo/"
+
+#   image: $IMAGE
+  image: "akubera/rust-grcov:testing"
+  cache:
+    - paths:
+      - target/
+      - /cache/cargo/registry/
+
+  coverage: '/Code Coverage: \d+\.\d+/'
+  script:
+    - rustc --version && cargo --version
+    - cargo build
+    - cargo test --verbose
+    - ls -l target/coverage
+    - grcov target/coverage --binary-path target/debug -s . --keep-only 'src/*' -tcobertura -o cobertura.xml
+    - >
+      grep -m1 -o 'line-rate="[^"]*' cobertura.xml
+      | sed 's/[^0-9.]*//'
+      | awk '{ print "Code Coverage: " $0 * 100 }'
+
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
+
+.rust-latest:
+  stage: test
+  image: rust:latest
+  script:
+    - rustc --version && cargo --version
+    - cargo build --verbose
+    - cargo test --verbose
+
+.rust-nightly:
+  stage: test
+  image: rustlang/rust:nightly
+  script:
+    - rustc --version && cargo --version
+    - cargo build --verbose
+    - cargo test --verbose
+  allow_failure: true
