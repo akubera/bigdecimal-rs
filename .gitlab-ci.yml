@@ -68,11 +68,24 @@ cargo-test:
         coverage_format: cobertura
         path: cobertura.xml
 
-rust-nightly:
+cargo-test-nightly:
   stage: test
   image: rustlang/rust:nightly
   script:
     - rustc --version && cargo --version
     - cargo build --verbose
     - cargo test --verbose
+  allow_failure: true
+
+
+cargo-publish:
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH != "master"
+      when: never
+
+  stage: deploy
+  image: rust:stable
+  script:
+    - cargo publish
   allow_failure: true
