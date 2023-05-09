@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Andrew Kubera"]
 description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
