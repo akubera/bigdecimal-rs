@@ -115,8 +115,9 @@ cargo:test-1.68:
 
 coverage-test:
   stage: test
-  image:
-    - "akubera/rust-grcov:testing"
+  needs:
+    - "cargo:test-1.68"
+  image: "akubera/rust-grcov:1.68.2-bullseye"
 
   variables:
     CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
@@ -128,7 +129,7 @@ coverage-test:
   coverage: '/Code Coverage: \d+\.\d+/'
   script:
     - rustc --version && cargo --version
-    - cargo test --verbose
+    - cargo test
     - ls -l target/coverage
     - grcov target/coverage --binary-path target/debug -s . --keep-only 'src/*' -tcobertura -o cobertura.xml
     - >
