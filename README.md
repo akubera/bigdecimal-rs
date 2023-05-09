@@ -4,7 +4,7 @@
 [![crate](https://img.shields.io/crates/v/bigdecimal.svg)](https://crates.io/crates/bigdecimal)
 [![Documentation](https://docs.rs/bigdecimal/badge.svg)](https://docs.rs/bigdecimal)
 
-[![minimum rustc 1.34](https://img.shields.io/badge/rustc-1.34+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
+[![minimum rustc 1.43](https://img.shields.io/badge/rustc-1.43+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
 
 [![coverage](https://gitlab.com/akubera/bigdecimal-rs/badges/master/coverage.svg)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
 [![build status - master](https://gitlab.com/akubera/bigdecimal-rs/badges/master/pipeline.svg?ignore_skipped=true)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
