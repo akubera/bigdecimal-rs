@@ -145,11 +145,14 @@ coverage-test:
 
 
 cargo-publish:
+  stage: deploy
+  image: "rust:latest"
   when: manual
   only:
     - master
-  stage: deploy
-  image: rust:stable
+  allow_failure: true
+  cache: []
+  variables:
+    CARGO_HOME: /usr/local/cargo
   script:
     - cargo publish
-  allow_failure: true
