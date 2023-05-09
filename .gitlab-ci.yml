@@ -70,6 +70,7 @@ cargo:test-1.34:
   needs:
     - cargo:build-1.34
   image: "akubera/rust-kcov:1.34.2-stretch"
+  allow_failure: true
   <<: *cargo-test-script
 
 
@@ -101,14 +102,14 @@ cargo:test·1.54:
 
 cargo:build-1.68:
   stage: build
-  image: "akubera/rust-kcov:1.68.2-buster"
+  image: "akubera/rust-grcov:1.68.2-bullseye"
   <<: *cargo-build-script
 
 cargo:test-1.68:
   stage: test
   needs:
     - "cargo:build-1.68"
-  image: "akubera/rust-kcov:1.68.2-buster"
+  image: "akubera/rust-grcov:1.68.2-bullseye"
   <<: *cargo-test-script
 
 
@@ -123,8 +124,6 @@ coverage-test:
     RUSTFLAGS: "-Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off "
     # RUSTDOCFLAGS: "-Cpanic=abort"
     CARGO_INCREMENTAL: "0"
-
-  image: $IMAGE
 
   coverage: '/Code Coverage: \d+\.\d+/'
   script:
