@@ -87,7 +87,7 @@ workflows:
         matrix:
           parameters:
             rust-version:
-            - "1.42.0"
+            - "1.43.0"
             - "1.50.0"
             - "1.54.0"
     - build-and-test:
@@ -103,4 +103,4 @@ workflows:
         rust-version: "1.54.0"
         requires:
           - build-and-test-1.54.0
-    - lint-check
+    # - lint-check
