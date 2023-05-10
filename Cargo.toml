@@ -9,6 +9,7 @@ repository = "https://github.com/akubera/bigdecimal-rs"
 keywords = [
     "mathematics",
     "numerics",
+    "bignum",
     "decimal",
     "arbitrary-precision",
     "floating-point",
