@@ -1792,7 +1792,10 @@ impl Num for BigDecimal {
                 // copy all trailing characters after '.' into the digits string
                 digits.push_str(trail);
 
-                (digits, trail.len() as i64)
+                // count number of trailing digits
+                let trail_digits = trail.chars().filter(|c| *c != '_').count();
+
+                (digits, trail_digits as i64)
             }
         };
 
@@ -3035,6 +3038,7 @@ mod bigdecimal_tests {
             ("1.23E+3", 123, -1),
             ("1.23E-8", 123, 10),
             ("-1.23E-10", -123, 12),
+            ("-1_1.2_2", -1122, 2),
         ];
 
         for &(source, val, scale) in vals.iter() {
