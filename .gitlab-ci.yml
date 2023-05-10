@@ -4,7 +4,6 @@ cache:
   # should we only share cache between jobs on one tag?
   #   key: ${CI_COMMIT_REF_SLUG}
   paths:
-    - .cargo/bin
     - .cargo/registry/index
     - .cargo/registry/cache
     - target/debug/deps
