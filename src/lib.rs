@@ -1810,9 +1810,22 @@ impl ToPrimitive for BigDecimal {
             Sign::NoSign => Some(0),
         }
     }
+    fn to_i128(&self) -> Option<i128> {
+        match self.sign() {
+            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i128(),
+            Sign::NoSign => Some(0),
+        }
+    }
     fn to_u64(&self) -> Option<u64> {
         match self.sign() {
             Sign::Plus => self.with_scale(0).int_val.to_u64(),
+            Sign::NoSign => Some(0),
+            Sign::Minus => None,
+        }
+    }
+    fn to_u128(&self) -> Option<u128> {
+        match self.sign() {
+            Sign::Plus => self.with_scale(0).int_val.to_u128(),
             Sign::NoSign => Some(0),
             Sign::Minus => None,
         }
@@ -2149,6 +2162,39 @@ mod bigdecimal_tests {
         ];
         for (s, ans) in vals {
             let calculated = BigDecimal::from_str(s).unwrap().to_i64().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
+    fn test_to_i128() {
+        let vals = vec![
+            ("170141183460469231731687303715884105727", 170141183460469231731687303715884105727),
+            ("-170141183460469231731687303715884105728", -170141183460469231731687303715884105728),
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),            
+            ("0.001", 0),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_i128().unwrap();
+
+            assert_eq!(ans, calculated);
+        }
+    }
+
+    #[test]
+    fn test_to_u128() {
+        let vals = vec![
+            ("340282366920938463463374607431768211455", 340282366920938463463374607431768211455),
+            ("12.34", 12),
+            ("3.14", 3),
+            ("50", 50),            
+            ("0.001", 0),
+        ];
+        for (s, ans) in vals {
+            let calculated = BigDecimal::from_str(s).unwrap().to_u128().unwrap();
 
             assert_eq!(ans, calculated);
         }
