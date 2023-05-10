@@ -64,7 +64,7 @@ cargo:build-1.43:
   image: "akubera/rust-kcov:1.43.1-buster"
   <<: *cargo-build-script
 
-cargo:test·1.43:
+cargo:test-1.43:
   stage: test
   needs:
     - "cargo:build-1.43"
@@ -77,7 +77,7 @@ cargo:build-1.54:
   image: "akubera/rust-kcov:1.54.0-bullseye"
   <<: *cargo-build-script
 
-cargo:test·1.54:
+cargo:test-1.54:
   stage: test
   needs:
     - "cargo:build-1.54"
