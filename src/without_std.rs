@@ -1,4 +1,17 @@
-use core::{cmp, convert, default, fmt, hash, num, ops, iter, str, i8, f32, f64};
+use core::{
+    cmp,
+    convert,
+    default,
+    fmt,
+    hash,
+    num,
+    ops,
+    iter,
+    str,
+    i8,
+    f32,
+    f64,
+};
 
 #[cfg(test)]
 extern crate siphasher;
