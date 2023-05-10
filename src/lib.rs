@@ -1316,7 +1316,7 @@ impl Mul<BigDecimal> for BigInt {
     fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
         if rhs.is_one() {
             rhs.scale = 0;
-            std::mem::swap(&mut rhs.int_val, &mut self);
+            crate::mem::swap(&mut rhs.int_val, &mut self);
         } else if !self.is_one() {
             rhs.int_val *= self;
         }

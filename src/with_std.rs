@@ -4,6 +4,7 @@ use std::{
     default,
     fmt,
     hash,
+    mem,
     num,
     ops,
     iter,
