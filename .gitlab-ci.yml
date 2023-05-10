@@ -1,0 +1,143 @@
+
+cache:
+  policy: pull-push
+  # should we only share cache between jobs on one tag?
+  #   key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cargo/registry/index
+    - .cargo/registry/cache
+    - target/debug/deps
+    - target/debug/build
+
+variables:
+  # store cargo registry in the project directory
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo
+
+  # this fixes an error when updating cargo registry
+  CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+
+
+.cargo:build-script: &cargo-build-script
+  script:
+    - rustc --version && cargo --version
+    - cargo build
+
+
+.cargo-test-script: &cargo-test-script
+  script:
+    - rustc --version && cargo --version
+    - cargo test --verbose
+
+
+cargo:build-stable:
+  stage: build
+  image: "rust:latest"
+  <<: *cargo-build-script
+
+
+cargo:test-stable:
+  stage: test
+  image: "rust:latest"
+  needs:
+    - "cargo:build-stable"
+  <<: *cargo-build-script
+
+
+cargo:build-nightly:
+  stage: build
+  image: rustlang/rust:nightly
+  allow_failure: true
+  <<: *cargo-build-script
+
+
+cargo:test-nightly:
+  stage: test
+  image: rustlang/rust:nightly
+  needs:
+    - cargo:build-nightly
+  allow_failure: true
+  <<: *cargo-test-script
+
+
+cargo:build-1.43:
+  stage: build
+  image: "akubera/rust-kcov:1.43.1-buster"
+  <<: *cargo-build-script
+
+cargo:test-1.43:
+  stage: test
+  needs:
+    - "cargo:build-1.43"
+  image: "akubera/rust-kcov:1.43.1-buster"
+  <<: *cargo-test-script
+
+
+cargo:build-1.54:
+  stage: build
+  image: "akubera/rust-kcov:1.54.0-bullseye"
+  <<: *cargo-build-script
+
+cargo:test-1.54:
+  stage: test
+  needs:
+    - "cargo:build-1.54"
+  image: "akubera/rust-kcov:1.54.0-bullseye"
+  <<: *cargo-test-script
+
+
+cargo:build-1.68:
+  stage: build
+  image: "akubera/rust-grcov:1.68.2-bullseye"
+  <<: *cargo-build-script
+
+cargo:test-1.68:
+  stage: test
+  needs:
+    - "cargo:build-1.68"
+  image: "akubera/rust-grcov:1.68.2-bullseye"
+  <<: *cargo-test-script
+
+
+coverage-test:
+  stage: test
+  needs:
+    - "cargo:test-1.68"
+  image: "akubera/rust-grcov:1.68.2-bullseye"
+
+  variables:
+    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+    LLVM_PROFILE_FILE: "target/coverage/%p-%m.profraw"
+    RUSTFLAGS: "-Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off "
+    # RUSTDOCFLAGS: "-Cpanic=abort"
+    CARGO_INCREMENTAL: "0"
+
+  coverage: '/Code Coverage: \d+\.\d+/'
+  script:
+    - rustc --version && cargo --version
+    - cargo test
+    - ls -l target/coverage
+    - grcov target/coverage --binary-path target/debug -s . --keep-only 'src/*' -tcobertura -o cobertura.xml
+    - >
+      grep -m1 -o 'line-rate="[^"]*' cobertura.xml
+      | sed 's/[^0-9.]*//'
+      | awk '{ print "Code Coverage: " $0 * 100 }'
+
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
+
+
+cargo-publish:
+  stage: deploy
+  image: "rust:latest"
+  when: manual
+  only:
+    - master
+  allow_failure: true
+  cache: []
+  variables:
+    CARGO_HOME: /usr/local/cargo
+  script:
+    - cargo publish
