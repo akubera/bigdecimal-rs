@@ -3038,12 +3038,17 @@ mod bigdecimal_tests {
             ("1.23E+3", 123, -1),
             ("1.23E-8", 123, 10),
             ("-1.23E-10", -123, 12),
+            ("123_", 123, 0),
+            ("31_862_140.830_686_979", 31862140830686979, 9),
             ("-1_1.2_2", -1122, 2),
+            ("999.521_939", 999521939, 6),
+            ("679.35_84_03E-2", 679358403, 8),
+            ("271576662.__E4", 271576662, -4),
         ];
 
         for &(source, val, scale) in vals.iter() {
             let x = BigDecimal::from_str(source).unwrap();
-            assert_eq!(x.int_val.to_i32().unwrap(), val);
+            assert_eq!(x.int_val.to_i64().unwrap(), val);
             assert_eq!(x.scale, scale);
         }
     }
