@@ -8,6 +8,7 @@ jobs:
     parameters:
       rust-version:
         type: string
+        default: "1.69.0"
       debian-version:
         type: string
         default: "bullseye"
@@ -95,24 +96,22 @@ workflows:
 
     - build-and-test:
        name: build-and-test:latest
-       rust-version: "1.69.0"
 
     - build-and-test:
         matrix:
           parameters:
-            rust-version:
-            - "1.69.0"
             rust-features:
             - "--features='serde'"
             - "--features='serde,string-only'"
 
     - build-and-test:
        name: build-and-test:no-default-features
-       rust-version: "1.69.0"
        rust-features: "--no-default-features"
 
+    - build-and-test:
+       name: build-and-test:alloc
+       rust-features: "--no-default-features --features=alloc"
+
     #- upload-coverage:
-    #   rust-version: "1.69.0"
     #   requires:
     #    - build-and-test:latest
-
