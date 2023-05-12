@@ -47,7 +47,7 @@ jobs:
         type: string
       debian-version:
         type: string
-        default: "buster"
+        default: "bullseye"
     machine: true
     steps:
       - checkout
@@ -68,7 +68,7 @@ jobs:
 
   lint-check:
     docker:
-      - image: cimg/rust:1.54.0
+      - image: cimg/rust:1.69
     steps:
       - checkout
       - rust/build
@@ -90,6 +90,7 @@ workflows:
             - "1.43.0"
             - "1.50.0"
             - "1.54.0"
+            - "1.69.0"
     - build-and-test:
         matrix:
           parameters:
@@ -104,7 +105,7 @@ workflows:
         rust-version: "1.69.0"
         rust-features: "--no-default-features"
     - upload-coverage:
-        rust-version: "1.54.0"
+        rust-version: "1.69.0"
         requires:
-          - build-and-test-1.54.0
+          - build-and-test-1.69.0
     # - lint-check
