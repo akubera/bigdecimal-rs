@@ -60,9 +60,6 @@ include!("./with_std.rs");
 #[cfg(not(feature = "std"))]
 include!("./without_std.rs");
 
-#[cfg(all(not(feature = "std"), feature = "alloc"))]
-include!("./with_alloc.rs");
-
 use crate::cmp::Ordering;
 use crate::convert::TryFrom;
 use crate::default::Default;

@@ -23,3 +23,10 @@ use siphasher::sip::SipHasher as DefaultHasher;
 // Without this import we get the following error:
 // error[E0599]: no method named `powi` found for type `f64` in the current scope
 use num_traits::float::FloatCore;
+
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
+#[cfg(feature = "alloc")]
+use alloc::{format, string, vec};
