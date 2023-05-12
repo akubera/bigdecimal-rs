@@ -13,7 +13,7 @@ jobs:
         default: "buster"
       rust-features:
         type: string
-        default: "''"
+        default: ""
     docker:
       - image: rust:<< parameters.rust-version >>-<< parameters.debian-version >>
     environment:
@@ -39,7 +39,7 @@ jobs:
           command: cargo build
       - run:
           name: Test
-          command: cargo test --features=<< parameters.rust-features >>
+          command: cargo test << parameters.rust-features >>
 
   upload-coverage:
     parameters:
@@ -97,8 +97,12 @@ workflows:
             - "1.50.0"
             - "1.54.0"
             rust-features:
-            - "'serde'"
-            - "'serde,string-only'"
+            - "--features='serde'"
+            - "--features='serde,string-only'"
+    - build-and-test:
+      parameters:
+        rust-version: "1.69.0"
+        rust-features: "--no-default-features"
     - upload-coverage:
         rust-version: "1.54.0"
         requires:
