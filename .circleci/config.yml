@@ -87,16 +87,16 @@ workflows:
         matrix:
           parameters:
             rust-version:
-            - "1.43.0"
+            - "1.43.1"
             - "1.50.0"
             - "1.54.0"
-            - "1.69.0"
+            debian-version:
+            - "buster"
     - build-and-test:
         matrix:
           parameters:
             rust-version:
-            - "1.50.0"
-            - "1.54.0"
+            - "1.69.0"
             rust-features:
             - "--features='serde'"
             - "--features='serde,string-only'"
