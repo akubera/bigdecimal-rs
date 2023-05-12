@@ -63,8 +63,8 @@ jobs:
               sh -c 'cargo test -q --no-run && kcov-rust && upload-kcov-results-to-codecov'
       - store_artifacts:
           path: target/cov
-      - store_test_results:
-          path: target/cov
+      # - store_test_results:
+      #     path: target
 
   lint-check:
     docker:
