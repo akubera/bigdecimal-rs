@@ -1,7 +1,7 @@
 version: 2.1
 orbs:
-#   codecov: codecov/codecov@3.0.0
-  rust: circleci/rust@1.5.0
+# codecov: codecov/codecov@3.2.4
+  rust: circleci/rust@1.6.0
 
 jobs:
   build-and-test:
@@ -10,10 +10,10 @@ jobs:
         type: string
       debian-version:
         type: string
-        default: "buster"
+        default: "bullseye"
       rust-features:
         type: string
-        default: "''"
+        default: ""
     docker:
       - image: rust:<< parameters.rust-version >>-<< parameters.debian-version >>
     environment:
@@ -36,10 +36,10 @@ jobs:
           key: bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
       - run:
           name: Build
-          command: cargo build
+          command: cargo build << parameters.rust-features >>
       - run:
           name: Test
-          command: cargo test --features=<< parameters.rust-features >>
+          command: cargo test << parameters.rust-features >>
 
   upload-coverage:
     parameters:
@@ -47,7 +47,7 @@ jobs:
         type: string
       debian-version:
         type: string
-        default: "buster"
+        default: "bullseye"
     machine: true
     steps:
       - checkout
@@ -60,15 +60,15 @@ jobs:
               -e CI=true
               $(bash <(curl -s https://codecov.io/env))
               akubera/rust-codecov:<< parameters.rust-version >>-<< parameters.debian-version >>
-              sh -c 'cargo test -q && kcov-rust && upload-kcov-results-to-codecov'
+              sh -c 'cargo test -q --no-run && kcov-rust && upload-kcov-results-to-codecov'
       - store_artifacts:
           path: target/cov
-      - store_test_results:
-          path: target/cov
+      # - store_test_results:
+      #     path: target
 
   lint-check:
     docker:
-      - image: cimg/rust:1.54.0
+      - image: cimg/rust:1.69
     steps:
       - checkout
       - rust/build
@@ -81,26 +81,38 @@ jobs:
 
 workflows:
   version: 2
-  build-and-test:
+  cargo:build-and-test:
     jobs:
+    - lint-check
     - build-and-test:
         matrix:
           parameters:
             rust-version:
-            - "1.43.0"
-            - "1.50.0"
+            - "1.43.1"
             - "1.54.0"
+            debian-version:
+            - "buster"
+
+    - build-and-test:
+       name: build-and-test:latest
+       rust-version: "1.69.0"
+
     - build-and-test:
         matrix:
           parameters:
             rust-version:
-            - "1.50.0"
-            - "1.54.0"
+            - "1.69.0"
             rust-features:
-            - "'serde'"
-            - "'serde,string-only'"
-    - upload-coverage:
-        rust-version: "1.54.0"
-        requires:
-          - build-and-test-1.54.0
-    # - lint-check
+            - "--features='serde'"
+            - "--features='serde,string-only'"
+
+    - build-and-test:
+       name: build-and-test:no-default-features
+       rust-version: "1.69.0"
+       rust-features: "--no-default-features"
+
+    #- upload-coverage:
+    #   rust-version: "1.69.0"
+    #   requires:
+    #    - build-and-test:latest
+
