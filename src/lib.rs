@@ -1324,7 +1324,6 @@ impl Mul<BigDecimal> for BigInt {
     }
 }
 
-
 impl<'a> Mul<BigDecimal> for &'a BigInt {
     type Output = BigDecimal;
 
@@ -1343,7 +1342,6 @@ impl<'a> Mul<BigDecimal> for &'a BigInt {
         }
     }
 }
-
 
 impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
     type Output = BigDecimal;
@@ -1377,7 +1375,6 @@ impl<'a> Mul<&'a BigDecimal> for BigInt {
     }
 }
 
-
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
 impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
@@ -1407,8 +1404,6 @@ impl MulAssign<BigInt> for BigDecimal {
         *self *= &rhs
     }
 }
-
-
 
 impl_div_for_primitives!();
 
