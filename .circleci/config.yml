@@ -81,7 +81,7 @@ jobs:
 
 workflows:
   version: 2
-  build-and-test-workflow:
+  cargo:build-and-test:
     jobs:
     - lint-check
     - build-and-test:
