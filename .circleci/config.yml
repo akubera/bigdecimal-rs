@@ -1,6 +1,6 @@
 version: 2.1
 orbs:
-#   codecov: codecov/codecov@3.0.0
+# codecov: codecov/codecov@3.2.4
   rust: circleci/rust@1.6.0
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
           key: bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
       - run:
           name: Build
-          command: cargo build
+          command: cargo build << parameters.rust-features >>
       - run:
           name: Test
           command: cargo test << parameters.rust-features >>
@@ -60,7 +60,7 @@ jobs:
               -e CI=true
               $(bash <(curl -s https://codecov.io/env))
               akubera/rust-codecov:<< parameters.rust-version >>-<< parameters.debian-version >>
-              sh -c 'cargo test -q && kcov-rust && upload-kcov-results-to-codecov'
+              sh -c 'cargo test -q --no-run && kcov-rust && upload-kcov-results-to-codecov'
       - store_artifacts:
           path: target/cov
       - store_test_results:
@@ -111,8 +111,8 @@ workflows:
        rust-version: "1.69.0"
        rust-features: "--no-default-features"
 
-    - upload-coverage:
-       rust-version: "1.69.0"
-       requires:
-        - build-and-test:latest
+    #- upload-coverage:
+    #   rust-version: "1.69.0"
+    #   requires:
+    #    - build-and-test:latest
 
