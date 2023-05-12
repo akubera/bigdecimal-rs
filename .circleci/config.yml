@@ -108,6 +108,10 @@ workflows:
        name: build-and-test:no-default-features
        rust-features: "--no-default-features"
 
+    - build-and-test:
+       name: build-and-test:alloc
+       rust-features: "--no-default-features --features=alloc"
+
     #- upload-coverage:
     #   requires:
     #    - build-and-test:latest
