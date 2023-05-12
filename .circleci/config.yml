@@ -10,7 +10,7 @@ jobs:
         type: string
       debian-version:
         type: string
-        default: "buster"
+        default: "bullseye"
       rust-features:
         type: string
         default: ""
@@ -81,17 +81,22 @@ jobs:
 
 workflows:
   version: 2
-  build-and-test:
+  build-and-test-workflow:
     jobs:
+    - lint-check
     - build-and-test:
         matrix:
           parameters:
             rust-version:
             - "1.43.1"
-            - "1.50.0"
             - "1.54.0"
             debian-version:
             - "buster"
+
+    - build-and-test:
+       name: build-and-test:latest
+       rust-version: "1.69.0"
+
     - build-and-test:
         matrix:
           parameters:
@@ -100,12 +105,14 @@ workflows:
             rust-features:
             - "--features='serde'"
             - "--features='serde,string-only'"
+
     - build-and-test:
-      parameters:
-        rust-version: "1.69.0"
-        rust-features: "--no-default-features"
+       name: build-and-test:no-default-features
+       rust-version: "1.69.0"
+       rust-features: "--no-default-features"
+
     - upload-coverage:
-        rust-version: "1.69.0"
-        requires:
-          - build-and-test-1.69.0
-    # - lint-check
+       rust-version: "1.69.0"
+       requires:
+        - build-and-test:latest
+
