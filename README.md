@@ -6,9 +6,10 @@
 
 [![minimum rustc 1.43](https://img.shields.io/badge/rustc-1.43+-red.svg)](https://rust-lang.github.io/rfcs/2495-min-rust-version.html)
 
-[![coverage](https://gitlab.com/akubera/bigdecimal-rs/badges/master/coverage.svg)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
-[![build status - master](https://gitlab.com/akubera/bigdecimal-rs/badges/master/pipeline.svg?ignore_skipped=true)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
-[![build status - dev](https://gitlab.com/akubera/bigdecimal-rs/badges/devel/pipeline.svg?ignore_skipped=true)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
+[![codecov](https://codecov.io/gh/akubera/bigdecimal-rs/branch/feature/circleci/graph/badge.svg?token=YTwyxrxJ3S)](https://codecov.io/gh/akubera/bigdecimal-rs)
+[![build status - master](https://gitlab.com/akubera/bigdecimal-rs/badges/master/pipeline.svg?ignore_skipped=true&key_text=status:master&key_width=96)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
+[![build status - trunk](https://gitlab.com/akubera/bigdecimal-rs/badges/trunk/pipeline.svg?ignore_skipped=true&key_text=status:trunk&key_width=96)](https://gitlab.com/akubera/bigdecimal-rs/-/pipelines)
+
 
 
 Arbitary-precision decimal numbers implemented in pure Rust.
