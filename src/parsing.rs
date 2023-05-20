@@ -71,11 +71,13 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
             scale = 0;
         }
         Less => {
-            let trailing_zeros = frac.trailing_zeros();
-            let reduced_frac = frac >> trailing_zeros;
+            let trailing_zeros = std::cmp::min(frac.trailing_zeros(), -pow as u32);
 
+            let reduced_frac = frac >> trailing_zeros;
             let reduced_pow = pow + trailing_zeros as i64;
-            let shift = BigUint::from(5u8).pow(reduced_pow.abs() as u32);
+            debug_assert!(reduced_pow <= 0);
+
+            let shift = BigUint::from(5u8).pow(-reduced_pow as u32);
 
             result = reduced_frac * shift;
             scale = -reduced_pow;
