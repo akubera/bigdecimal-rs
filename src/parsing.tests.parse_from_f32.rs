@@ -1,4 +1,4 @@
-// tests for function bigdecimal::parsing::parse_from_f23
+// tests for function bigdecimal::parsing::parse_from_f32
 
 use paste::paste;
 
