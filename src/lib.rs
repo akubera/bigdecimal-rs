@@ -2137,7 +2137,7 @@ mod bigdecimal_tests {
             BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_str("2.80100001196842640638351440429688").unwrap();
+        let expected_sum = BigDecimal::from_str("2.801000011968426406383514404296875").unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2245,6 +2245,7 @@ mod bigdecimal_tests {
     #[test]
     fn test_from_f32() {
         let vals = vec![
+            ("0.0", 0.0),
             ("1.0", 1.0),
             ("0.5", 0.5),
             ("0.25", 0.25),
@@ -2253,20 +2254,18 @@ mod bigdecimal_tests {
             ("0.001000000047497451305389404296875", 0.001),
             ("12.340000152587890625", 12.34),
             ("0.15625", 0.15625),
-            ("3.141593", ::std::f32::consts::PI),
-            ("31415.93", ::std::f32::consts::PI * 10000.0),
-            ("94247.78", ::std::f32::consts::PI * 30000.0),
-            // ("3.14159265358979323846264338327950288f32", ::std::f32::consts::PI),
-
+            ("3.1415927410125732421875", ::std::f32::consts::PI),
+            ("31415.927734375", ::std::f32::consts::PI * 10000.0),
+            ("94247.78125", ::std::f32::consts::PI * 30000.0),
+            ("1048576", 1048576.),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
             let value = BigDecimal::from_f32(n).unwrap();
             assert_eq!(expected, value);
-            // assert_eq!(expected, n);
         }
-
     }
+
     #[test]
     fn test_from_f64() {
         let vals = vec![
