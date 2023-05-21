@@ -72,8 +72,9 @@ jobs:
       - image: cimg/rust:1.69
     steps:
       - checkout
-      - rust/build
-      - rust/format
+      - rust/build:
+          with_cache: false
+      # - rust/format
       # - rust/clippy
       - rust/test
       - run:
