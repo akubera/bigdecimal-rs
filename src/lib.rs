@@ -1909,7 +1909,7 @@ impl TryFrom<f32> for BigDecimal {
 
     #[inline]
     fn try_from(n: f32) -> Result<Self, Self::Error> {
-        parsing::parse_from_f32(n)
+        parsing::try_parse_from_f32(n)
     }
 }
 
@@ -2137,7 +2137,7 @@ mod bigdecimal_tests {
             BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_f32(2.801).unwrap();
+        let expected_sum = BigDecimal::from_f32(2.8009998798370361328125).unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2151,7 +2151,8 @@ mod bigdecimal_tests {
             // BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_f32(0.3).unwrap();
+        // let expected_sum = BigDecimal::from_f32(0.3).unwrap();
+        let expected_sum = BigDecimal::from_f32(0.300000011920928955078125).unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2251,9 +2252,9 @@ mod bigdecimal_tests {
             ("0.25", 0.25),
             ("50.", 50.0),
             ("50000", 50000.),
-            ("0.001", 0.001),
-            ("12.34", 12.34),
-            ("0.15625", 5.0 * 0.03125),
+            ("0.001000000047497451305389404296875", 0.001),
+            ("12.340000152587890625", 12.34),
+            ("0.15625", 0.15625),
             ("3.141593", ::std::f32::consts::PI),
             ("31415.93", ::std::f32::consts::PI * 10000.0),
             ("94247.78", ::std::f32::consts::PI * 30000.0),
