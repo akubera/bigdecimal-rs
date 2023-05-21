@@ -39,6 +39,7 @@
 //!
 //! println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
 //! ```
+#![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
@@ -53,16 +54,21 @@ extern crate num_integer;
 #[cfg(feature = "serde")]
 extern crate serde;
 
-use std::cmp::Ordering;
-use std::convert::TryFrom;
-use std::default::Default;
-use std::error::Error;
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::num::{ParseFloatError, ParseIntError};
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use std::iter::Sum;
-use std::str::{self, FromStr};
+#[cfg(feature = "std")]
+include!("./with_std.rs");
+
+#[cfg(not(feature = "std"))]
+include!("./without_std.rs");
+
+use crate::cmp::Ordering;
+use crate::convert::TryFrom;
+use crate::default::Default;
+use crate::hash::{Hash, Hasher};
+use crate::num::{ParseFloatError, ParseIntError};
+use crate::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+use crate::iter::Sum;
+use crate::str::FromStr;
+use crate::string::{String, ToString};
 
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use num_integer::Integer as IntegerTrait;
@@ -157,6 +163,17 @@ pub struct BigDecimal {
     int_val: BigInt,
     // A positive scale means a negative power of 10
     scale: i64,
+}
+
+#[cfg(not(feature = "std"))]
+// f64::exp2 is only available in std, we have to use an external crate like libm
+fn exp2(x: f64) -> f64 {
+    libm::exp2(x)
+}
+
+#[cfg(feature = "std")]
+fn exp2(x: f64) -> f64 {
+    x.exp2()
 }
 
 impl BigDecimal {
@@ -412,7 +429,8 @@ impl BigDecimal {
         let guess = {
             let magic_guess_scale = 1.1951678538495576_f64;
             let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 2.0;
-            let res = magic_guess_scale * initial_guess.exp2();
+            let res = magic_guess_scale * exp2(initial_guess);
+
             if res.is_normal() {
                 BigDecimal::try_from(res).unwrap()
             } else {
@@ -484,7 +502,8 @@ impl BigDecimal {
         let guess = {
             let magic_guess_scale = 1.124960491619939_f64;
             let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 3.0;
-            let res = magic_guess_scale * initial_guess.exp2();
+            let res = magic_guess_scale * exp2(initial_guess);
+
             if res.is_normal() {
                 BigDecimal::try_from(res).unwrap()
             } else {
@@ -551,7 +570,7 @@ impl BigDecimal {
 
             let magic_factor = 0.721507597259061_f64;
             let initial_guess = scale * LOG2_10 - bits;
-            let res = magic_factor * initial_guess.exp2();
+            let res = magic_factor * exp2(initial_guess);
 
             if res.is_normal() {
                 BigDecimal::try_from(res).unwrap()
@@ -702,7 +721,8 @@ impl fmt::Display for ParseBigDecimalError {
     }
 }
 
-impl Error for ParseBigDecimalError {
+#[cfg(feature = "std")]
+impl std::error::Error for ParseBigDecimalError {
     fn description(&self) -> &str {
         "failed to parse bigint/biguint"
     }
@@ -1018,7 +1038,7 @@ impl Sub<BigDecimal> for BigDecimal {
     #[inline]
     fn sub(self, rhs: BigDecimal) -> BigDecimal {
         let mut lhs = self;
-        let scale = std::cmp::max(lhs.scale, rhs.scale);
+        let scale = cmp::max(lhs.scale, rhs.scale);
 
         match lhs.scale.cmp(&rhs.scale) {
             Ordering::Equal => {
@@ -1037,7 +1057,7 @@ impl<'a> Sub<&'a BigDecimal> for BigDecimal {
     #[inline]
     fn sub(self, rhs: &BigDecimal) -> BigDecimal {
         let mut lhs = self;
-        let scale = std::cmp::max(lhs.scale, rhs.scale);
+        let scale = cmp::max(lhs.scale, rhs.scale);
 
         match lhs.scale.cmp(&rhs.scale) {
             Ordering::Equal => {
@@ -1293,14 +1313,13 @@ impl Mul<BigDecimal> for BigInt {
     fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
         if rhs.is_one() {
             rhs.scale = 0;
-            std::mem::swap(&mut rhs.int_val, &mut self);
+            crate::mem::swap(&mut rhs.int_val, &mut self);
         } else if !self.is_one() {
             rhs.int_val *= self;
         }
         rhs
     }
 }
-
 
 impl<'a> Mul<BigDecimal> for &'a BigInt {
     type Output = BigDecimal;
@@ -1320,7 +1339,6 @@ impl<'a> Mul<BigDecimal> for &'a BigInt {
         }
     }
 }
-
 
 impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
     type Output = BigDecimal;
@@ -1354,7 +1372,6 @@ impl<'a> Mul<&'a BigDecimal> for BigInt {
     }
 }
 
-
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
 impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
@@ -1384,8 +1401,6 @@ impl MulAssign<BigInt> for BigDecimal {
         *self *= &rhs
     }
 }
-
-
 
 impl_div_for_primitives!();
 
@@ -1535,7 +1550,7 @@ impl Rem<BigDecimal> for BigDecimal {
 
     #[inline]
     fn rem(self, other: BigDecimal) -> BigDecimal {
-        let scale = std::cmp::max(self.scale, other.scale);
+        let scale = cmp::max(self.scale, other.scale);
 
         let num = self.take_and_scale(scale).int_val;
         let den = other.take_and_scale(scale).int_val;
@@ -1549,7 +1564,7 @@ impl<'a> Rem<&'a BigDecimal> for BigDecimal {
 
     #[inline]
     fn rem(self, other: &BigDecimal) -> BigDecimal {
-        let scale = std::cmp::max(self.scale, other.scale);
+        let scale = cmp::max(self.scale, other.scale);
         let num = self.take_and_scale(scale).int_val;
         let den = &other.int_val;
 
@@ -1566,7 +1581,7 @@ impl<'a> Rem<BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn rem(self, other: BigDecimal) -> BigDecimal {
-        let scale = std::cmp::max(self.scale, other.scale);
+        let scale = cmp::max(self.scale, other.scale);
         let num = &self.int_val;
         let den = other.take_and_scale(scale).int_val;
 
@@ -1586,7 +1601,7 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
 
     #[inline]
     fn rem(self, other: &BigDecimal) -> BigDecimal {
-        let scale = std::cmp::max(self.scale, other.scale);
+        let scale = cmp::max(self.scale, other.scale);
         let num = &self.int_val;
         let den = &other.int_val;
 
@@ -1953,11 +1968,11 @@ impl ToBigInt for BigDecimal {
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
 mod bigdecimal_serde {
+    use crate::{fmt, TryFrom, FromStr};
+
     use super::BigDecimal;
     use serde::{de, ser};
-    use std::convert::TryFrom;
-    use std::fmt;
-    use std::str::FromStr;
+
     #[allow(unused_imports)]
     use num_traits::FromPrimitive;
 
@@ -2108,9 +2123,9 @@ mod bigdecimal_serde {
             0.001,
             12.34,
             5.0 * 0.03125,
-            ::std::f64::consts::PI,
-            ::std::f64::consts::PI * 10000.0,
-            ::std::f64::consts::PI * 30000.0,
+            crate::f64::consts::PI,
+            crate::f64::consts::PI * 10000.0,
+            crate::f64::consts::PI * 30000.0,
         ];
         for n in vals {
             let expected = BigDecimal::from_f64(n).unwrap();
@@ -2123,10 +2138,8 @@ mod bigdecimal_serde {
 #[rustfmt::skip]
 #[cfg(test)]
 mod bigdecimal_tests {
-    use BigDecimal;
+    use crate::{BigDecimal, ToString, FromStr, TryFrom};
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
-    use std::convert::TryFrom;
-    use std::str::FromStr;
     use num_bigint;
 
     #[test]
@@ -2232,8 +2245,8 @@ mod bigdecimal_tests {
             ("12", 12),
             ("-13", -13),
             ("111", 111),
-            ("-128", ::std::i8::MIN),
-            ("127", ::std::i8::MAX),
+            ("-128", i8::MIN),
+            ("127", i8::MAX),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
@@ -2254,9 +2267,9 @@ mod bigdecimal_tests {
             ("0.001000000047497451305389404296875", 0.001),
             ("12.340000152587890625", 12.34),
             ("0.15625", 0.15625),
-            ("3.1415927410125732421875", ::std::f32::consts::PI),
-            ("31415.927734375", ::std::f32::consts::PI * 10000.0),
-            ("94247.78125", ::std::f32::consts::PI * 30000.0),
+            ("3.1415927410125732421875", crate::f32::consts::PI),
+            ("31415.927734375", crate::f32::consts::PI * 10000.0),
+            ("94247.78125", crate::f32::consts::PI * 30000.0),
             ("1048576", 1048576.),
         ];
         for (s, n) in vals {
@@ -2278,9 +2291,9 @@ mod bigdecimal_tests {
             ("12.339999999999999857891452847979962825775146484375", 12.34),
             ("0.15625", 5.0 * 0.03125),
             ("0.333333333333333314829616256247390992939472198486328125", 1.0 / 3.0),
-            ("3.141592653589793115997963468544185161590576171875", ::std::f64::consts::PI),
-            ("31415.926535897931898944079875946044921875", ::std::f64::consts::PI * 10000.0f64),
-            ("94247.779607693795696832239627838134765625", ::std::f64::consts::PI * 30000.0f64),
+            ("3.141592653589793115997963468544185161590576171875", crate::f64::consts::PI),
+            ("31415.926535897931898944079875946044921875", crate::f64::consts::PI * 10000.0f64),
+            ("94247.779607693795696832239627838134765625", crate::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
@@ -2292,8 +2305,8 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_nan_float() {
-        assert!(BigDecimal::try_from(std::f32::NAN).is_err());
-        assert!(BigDecimal::try_from(std::f64::NAN).is_err());
+        assert!(BigDecimal::try_from(f32::NAN).is_err());
+        assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
     #[test]
@@ -2559,8 +2572,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_equal() {
-        use std::hash::{Hash, Hasher};
-        use std::collections::hash_map::DefaultHasher;
+        use crate::{Hash, Hasher, DefaultHasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash
@@ -2596,8 +2608,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_not_equal() {
-        use std::hash::{Hash, Hasher};
-        use std::collections::hash_map::DefaultHasher;
+        use crate::{Hash, Hasher, DefaultHasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash
@@ -2623,8 +2634,7 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_equal_scale() {
-        use std::hash::{Hash, Hasher};
-        use std::collections::hash_map::DefaultHasher;
+        use crate::{Hash, Hasher, DefaultHasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash

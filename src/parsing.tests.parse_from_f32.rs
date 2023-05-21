@@ -2,7 +2,7 @@
 
 use paste::paste;
 
-use std::f32;
+use crate::f32;
 
 macro_rules! impl_test {
     ($name:ident : $input:literal == $expected:literal) => {
@@ -60,28 +60,28 @@ impl_test!(_158456325029e18 : 1.58456325029e+29 == "1584563250285286751870879006
 
 #[test]
 fn case_f32_min() {
-    let n = std::f32::MIN;
+    let n = f32::MIN;
     let d = parse_from_f32(n);
     assert_eq!(d, "-340282346638528859811704183484516925440".parse().unwrap());
 }
 
 #[test]
 fn case_f32_max() {
-    let n = std::f32::MAX;
+    let n = f32::MAX;
     let d = parse_from_f32(n);
     assert_eq!(d, "340282346638528859811704183484516925440".parse().unwrap());
 }
 
 #[test]
 fn case_f32_epsilon() {
-    let n = std::f32::EPSILON;
+    let n = f32::EPSILON;
     let d = parse_from_f32(n);
     assert_eq!(d, "1.1920928955078125E-7".parse().unwrap());
 }
 
 #[test]
 fn case_f32_pi() {
-    let n = std::f32::consts::PI;
+    let n = f32::consts::PI;
     let d = parse_from_f32(n);
     assert_eq!(d, "3.1415927410125732421875".parse().unwrap());
 }

@@ -3,6 +3,7 @@
 use super::{BigDecimal, ParseBigDecimalError};
 
 use num_bigint::{BigInt, BigUint, Sign};
+use num_traits::Zero;
 
 
 /// Try creating bigdecimal from f32
@@ -10,7 +11,7 @@ use num_bigint::{BigInt, BigUint, Sign};
 /// Non "normal" values will return Error case
 ///
 pub(crate) fn try_parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalError> {
-    use std::num::FpCategory::*;
+    use crate::num::FpCategory::*;
     match n.classify() {
         Nan => Err(ParseBigDecimalError::Other("NAN".into())),
         Infinite => Err(ParseBigDecimalError::Other("Infinite".into())),
@@ -49,15 +50,12 @@ fn split_f32_into_parts(f: f32) -> (u32, i64, Sign) {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
-    use std::cmp::Ordering::*;
+    use crate::cmp::Ordering::*;
 
     let bits = n.to_bits();
 
     if (bits << 1) == 0 {
-        return BigDecimal {
-            int_val: BigInt::new(Sign::NoSign, vec![0]),
-            scale: 0,
-        };
+        return Zero::zero();
     }
 
     // n = <sign> frac * 2^pow
@@ -71,7 +69,7 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
             scale = 0;
         }
         Less => {
-            let trailing_zeros = std::cmp::min(frac.trailing_zeros(), -pow as u32);
+            let trailing_zeros = crate::cmp::min(frac.trailing_zeros(), -pow as u32);
 
             let reduced_frac = frac >> trailing_zeros;
             let reduced_pow = pow + trailing_zeros as i64;
@@ -110,7 +108,7 @@ mod test_parse_from_f32 {
 /// Non "normal" values will return Error case
 ///
 pub(crate) fn try_parse_from_f64(n: f64) -> Result<BigDecimal, ParseBigDecimalError> {
-    use std::num::FpCategory::*;
+    use crate::num::FpCategory::*;
     match n.classify() {
         Nan => Err(ParseBigDecimalError::Other("NAN".into())),
         Infinite => Err(ParseBigDecimalError::Other("Infinite".into())),
@@ -149,16 +147,13 @@ fn split_f64_into_parts(f: f64) -> (u64, i64, Sign) {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
-    use std::cmp::Ordering::*;
+    use crate::cmp::Ordering::*;
 
     let bits = n.to_bits();
 
     // shift right by 1 bit to handle -0.0
     if (bits << 1) == 0 {
-        return BigDecimal {
-            int_val: BigInt::new(Sign::NoSign, vec![0]),
-            scale: 0,
-        };
+        return Zero::zero();
     }
 
     // n = <sign> frac * 2^pow
@@ -173,7 +168,7 @@ pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
             scale = 0;
         }
         Less => {
-            let trailing_zeros = std::cmp::min(frac.trailing_zeros(), -pow as u32);
+            let trailing_zeros = crate::cmp::min(frac.trailing_zeros(), -pow as u32);
 
             let reduced_frac = frac >> trailing_zeros;
             let reduced_pow = pow + trailing_zeros as i64;
