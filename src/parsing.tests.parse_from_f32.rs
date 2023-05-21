@@ -25,6 +25,7 @@ macro_rules! impl_test {
 }
 
 
+impl_test!(_0 : 0.0 == "0");
 impl_test!(_1 : 1.0 == "1");
 impl_test!(_5en1 : 0.5 == "0.5");
 impl_test!(_25en2 : 0.25 == "0.25");

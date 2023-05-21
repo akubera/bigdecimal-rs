@@ -53,7 +53,7 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
 
     let bits = n.to_bits();
 
-    if bits == 0 {
+    if (bits << 1) == 0 {
         return BigDecimal {
             int_val: BigInt::new(Sign::NoSign, vec![0]),
             scale: 0,
@@ -153,7 +153,8 @@ pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
 
     let bits = n.to_bits();
 
-    if bits == 0 {
+    // shift right by 1 bit to handle -0.0
+    if (bits << 1) == 0 {
         return BigDecimal {
             int_val: BigInt::new(Sign::NoSign, vec![0]),
             scale: 0,

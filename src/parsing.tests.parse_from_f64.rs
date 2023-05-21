@@ -33,6 +33,7 @@ macro_rules! impl_test {
     };
 }
 
+impl_test!(_0 : 0.0 == "0");
 impl_test!(_1 : 1.0 == "1");
 impl_test!(_2 : 2.0 == "2");
 impl_test!(_3 : 3.0 == "3");
