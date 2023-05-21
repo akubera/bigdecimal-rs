@@ -617,28 +617,94 @@ impl BigDecimal {
 
     /// Return number rounded to round_digits precision after the decimal point
     pub fn round(&self, round_digits: i64) -> BigDecimal {
-        let (bigint, decimal_part_digits) = self.as_bigint_and_exponent();
-        let need_to_round_digits = decimal_part_digits - round_digits;
-        if round_digits >= 0 && need_to_round_digits <= 0 {
-            return self.clone();
+        // we have fewer digits than we need, no rounding
+        if round_digits >= self.scale {
+            return self.with_scale(round_digits);
         }
 
-        let mut number = bigint.clone();
-        if number < BigInt::zero() {
-            number = -number;
-        }
-        for _ in 0..(need_to_round_digits - 1) {
-            number /= 10;
-        }
-        let digit = number % 10;
+        let (sign, double_digits) = self.int_val.to_radix_le(100);
 
-        if digit <= BigInt::from(4) {
-            self.with_scale(round_digits)
-        } else if bigint.is_negative() {
-            self.with_scale(round_digits) - BigDecimal::new(BigInt::from(1), round_digits)
+        let last_is_double_digit = *double_digits.last().unwrap() >= 10;
+        let digit_count = (double_digits.len() - 1) * 2 + 1 + last_is_double_digit as usize;
+
+        // relevant digit positions: each "pos" is position of 10^{pos}
+        let least_significant_pos = -self.scale;
+        let most_sig_digit_pos = digit_count as i64 + least_significant_pos - 1;
+        let rounding_pos = -round_digits;
+
+        // digits are too small, round to zero
+        if rounding_pos > most_sig_digit_pos + 1 {
+            return BigDecimal::zero();
+        }
+
+        // highest digit is next to rounding point
+        if rounding_pos == most_sig_digit_pos + 1 {
+            let (&last_double_digit, remaining) = double_digits.split_last().unwrap();
+
+            let mut trailing_zeros = remaining.iter().all(|&d| d == 0);
+
+            let last_digit = if last_is_double_digit {
+                let (high, low) = num_integer::div_rem(last_double_digit, 10);
+                trailing_zeros &= low == 0;
+                high
+            } else {
+                last_double_digit
+            };
+
+            if last_digit > 5 || (last_digit == 5 && !trailing_zeros) {
+                return BigDecimal::new(BigInt::one(), round_digits);
+            }
+
+            return BigDecimal::zero();
+        }
+
+        let double_digits_to_remove = self.scale - round_digits;
+        debug_assert!(double_digits_to_remove > 0);
+
+        let (rounding_idx, rounding_offset) = num_integer::div_rem(double_digits_to_remove as usize, 2);
+        debug_assert!(rounding_idx <= double_digits.len());
+
+        let (low_digits, high_digits) = double_digits.as_slice().split_at(rounding_idx);
+        debug_assert!(high_digits.len() > 0);
+
+        let mut unrounded_uint = num_bigint::BigUint::from_radix_le(high_digits, 100).unwrap();
+
+        let rounded_uint;
+        if rounding_offset == 0 {
+            let high_digit = high_digits[0] % 10;
+            let (&top, rest) = low_digits.split_last().unwrap_or((&0u8, &[]));
+            let (low_digit, lower_digit) = num_integer::div_rem(top, 10);
+            let trailing_zeros = lower_digit == 0 && rest.iter().all(|&d| d == 0);
+
+            let rounding = if low_digit < 5 {
+                0
+            } else if low_digit > 5 || !trailing_zeros {
+                1
+            } else {
+                high_digit % 2
+            };
+
+            rounded_uint = unrounded_uint + rounding;
         } else {
-            self.with_scale(round_digits) + BigDecimal::new(BigInt::from(1), round_digits)
+            let (high_digit, low_digit) = num_integer::div_rem(high_digits[0], 10);
+
+            let trailing_zeros = low_digits.iter().all(|&d| d == 0);
+
+            let rounding = if low_digit < 5 {
+                0
+            } else if low_digit > 5 || !trailing_zeros {
+                1
+            } else {
+                high_digit % 2
+            };
+
+            // shift unrounded_uint down,
+            unrounded_uint /= num_bigint::BigUint::from_u8(10).unwrap();
+            rounded_uint = unrounded_uint + rounding;
         }
+
+        let rounded_int = num_bigint::BigInt::from_biguint(sign,  rounded_uint);
+        BigDecimal::new(rounded_int, round_digits)
     }
 
     /// Return true if this number has zero fractional part (is equal
@@ -2797,19 +2863,32 @@ mod bigdecimal_tests {
     #[test]
     fn test_round() {
         let test_cases = vec![
-            ("1.45", 1, "1.5"),
+            ("1.45", 1, "1.4"),
             ("1.444445", 1, "1.4"),
             ("1.44", 1, "1.4"),
             ("0.444", 2, "0.44"),
+            ("4.5", 0, "4"),
+            ("4.05", 1, "4.0"),
+            ("4.050", 1, "4.0"),
+            ("4.15", 1, "4.2"),
             ("0.0045", 2, "0.00"),
+            ("5.5", -1, "10"),
             ("-1.555", 2, "-1.56"),
             ("-1.555", 99, "-1.555"),
             ("5.5", 0, "6"),
             ("-1", -1, "0"),
-            ("5", -1, "10"),
+            ("5", -1, "0"),
             ("44", -1, "40"),
             ("44", -99, "0"),
+            ("44", 99, "44"),
+            ("1.4499999999", -1, "0"),
+            ("1.4499999999", 0, "1"),
             ("1.4499999999", 1, "1.4"),
+            ("1.4499999999", 2, "1.45"),
+            ("1.4499999999", 3, "1.450"),
+            ("1.4499999999", 4, "1.4500"),
+            ("1.4499999999", 10, "1.4499999999"),
+            ("1.4499999999", 15, "1.449999999900000"),
             ("-1.4499999999", 1, "-1.4"),
             ("1.449999999", 1, "1.4"),
             ("-9999.444455556666", 10, "-9999.4444555567"),
@@ -2826,6 +2905,17 @@ mod bigdecimal_tests {
             let rounded = a.round(digits);
             assert_eq!(rounded, b);
         }
+    }
+
+    #[test]
+    fn round_large_number() {
+        use super::BigDecimal;
+
+        let z = BigDecimal::from_str("3.4613133327063255443352353815722045816611958409944513040035462804475524").unwrap();
+        let expected = BigDecimal::from_str("11.9806899871705702711783103817684242408972124568942276285200973527647213").unwrap();
+        let zsq = &z*&z;
+        let zsq = zsq.round(70);
+        debug_assert_eq!(zsq, expected);
     }
 
     #[test]
