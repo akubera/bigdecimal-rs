@@ -74,6 +74,9 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 #[macro_use]
 mod macros;
 
+#[cfg(test)]
+extern crate paste;
+
 mod parsing;
 
 #[inline(always)]
