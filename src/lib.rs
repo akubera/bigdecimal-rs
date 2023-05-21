@@ -2138,12 +2138,9 @@ mod bigdecimal_serde {
 #[rustfmt::skip]
 #[cfg(test)]
 mod bigdecimal_tests {
-    use crate::{BigDecimal, FromStr, TryFrom};
+    use crate::{BigDecimal, ToString, FromStr, TryFrom};
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
-
-    #[cfg(all(not(feature = "std"), feature = "alloc"))]
-    use crate::{vec, format, ToString};
 
     #[test]
     fn test_sum() {
@@ -2270,9 +2267,9 @@ mod bigdecimal_tests {
             ("0.001000000047497451305389404296875", 0.001),
             ("12.340000152587890625", 12.34),
             ("0.15625", 0.15625),
-            ("3.1415927410125732421875", ::std::f32::consts::PI),
-            ("31415.927734375", ::std::f32::consts::PI * 10000.0),
-            ("94247.78125", ::std::f32::consts::PI * 30000.0),
+            ("3.1415927410125732421875", crate::f32::consts::PI),
+            ("31415.927734375", crate::f32::consts::PI * 10000.0),
+            ("94247.78125", crate::f32::consts::PI * 30000.0),
             ("1048576", 1048576.),
         ];
         for (s, n) in vals {
@@ -2294,9 +2291,9 @@ mod bigdecimal_tests {
             ("12.339999999999999857891452847979962825775146484375", 12.34),
             ("0.15625", 5.0 * 0.03125),
             ("0.333333333333333314829616256247390992939472198486328125", 1.0 / 3.0),
-            ("3.141592653589793115997963468544185161590576171875", ::std::f64::consts::PI),
-            ("31415.926535897931898944079875946044921875", ::std::f64::consts::PI * 10000.0f64),
-            ("94247.779607693795696832239627838134765625", ::std::f64::consts::PI * 30000.0f64),
+            ("3.141592653589793115997963468544185161590576171875", crate::f64::consts::PI),
+            ("31415.926535897931898944079875946044921875", crate::f64::consts::PI * 10000.0f64),
+            ("94247.779607693795696832239627838134765625", crate::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
