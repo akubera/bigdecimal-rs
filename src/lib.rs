@@ -74,6 +74,11 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 #[macro_use]
 mod macros;
 
+#[cfg(test)]
+extern crate paste;
+
+mod parsing;
+
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
@@ -1904,7 +1909,7 @@ impl TryFrom<f32> for BigDecimal {
 
     #[inline]
     fn try_from(n: f32) -> Result<Self, Self::Error> {
-        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION = ::std::f32::DIGITS as usize))
+        parsing::try_parse_from_f32(n)
     }
 }
 
@@ -1913,7 +1918,7 @@ impl TryFrom<f64> for BigDecimal {
 
     #[inline]
     fn try_from(n: f64) -> Result<Self, Self::Error> {
-        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION = ::std::f64::DIGITS as usize))
+        parsing::try_parse_from_f64(n)
     }
 }
 
@@ -2132,7 +2137,7 @@ mod bigdecimal_tests {
             BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_f32(2.801).unwrap();
+        let expected_sum = BigDecimal::from_str("2.801000011968426406383514404296875").unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2143,10 +2148,9 @@ mod bigdecimal_tests {
         let vals = vec![
             BigDecimal::from_f32(0.1).unwrap(),
             BigDecimal::from_f32(0.2).unwrap(),
-            // BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_f32(0.3).unwrap();
+        let expected_sum = BigDecimal::from_str("0.300000004470348358154296875").unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2241,28 +2245,27 @@ mod bigdecimal_tests {
     #[test]
     fn test_from_f32() {
         let vals = vec![
+            ("0.0", 0.0),
             ("1.0", 1.0),
             ("0.5", 0.5),
             ("0.25", 0.25),
             ("50.", 50.0),
             ("50000", 50000.),
-            ("0.001", 0.001),
-            ("12.34", 12.34),
-            ("0.15625", 5.0 * 0.03125),
-            ("3.141593", ::std::f32::consts::PI),
-            ("31415.93", ::std::f32::consts::PI * 10000.0),
-            ("94247.78", ::std::f32::consts::PI * 30000.0),
-            // ("3.14159265358979323846264338327950288f32", ::std::f32::consts::PI),
-
+            ("0.001000000047497451305389404296875", 0.001),
+            ("12.340000152587890625", 12.34),
+            ("0.15625", 0.15625),
+            ("3.1415927410125732421875", ::std::f32::consts::PI),
+            ("31415.927734375", ::std::f32::consts::PI * 10000.0),
+            ("94247.78125", ::std::f32::consts::PI * 30000.0),
+            ("1048576", 1048576.),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
             let value = BigDecimal::from_f32(n).unwrap();
             assert_eq!(expected, value);
-            // assert_eq!(expected, n);
         }
-
     }
+
     #[test]
     fn test_from_f64() {
         let vals = vec![
@@ -2270,15 +2273,14 @@ mod bigdecimal_tests {
             ("0.5", 0.5),
             ("50", 50.),
             ("50000", 50000.),
-            ("1e-3", 0.001),
+            ("0.001000000000000000020816681711721685132943093776702880859375", 0.001),
             ("0.25", 0.25),
-            ("12.34", 12.34),
-            // ("12.3399999999999999", 12.34), // <- Precision 16 decimal points
+            ("12.339999999999999857891452847979962825775146484375", 12.34),
             ("0.15625", 5.0 * 0.03125),
-            ("0.3333333333333333", 1.0 / 3.0),
-            ("3.141592653589793", ::std::f64::consts::PI),
-            ("31415.92653589793", ::std::f64::consts::PI * 10000.0f64),
-            ("94247.77960769380", ::std::f64::consts::PI * 30000.0f64),
+            ("0.333333333333333314829616256247390992939472198486328125", 1.0 / 3.0),
+            ("3.141592653589793115997963468544185161590576171875", ::std::f64::consts::PI),
+            ("31415.926535897931898944079875946044921875", ::std::f64::consts::PI * 10000.0f64),
+            ("94247.779607693795696832239627838134765625", ::std::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
