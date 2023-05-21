@@ -20,6 +20,30 @@ pub(crate) fn try_parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalEr
 }
 
 
+/// Return mantissa, exponent, and sign of given floating point number
+///
+/// ```math
+/// f = frac * 2^pow
+/// ```
+///
+fn split_f32_into_parts(f: f32) -> (u32, i64, Sign) {
+    let bits = f.to_bits();
+    let frac = (bits & ((1 << 23) - 1)) + (1 << 23);
+    let exp = (bits >> 23) & 0xFF;
+
+    let pow = exp as i64 - 127 - 23;
+
+    let sign_bit = bits & (1 << 31);
+    let sign = if sign_bit == 0 {
+        Sign::Plus
+    } else {
+        Sign::Minus
+    };
+
+    (frac, pow, sign)
+}
+
+
 /// Create bigdecimal from f32
 ///
 /// Non "normal" values is undefined behavior
@@ -36,17 +60,8 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
         };
     }
 
-    let frac = (bits & ((1 << 23) - 1)) + (1 << 23);
-    let exp = (bits >> 23) & 0xFF;
-
-    let pow = exp as i64 - 127 - 23;
-
-    let sign_bit = bits & (1 << 31);
-    let sign = if sign_bit == 0 {
-        Sign::Plus
-    } else {
-        Sign::Minus
-    };
+    // n = <sign> frac * 2^pow
+    let (frac, pow, sign) = split_f32_into_parts(n);
 
     let result;
     let scale;
