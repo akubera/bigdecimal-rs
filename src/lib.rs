@@ -74,6 +74,8 @@ const LOG2_10: f64 = 3.321928094887362_f64;
 #[macro_use]
 mod macros;
 
+mod parsing;
+
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
@@ -1904,7 +1906,7 @@ impl TryFrom<f32> for BigDecimal {
 
     #[inline]
     fn try_from(n: f32) -> Result<Self, Self::Error> {
-        BigDecimal::from_str(&format!("{:.PRECISION$e}", n, PRECISION = ::std::f32::DIGITS as usize))
+        parsing::parse_from_f32(n)
     }
 }
 
