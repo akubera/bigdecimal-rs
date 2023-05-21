@@ -5,23 +5,35 @@ use super::{BigDecimal, ParseBigDecimalError};
 use num_bigint::{BigInt, BigUint, Sign};
 
 
-pub(crate) fn parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalError> {
+/// Try creating bigdecimal from f32
+///
+/// Non "normal" values will return Error case
+///
+pub(crate) fn try_parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalError> {
+    use std::num::FpCategory::*;
+    match n.classify() {
+        Nan => Err(ParseBigDecimalError::Other("NAN".into())),
+        Infinite => Err(ParseBigDecimalError::Other("Infinite".into())),
+        Subnormal => Err(ParseBigDecimalError::Other("Subnormal".into())),
+        Normal | Zero => Ok(parse_from_f32(n)),
+    }
+}
+
+
+/// Create bigdecimal from f32
+///
+/// Non "normal" values is undefined behavior
+///
+pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
     use std::cmp::Ordering::*;
 
     let bits = n.to_bits();
-    if n.is_nan() {
-        return Err(
-            ParseBigDecimalError::Other("NAN".into())
-        )
-    }
 
     if bits == 0 {
-        return Ok(
-            BigDecimal {
-                int_val: BigInt::new(Sign::NoSign, vec![0]),
-                scale: 0,
-            }
-        );
+        return BigDecimal {
+            int_val: BigInt::new(Sign::NoSign, vec![0]),
+            scale: 0,
+        };
     }
 
     let frac = (bits & ((1 << 23) - 1)) + (1 << 23);
@@ -61,12 +73,10 @@ pub(crate) fn parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalError>
         }
     }
 
-    return Ok(
-        BigDecimal {
-            int_val: BigInt::from_biguint(sign, result),
-            scale: scale,
-        }
-    );
+    BigDecimal {
+        int_val: BigInt::from_biguint(sign, result),
+        scale: scale,
+    }
 }
 
 #[cfg(test)]
