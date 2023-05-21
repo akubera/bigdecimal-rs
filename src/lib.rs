@@ -2137,7 +2137,7 @@ mod bigdecimal_tests {
             BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        let expected_sum = BigDecimal::from_f32(2.8009998798370361328125).unwrap();
+        let expected_sum = BigDecimal::from_str("2.80100001196842640638351440429688").unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
@@ -2148,11 +2148,9 @@ mod bigdecimal_tests {
         let vals = vec![
             BigDecimal::from_f32(0.1).unwrap(),
             BigDecimal::from_f32(0.2).unwrap(),
-            // BigDecimal::from_f32(0.001).unwrap(),
         ];
 
-        // let expected_sum = BigDecimal::from_f32(0.3).unwrap();
-        let expected_sum = BigDecimal::from_f32(0.300000011920928955078125).unwrap();
+        let expected_sum = BigDecimal::from_str("0.300000004470348358154296875").unwrap();
         let sum = vals.iter().sum::<BigDecimal>();
 
         assert_eq!(expected_sum, sum);
