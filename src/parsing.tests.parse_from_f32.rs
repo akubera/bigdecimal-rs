@@ -2,7 +2,7 @@
 
 use paste::paste;
 
-use crate::f32;
+use stdlib::f32;
 
 macro_rules! impl_test {
     ($name:ident : $input:literal == $expected:literal) => {

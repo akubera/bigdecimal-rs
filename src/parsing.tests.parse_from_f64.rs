@@ -2,7 +2,7 @@
 
 use paste::paste;
 
-use crate::f64;
+use stdlib::f64;
 
 macro_rules! impl_test {
     ($input:literal == $expected:literal) => {

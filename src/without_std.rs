@@ -1,32 +1,37 @@
-use core::{
-    cmp,
-    convert,
-    default,
-    fmt,
-    hash,
-    mem,
-    num,
-    ops,
-    iter,
-    str,
-    i8,
-    f32,
-    f64,
-};
-
-#[cfg(test)]
-extern crate siphasher;
-
-#[cfg(test)]
-use siphasher::sip::SipHasher as DefaultHasher;
-
-// Without this import we get the following error:
-// error[E0599]: no method named `powi` found for type `f64` in the current scope
-#[allow(unused_imports)]
-use num_traits::float::FloatCore;
-
 #[allow(unused_imports)]
 #[macro_use]
 extern crate alloc;
 
-use alloc::string;
+#[cfg(test)]
+extern crate siphasher;
+
+// Without this import we get the following error:
+// error[E0599]: no method naemed `powi` found for type `f64` in the current scope
+#[allow(unused_imports)]
+use num_traits::float::FloatCore;
+
+// Wrap core:: modules in namespace
+#[allow(unused_imports)]
+mod stdlib {
+
+    pub use core::{
+        cmp,
+        convert,
+        default,
+        fmt,
+        hash,
+        mem,
+        num,
+        ops,
+        iter,
+        str,
+        i8,
+        f32,
+        f64,
+    };
+
+    #[cfg(test)]
+    pub use siphasher::sip::SipHasher as DefaultHasher;
+
+    pub use alloc::string;
+}

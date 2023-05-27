@@ -60,15 +60,17 @@ include!("./with_std.rs");
 #[cfg(not(feature = "std"))]
 include!("./without_std.rs");
 
-use crate::cmp::Ordering;
-use crate::convert::TryFrom;
-use crate::default::Default;
-use crate::hash::{Hash, Hasher};
-use crate::num::{ParseFloatError, ParseIntError};
-use crate::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use crate::iter::Sum;
-use crate::str::FromStr;
-use crate::string::{String, ToString};
+// make available some standard items
+use self::stdlib::cmp::{self, Ordering};
+use self::stdlib::convert::TryFrom;
+use self::stdlib::default::Default;
+use self::stdlib::hash::{Hash, Hasher};
+use self::stdlib::num::{ParseFloatError, ParseIntError};
+use self::stdlib::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+use self::stdlib::iter::Sum;
+use self::stdlib::str::FromStr;
+use self::stdlib::string::{String, ToString};
+use self::stdlib::fmt;
 
 use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
 use num_integer::Integer as IntegerTrait;
@@ -206,9 +208,9 @@ impl BigDecimal {
     /// ```
     #[inline]
     pub fn parse_bytes(buf: &[u8], radix: u32) -> Option<BigDecimal> {
-        str::from_utf8(buf)
-            .ok()
-            .and_then(|s| BigDecimal::from_str_radix(s, radix).ok())
+        stdlib::str::from_utf8(buf)
+                    .ok()
+                    .and_then(|s| BigDecimal::from_str_radix(s, radix).ok())
     }
 
     /// Return a new BigDecimal object equivalent to self, with internal
@@ -1385,7 +1387,7 @@ impl Mul<BigDecimal> for BigInt {
     fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
         if rhs.is_one() {
             rhs.scale = 0;
-            crate::mem::swap(&mut rhs.int_val, &mut self);
+            stdlib::mem::swap(&mut rhs.int_val, &mut self);
         } else if !self.is_one() {
             rhs.int_val *= self;
         }
@@ -2040,7 +2042,7 @@ impl ToBigInt for BigDecimal {
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
 mod bigdecimal_serde {
-    use crate::{fmt, TryFrom, FromStr};
+    use stdlib::{fmt, TryFrom, FromStr};
 
     use super::BigDecimal;
     use serde::{de, ser};
@@ -2195,9 +2197,9 @@ mod bigdecimal_serde {
             0.001,
             12.34,
             5.0 * 0.03125,
-            crate::f64::consts::PI,
-            crate::f64::consts::PI * 10000.0,
-            crate::f64::consts::PI * 30000.0,
+            stdlib::f64::consts::PI,
+            stdlib::f64::consts::PI * 10000.0,
+            stdlib::f64::consts::PI * 30000.0,
         ];
         for n in vals {
             let expected = BigDecimal::from_f64(n).unwrap();
@@ -2210,7 +2212,7 @@ mod bigdecimal_serde {
 #[rustfmt::skip]
 #[cfg(test)]
 mod bigdecimal_tests {
-    use crate::{BigDecimal, ToString, FromStr, TryFrom};
+    use crate::{stdlib, BigDecimal, ToString, FromStr, TryFrom};
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
 
@@ -2339,9 +2341,9 @@ mod bigdecimal_tests {
             ("0.001000000047497451305389404296875", 0.001),
             ("12.340000152587890625", 12.34),
             ("0.15625", 0.15625),
-            ("3.1415927410125732421875", crate::f32::consts::PI),
-            ("31415.927734375", crate::f32::consts::PI * 10000.0),
-            ("94247.78125", crate::f32::consts::PI * 30000.0),
+            ("3.1415927410125732421875", stdlib::f32::consts::PI),
+            ("31415.927734375", stdlib::f32::consts::PI * 10000.0),
+            ("94247.78125", stdlib::f32::consts::PI * 30000.0),
             ("1048576", 1048576.),
         ];
         for (s, n) in vals {
@@ -2363,9 +2365,9 @@ mod bigdecimal_tests {
             ("12.339999999999999857891452847979962825775146484375", 12.34),
             ("0.15625", 5.0 * 0.03125),
             ("0.333333333333333314829616256247390992939472198486328125", 1.0 / 3.0),
-            ("3.141592653589793115997963468544185161590576171875", crate::f64::consts::PI),
-            ("31415.926535897931898944079875946044921875", crate::f64::consts::PI * 10000.0f64),
-            ("94247.779607693795696832239627838134765625", crate::f64::consts::PI * 30000.0f64),
+            ("3.141592653589793115997963468544185161590576171875", stdlib::f64::consts::PI),
+            ("31415.926535897931898944079875946044921875", stdlib::f64::consts::PI * 10000.0f64),
+            ("94247.779607693795696832239627838134765625", stdlib::f64::consts::PI * 30000.0f64),
         ];
         for (s, n) in vals {
             let expected = BigDecimal::from_str(s).unwrap();
@@ -2644,7 +2646,8 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_equal() {
-        use crate::{Hash, Hasher, DefaultHasher};
+        use stdlib::DefaultHasher;
+        use stdlib::hash::{Hash, Hasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash
@@ -2680,7 +2683,8 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_not_equal() {
-        use crate::{Hash, Hasher, DefaultHasher};
+        use stdlib::DefaultHasher;
+        use stdlib::hash::{Hash, Hasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash
@@ -2706,7 +2710,8 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_hash_equal_scale() {
-        use crate::{Hash, Hasher, DefaultHasher};
+        use stdlib::DefaultHasher;
+        use stdlib::hash::{Hash, Hasher};
 
         fn hash<T>(obj: &T) -> u64
             where T: Hash

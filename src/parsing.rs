@@ -2,6 +2,8 @@
 
 use super::{BigDecimal, ParseBigDecimalError};
 
+use stdlib::cmp::{self, Ordering};
+
 use num_bigint::{BigInt, BigUint, Sign};
 use num_traits::Zero;
 
@@ -11,7 +13,7 @@ use num_traits::Zero;
 /// Non "normal" values will return Error case
 ///
 pub(crate) fn try_parse_from_f32(n: f32) -> Result<BigDecimal, ParseBigDecimalError> {
-    use crate::num::FpCategory::*;
+    use stdlib::num::FpCategory::*;
     match n.classify() {
         Nan => Err(ParseBigDecimalError::Other("NAN".into())),
         Infinite => Err(ParseBigDecimalError::Other("Infinite".into())),
@@ -50,8 +52,6 @@ fn split_f32_into_parts(f: f32) -> (u32, i64, Sign) {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
-    use crate::cmp::Ordering::*;
-
     let bits = n.to_bits();
 
     if (bits << 1) == 0 {
@@ -64,12 +64,12 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
     let result;
     let scale;
     match pow.cmp(&0) {
-        Equal => {
+        Ordering::Equal => {
             result = BigUint::from(frac);
             scale = 0;
         }
-        Less => {
-            let trailing_zeros = crate::cmp::min(frac.trailing_zeros(), -pow as u32);
+        Ordering::Less => {
+            let trailing_zeros = cmp::min(frac.trailing_zeros(), -pow as u32);
 
             let reduced_frac = frac >> trailing_zeros;
             let reduced_pow = pow + trailing_zeros as i64;
@@ -80,7 +80,7 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
             result = reduced_frac * shift;
             scale = -reduced_pow;
         }
-        Greater => {
+        Ordering::Greater => {
             let shift = BigUint::from(2u8).pow(pow.abs() as u32);
 
             result = frac * shift;
@@ -108,7 +108,7 @@ mod test_parse_from_f32 {
 /// Non "normal" values will return Error case
 ///
 pub(crate) fn try_parse_from_f64(n: f64) -> Result<BigDecimal, ParseBigDecimalError> {
-    use crate::num::FpCategory::*;
+    use stdlib::num::FpCategory::*;
     match n.classify() {
         Nan => Err(ParseBigDecimalError::Other("NAN".into())),
         Infinite => Err(ParseBigDecimalError::Other("Infinite".into())),
@@ -147,8 +147,6 @@ fn split_f64_into_parts(f: f64) -> (u64, i64, Sign) {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
-    use crate::cmp::Ordering::*;
-
     let bits = n.to_bits();
 
     // shift right by 1 bit to handle -0.0
@@ -163,12 +161,12 @@ pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
     let result;
     let scale;
     match pow.cmp(&0) {
-        Equal => {
+        Ordering::Equal => {
             result = BigUint::from(frac);
             scale = 0;
         }
-        Less => {
-            let trailing_zeros = crate::cmp::min(frac.trailing_zeros(), -pow as u32);
+        Ordering::Less => {
+            let trailing_zeros = cmp::min(frac.trailing_zeros(), -pow as u32);
 
             let reduced_frac = frac >> trailing_zeros;
             let reduced_pow = pow + trailing_zeros as i64;
@@ -179,7 +177,7 @@ pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
             result = reduced_frac * shift;
             scale = -reduced_pow;
         }
-        Greater => {
+        Ordering::Greater => {
             let shift = BigUint::from(2u8).pow(pow as u32);
             result = frac * shift;
             scale = 0;
