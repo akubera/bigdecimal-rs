@@ -77,6 +77,10 @@ pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 #[allow(clippy::approx_constant)] // requires Rust 1.43.0
 const LOG2_10: f64 = 3.321928094887362_f64;
 
+
+// const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
+include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
+
 #[macro_use]
 mod macros;
 
