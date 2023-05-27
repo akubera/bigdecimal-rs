@@ -731,6 +731,8 @@ impl BigDecimal {
             return BigDecimal::one();
         }
 
+        let target_precision = DEFAULT_PRECISION;
+
         let precision = self.digits();
 
         let mut term = self.clone();
@@ -744,13 +746,13 @@ impl BigDecimal {
             // ∑ term=x^n/n!
             result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
 
-            let trimmed_result = result.with_prec(105);
+            let trimmed_result = result.with_prec(target_precision + 5);
             if prev_result == trimmed_result {
-                return trimmed_result.with_prec(100);
+                return trimmed_result.with_prec(target_precision);
             }
             prev_result = trimmed_result;
         }
-        return result.with_prec(100);
+        unreachable!("Loop did not converge")
     }
 
     #[must_use]
