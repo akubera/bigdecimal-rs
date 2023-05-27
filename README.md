@@ -41,6 +41,21 @@ sqrt(2) = 1.41421356237309504880168872420969807856967187537694807317667973799073
 ```
 
 
+#### Default precision
+
+Default precision may be set at compile time with the environment variable `RUST_BIGDECIMAL_DEFAULT_PRECISION`.
+The default value of this variable is 100.
+
+This will be used as maximum precision for operations which may produce infinite digits (inverse, sqrt, ...).
+
+Note that other operations, such as multiplication, will preserve all digits, so multiplying two 70 digit numbers
+will result in one 140 digit number.
+The user will have to manually trim the number of digits after calculations to reasonable amounts using the
+`x.with_prec(30)` method.
+
+A new set of methods with explicit precision and rounding modes is being worked on, but even after those
+are introduced the default precision will have to be used as the implicit value.
+
 ## Improvements
 
 Work is being done on this codebase again and there are many features

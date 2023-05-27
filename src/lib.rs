@@ -77,6 +77,10 @@ pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 #[allow(clippy::approx_constant)] // requires Rust 1.43.0
 const LOG2_10: f64 = 3.321928094887362_f64;
 
+
+// const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
+include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
+
 #[macro_use]
 mod macros;
 
@@ -446,7 +450,7 @@ impl BigDecimal {
         // }
 
         // TODO: Use context variable to set precision
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
 
         let next_iteration = move |r: BigDecimal| {
             // division needs to be precise to (at least) one extra digit
@@ -514,7 +518,7 @@ impl BigDecimal {
         };
 
         // TODO: Use context variable to set precision
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
 
         let three = BigDecimal::from(3);
 
@@ -581,7 +585,7 @@ impl BigDecimal {
             }
         };
 
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
         let next_iteration = move |r: BigDecimal| {
             let two = BigDecimal::from(2);
             let tmp = two - self * &r;
@@ -727,6 +731,8 @@ impl BigDecimal {
             return BigDecimal::one();
         }
 
+        let target_precision = DEFAULT_PRECISION;
+
         let precision = self.digits();
 
         let mut term = self.clone();
@@ -740,13 +746,13 @@ impl BigDecimal {
             // ∑ term=x^n/n!
             result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
 
-            let trimmed_result = result.with_prec(105);
+            let trimmed_result = result.with_prec(target_precision + 5);
             if prev_result == trimmed_result {
-                return trimmed_result.with_prec(100);
+                return trimmed_result.with_prec(target_precision);
             }
             prev_result = trimmed_result;
         }
-        return result.with_prec(100);
+        unreachable!("Loop did not converge")
     }
 
     #[must_use]
