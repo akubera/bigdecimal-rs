@@ -297,3 +297,71 @@ mod test_round_pair {
         impl_test!(Up, Down, Ceiling, Floor, HalfUp, HalfDown, HalfEven => 2);
     }
 }
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_round_u32 {
+    use paste::paste;
+    use super::*;
+
+    macro_rules! impl_test {
+        ( $pos:literal :: $($mode:ident),+ => $expected:literal) => {
+            $(
+                paste! {
+                    #[test]
+                    fn [< digit_ $pos _mode_ $mode >]() {
+                        let (value, sign, trailing_zeros) = test_input();
+                        let mode = self::RoundingMode::$mode;
+                        let pos = stdlib::num::NonZeroU8::new($pos as u8).unwrap();
+                        let result = mode.round_u32(pos, sign, value, trailing_zeros);
+                        assert_eq!(result, $expected);
+                    }
+                }
+            )*
+        }
+    }
+
+    macro_rules! define_test_input {
+        ( - $value:literal $($t:tt)* ) => {
+            define_test_input!(sign=Sign::Minus, value=$value $($t)*);
+        };
+        ( $value:literal $($t:tt)* ) => {
+            define_test_input!(sign=Sign::Plus, value=$value $($t)*);
+        };
+        ( sign=$sign:expr, value=$value:literal ) => {
+            define_test_input!(sign=$sign, value=$value, trailing_zeros=false);
+        };
+        ( sign=$sign:expr, value=$value:literal 000... ) => {
+            define_test_input!(sign=$sign, value=$value, trailing_zeros=true);
+        };
+        ( sign=$sign:expr, value=$value:expr, trailing_zeros=$trailing_zeros:literal ) => {
+            fn test_input() -> (u32, Sign, bool) { ($value, $sign, $trailing_zeros) }
+        };
+    }
+
+    mod case_13950000_000 {
+        use super::*;
+
+        define_test_input!( 13950000 000... );
+
+        impl_test!(3 :: Up => 13950000);
+        impl_test!(5 :: Up, Ceiling, HalfUp, HalfEven => 14000000);
+        impl_test!(5 :: Down, HalfDown => 13900000);
+    }
+
+    mod case_neg_35488622 {
+         use super::*;
+
+        define_test_input!( - 35488622 );
+
+        impl_test!(1 :: Up => 35488630);
+        impl_test!(1 :: Down => 35488620);
+        impl_test!(2 :: Up => 35488700);
+        impl_test!(2 :: Down => 35488600);
+        impl_test!(7 :: Up, Floor => 40000000);
+        impl_test!(7 :: Down, Ceiling => 30000000);
+        impl_test!(8 :: Up => 100000000);
+        impl_test!(8 :: Down => 0);
+    }
+}
