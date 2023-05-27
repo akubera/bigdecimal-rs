@@ -1,6 +1,7 @@
 //! Rounding structures and subroutines
 
 use crate::Sign;
+use stdlib;
 
 /// Determines how to calculate the last digit of the number
 ///
@@ -146,6 +147,47 @@ impl RoundingMode {
             (HalfDown, Equal) => down,
             (HalfEven, Equal) => if lhs % 2 == 0 { down } else { up },
         }
+    }
+
+    /// Round value at particular digit, returning replacement digit
+    ///
+    /// Parameters
+    /// ----------
+    /// * at_digit (NonZeroU8) - 0-based index of digit at which to round.
+    ///                  0 would be the first digit, and would
+    ///
+    /// * sign (Sign) - Sign of the number to be rounded
+    /// * value (u32) - The number containing digits to be rounded.
+    /// * trailing_zeros (bool) - True if all digits after the value are zero.
+    ///
+    /// Returns
+    /// -------
+    /// Returns the first number of the pair, rounded. The sign is not preserved.
+    ///
+    /// Examples
+    /// --------
+    /// - To round 823418, at digit-index 3: `3, Plus, 823418, true` → 823000 or 824000, depending on scheme
+    /// - To round -100205, at digit-index 1: `1, Minus, 100205, true` → 100200 or 100210
+    ///
+    /// Calculation of pair of digits from full number, and the replacement of that number
+    /// should be handled separately
+    ///
+    pub fn round_u32(&self, at_digit: stdlib::num::NonZeroU8, sign: Sign, value: u32, trailing_zeros: bool) -> u32 {
+        let shift = 10u32.pow(at_digit.get() as u32 - 1);
+        let splitter = shift * 10;
+
+        // split 'value' into high and low
+        let (top, bottom) = num_integer::div_rem(value, splitter);
+        let lhs = (top % 10) as u8;
+        let (rhs, remainder) = num_integer::div_rem(bottom, shift);
+        let pair = (lhs, rhs as u8);
+        let rounded = self.round_pair(sign, pair, trailing_zeros && remainder == 0);
+
+        // replace low digit with rounded value
+        let full = top - lhs as u32 + rounded as u32;
+
+        // shift rounded value back to position
+        full * splitter
     }
 }
 
