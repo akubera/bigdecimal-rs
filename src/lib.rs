@@ -90,6 +90,7 @@ mod macros;
 extern crate paste;
 
 mod parsing;
+pub mod rounding;
 
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
