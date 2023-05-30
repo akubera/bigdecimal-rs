@@ -1954,6 +1954,24 @@ impl From<u64> for BigDecimal {
     }
 }
 
+impl From<i128> for BigDecimal {
+    fn from(n: i128) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0,
+        }
+    }
+}
+
+impl From<u128> for BigDecimal {
+    fn from(n: u128) -> Self {
+        BigDecimal {
+            int_val: BigInt::from(n),
+            scale: 0,
+        }
+    }
+}
+
 impl From<(BigInt, i64)> for BigDecimal {
     #[inline]
     fn from((int_val, scale): (BigInt, i64)) -> Self {
@@ -2020,6 +2038,16 @@ impl FromPrimitive for BigDecimal {
 
     #[inline]
     fn from_u64(n: u64) -> Option<Self> {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    fn from_i128(n: i128) -> Option<Self> {
+        Some(BigDecimal::from(n))
+    }
+
+    #[inline]
+    fn from_u128(n: u128) -> Option<Self> {
         Some(BigDecimal::from(n))
     }
 
