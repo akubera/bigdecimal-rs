@@ -3307,4 +3307,14 @@ mod bigdecimal_tests {
     fn test_bad_string_only_decimal_and_exponent() {
         BigDecimal::from_str(".e4").unwrap();
     }
+
+    #[test]
+    fn test_from_i128() {
+       BigDecimal::from_i128(-368934881474191032320).unwrap();
+    }
+
+    #[test]
+    fn test_from_u128() {
+       BigDecimal::from_i128(668934881474191032320).unwrap();
+    }
 }
