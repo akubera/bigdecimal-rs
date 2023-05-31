@@ -2043,7 +2043,7 @@ impl ToBigInt for BigDecimal {
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
 mod bigdecimal_serde {
-    use stdlib::{fmt, TryFrom, FromStr};
+    use stdlib::{convert::TryFrom, str::FromStr, fmt};
 
     use super::BigDecimal;
     use serde::{de, ser};
