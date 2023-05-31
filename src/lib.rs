@@ -2043,9 +2043,7 @@ impl ToBigInt for BigDecimal {
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
 mod bigdecimal_serde {
-    use stdlib::{fmt, TryFrom, FromStr};
-
-    use super::BigDecimal;
+    use super::*;
     use serde::{de, ser};
 
     #[allow(unused_imports)]
@@ -2123,8 +2121,6 @@ mod bigdecimal_serde {
 
     #[test]
     fn test_serde_serialize() {
-        use std::str::FromStr;
-
         let vals = vec![
             ("1.0", "1.0"),
             ("0.5", "0.5"),
@@ -2150,8 +2146,6 @@ mod bigdecimal_serde {
 
     #[test]
     fn test_serde_deserialize_str() {
-        use std::str::FromStr;
-
         let vals = vec![
             ("1.0", "1.0"),
             ("0.5", "0.5"),
