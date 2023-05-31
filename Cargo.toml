@@ -31,6 +31,6 @@ siphasher = { version = "0.3.10", default-features = false }
 
 [features]
 default = ["std"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "num-bigint/serde"]
 string-only = []
 std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
