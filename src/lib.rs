@@ -3310,11 +3310,15 @@ mod bigdecimal_tests {
 
     #[test]
     fn test_from_i128() {
-       BigDecimal::from_i128(-368934881474191032320).unwrap();
+        let value = BigDecimal::from_i128(-368934881474191032320).unwrap();
+        let expected = BigDecimal::from_str("-368934881474191032320").unwrap();
+        assert_eq!(value, expected);
     }
 
     #[test]
     fn test_from_u128() {
-       BigDecimal::from_i128(668934881474191032320).unwrap();
+        let value = BigDecimal::from_u128(668934881474191032320).unwrap();
+        let expected = BigDecimal::from_str("668934881474191032320").unwrap();
+        assert_eq!(value, expected);
     }
 }
