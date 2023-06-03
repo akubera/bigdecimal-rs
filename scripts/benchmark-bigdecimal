@@ -1,0 +1,25 @@
+#!/bin/sh
+#
+# Run Criterion Benchmarks
+#
+
+INDEX_HTML="<!doctype html>
+<html>
+<h1>Benchmark Results</h1>
+<p><b>Criterion Report:</b> <a href='target/criterion/report/'>Report</a></p>
+</html>"
+
+# enable bench-only dependencies in Cargo
+sed -i.bak -e 's/# BENCH: //' Cargo.toml
+
+# Run criterion
+cargo bench "$@"
+
+# Restore Cargo.toml with backup
+mv Cargo.toml.bak Cargo.toml
+
+
+# store extra things for the benchmarking report
+if [ -v BENCHMARK_EXTRAS ]; then
+    echo $INDEX_HTML > index.html
+fi
