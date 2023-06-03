@@ -3,6 +3,9 @@
 extern crate criterion;
 extern crate bigdecimal;
 extern crate oorandom;
+extern crate lazy_static;
+
+use lazy_static::lazy_static;
 
 use std::fs::File;
 use std::time::Duration;
@@ -10,6 +13,7 @@ use std::time::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use bigdecimal::BigDecimal;
 
+#[macro_use]
 mod common;
 use common::*;
 
@@ -171,10 +175,10 @@ fn bench_inverse(
 mod datafile_1f633481a742923ab65855c90157bbf7 {
     use super::*;
 
+
     fn get_bigdecimals() -> Vec<BigDecimal> {
-        let file = File::open("../bigdecimal-test-inputs/random-bigdecimals-1f633481a742923ab65855c90157bbf7.txt")
-                        .expect("Could not load random datafile 1f633481a742923ab65855c90157bbf7");
-        super::read_bigdecimals(file)
+        let file = open_benchmark_data_file!("random-bigdecimals-1f633481a742923ab65855c90157bbf7.txt");
+        super::read_bigdecimal_file(file)
     }
 
     pub fn addition(c: &mut Criterion) {
@@ -202,10 +206,14 @@ mod datafile_1f633481a742923ab65855c90157bbf7 {
 mod datafile_9a08ddaa6ce6693cdd7b8a524e088bd0 {
     use super::*;
 
-    fn get_bigdecimals() -> Vec<BigDecimal> {
-        let file = File::open("../bigdecimal-test-inputs/random-bigdecimals-9a08ddaa6ce6693cdd7b8a524e088bd0.txt")
-                        .expect("Could not load random datafile 9a08ddaa6ce6693cdd7b8a524e088bd0");
-        super::read_bigdecimals(file)
+    const SRC: &'static str  = include_benchmark_data_file!("random-bigdecimals-9a08ddaa6ce6693cdd7b8a524e088bd0.txt");
+
+    lazy_static! {
+        static ref BIG_DECIMALS: Vec<BigDecimal> = super::collect_bigdecimals(SRC);
+    }
+
+    fn get_bigdecimals<'a>() -> &'a [BigDecimal] {
+        BIG_DECIMALS.as_slice()
     }
 
     pub fn arithmetic(c: &mut Criterion) {
@@ -232,12 +240,13 @@ mod datafile_9a08ddaa6ce6693cdd7b8a524e088bd0 {
 
 
 pub fn criterion_benchmark(c: &mut Criterion) {
+    let src_a = include_benchmark_data_file!("random-bigdecimals-a329e61834832d89593b29f12510bdc8.txt");
+    let src_b = include_benchmark_data_file!("random-bigdecimals-4be58192272b15fc67573b39910837d0.txt");
 
-    let file_a = File::open("../bigdecimal-test-inputs/random-values.txt").expect("Could not load bigdecimal-a");
-    let file_b = File::open("../bigdecimal-test-inputs/random-values-b.txt").expect("Could not load bigdecimal-b");
-
-    let decs_a = read_bigdecimals(file_a);
-    let decs_b = read_bigdecimals(file_b);
+    let decs_a = collect_bigdecimals(src_a);
+    let decs_b = collect_bigdecimals(src_b);
+    assert_ne!(decs_a.len(), 0);
+    assert_ne!(decs_b.len(), 0);
 
     let mut decimal_values = Vec::with_capacity(decs_a.len() + decs_b.len());
     for dec in decs_a.iter().chain(decs_b.iter()) {
