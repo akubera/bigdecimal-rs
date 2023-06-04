@@ -215,22 +215,19 @@ mod test_round_pair {
     }
 
     macro_rules! define_test_input {
-        ( - $lhs:literal, $rhs:literal $($t:tt)* ) => {
-            define_test_input!(sign=Sign::Minus, pair=($lhs, $rhs) $($t)*);
+        ( - $lhs:literal . $rhs:literal $($t:tt)* ) => {
+            define_test_input!(sign=Sign::Minus, pair=($lhs, $rhs), $($t)*);
         };
-        ( $lhs:literal, $rhs:literal $($t:tt)*) => {
-            define_test_input!(sign=Sign::Plus, pair=($lhs, $rhs) $($t)*);
+        ( $lhs:literal . $rhs:literal $($t:tt)*) => {
+            define_test_input!(sign=Sign::Plus, pair=($lhs, $rhs), $($t)*);
         };
-        ( sign=$sign:expr, $lhs:literal, $rhs:literal $($t:tt)* ) => {
-            define_test_input!(sign=$sign, pair=($lhs, $rhs) $($t)*);
-        };
-        ( sign=$sign:expr, pair=$pair:expr) => {
-            define_test_input!(sign=$sign, pair=$pair, trailing_zeros=false);
-        };
-        ( sign=$sign:expr, pair=$pair:expr, 000...) => {
+        ( sign=$sign:expr, pair=$pair:expr, ) => {
             define_test_input!(sign=$sign, pair=$pair, trailing_zeros=true);
         };
-        ( sign=$sign:expr, pair=$pair:expr, trailing_zeros=$trailing_zeros:literal) => {
+        ( sign=$sign:expr, pair=$pair:expr, 000x ) => {
+            define_test_input!(sign=$sign, pair=$pair, trailing_zeros=false);
+        };
+        ( sign=$sign:expr, pair=$pair:expr, trailing_zeros=$trailing_zeros:literal ) => {
             fn test_input() -> ((u8, u8), Sign, bool) { ($pair, $sign, $trailing_zeros) }
         };
     }
@@ -238,63 +235,163 @@ mod test_round_pair {
     mod case_0_1 {
         use super::*;
 
-        define_test_input!( 0, 1 );
+        define_test_input!(0 . 1);
 
         impl_test!(Up, Ceiling => 1);
         impl_test!(Down, Floor, HalfUp, HalfDown, HalfEven => 0);
     }
 
-    mod case_9_5 {
+    mod case_neg_0_1 {
         use super::*;
 
-        define_test_input!( 9, 5 );
+        define_test_input!(-0 . 1);
 
-        impl_test!(Up, Ceiling, HalfDown, HalfUp, HalfEven => 10);
-        impl_test!(Down, Floor => 9);
+        impl_test!(Up, Floor => 1);
+        impl_test!(Down, Ceiling, HalfUp, HalfDown, HalfEven => 0);
     }
 
-    mod case_9_5_0000 {
+    mod case_0_5 {
         use super::*;
 
-        define_test_input!( 9, 5, 000...);
+        define_test_input!( 0 . 5 );
 
-        impl_test!(Up, Ceiling, HalfUp, HalfEven => 10);
-        impl_test!(Down, Floor, HalfDown => 9);
+        impl_test!(Up, Ceiling, HalfUp => 1);
+        impl_test!(Down, Floor, HalfDown, HalfEven => 0);
     }
 
-    mod case_8_5_0000 {
+    mod case_neg_0_5 {
         use super::*;
 
-        define_test_input!( 8, 5, 000...);
+        define_test_input!(-0 . 5);
 
-        impl_test!(Up, Ceiling, HalfUp => 9);
-        impl_test!(Down, Floor, HalfDown, HalfEven => 8);
+        impl_test!(Up, Floor, HalfUp => 1);
+        impl_test!(Down, Ceiling, HalfDown, HalfEven => 0);
     }
 
-    mod case_neg_4_3 {
+    mod case_0_5_000x {
         use super::*;
 
-        define_test_input!(- 4, 3 );
+        // ...000x indicates a non-zero trailing digit; affects behavior of rounding N.0 and N.5
+        define_test_input!(0 . 5 000x);
+
+        impl_test!(Up, Ceiling, HalfUp, HalfDown, HalfEven => 1);
+        impl_test!(Down, Floor => 0);
+    }
+
+    mod case_neg_0_5_000x {
+        use super::*;
+
+        define_test_input!(-0 . 5 000x);
+
+        impl_test!(Up, Floor, HalfUp, HalfDown, HalfEven => 1);
+        impl_test!(Down, Ceiling => 0);
+    }
+
+    mod case_0_7 {
+        use super::*;
+
+        define_test_input!(0 . 7);
+
+        impl_test!(Up, Ceiling, HalfUp, HalfDown, HalfEven => 1);
+        impl_test!(Down, Floor => 0);
+    }
+
+    mod case_neg_0_7 {
+        use super::*;
+
+        define_test_input!(-0 . 7);
+
+        impl_test!(Up, Floor, HalfUp, HalfDown, HalfEven => 1);
+        impl_test!(Down, Ceiling => 0);
+    }
+
+    mod case_neg_4_3_000x {
+        use super::*;
+
+        define_test_input!(-4 . 3 000x);
 
         impl_test!(Up, Floor => 5);
         impl_test!(Down, Ceiling, HalfUp, HalfDown, HalfEven => 4);
     }
 
-    mod case_neg_6_5_000 {
+
+    mod case_9_5_000x {
         use super::*;
 
-        define_test_input!( -6, 5, 000... );
+        define_test_input!(9 . 5 000x);
+
+        impl_test!(Up, Ceiling, HalfDown, HalfUp, HalfEven => 10);
+        impl_test!(Down, Floor => 9);
+    }
+
+    mod case_9_5 {
+        use super::*;
+
+        define_test_input!(9 . 5);
+
+        impl_test!(Up, Ceiling, HalfUp, HalfEven => 10);
+        impl_test!(Down, Floor, HalfDown => 9);
+    }
+
+    mod case_8_5 {
+        use super::*;
+
+        define_test_input!(8 . 5);
+
+        impl_test!(Up, Ceiling, HalfUp => 9);
+        impl_test!(Down, Floor, HalfDown, HalfEven => 8);
+    }
+
+    mod case_neg_6_5 {
+        use super::*;
+
+        define_test_input!(-6 . 5);
 
         impl_test!(Up, Floor, HalfUp => 7);
         impl_test!(Down, Ceiling, HalfDown, HalfEven => 6);
     }
 
-    mod case_neg_2_0_000 {
+    mod case_neg_6_5_000x {
         use super::*;
 
-        define_test_input!( -2, 0, 000... );
+        define_test_input!(-6 . 5 000x);
+
+        impl_test!(Up, Floor, HalfUp, HalfDown, HalfEven => 7);
+        impl_test!(Down, Ceiling => 6);
+    }
+
+    mod case_3_0 {
+        use super::*;
+
+        define_test_input!(3 . 0);
+
+        impl_test!(Up, Down, Ceiling, Floor, HalfUp, HalfDown, HalfEven => 3);
+    }
+
+    mod case_3_0_000x {
+        use super::*;
+
+        define_test_input!(3 . 0 000x);
+
+        impl_test!(Up, Ceiling => 4);
+        impl_test!(Down, Floor, HalfUp, HalfDown, HalfEven => 3);
+    }
+
+    mod case_neg_2_0 {
+        use super::*;
+
+        define_test_input!(-2 . 0);
 
         impl_test!(Up, Down, Ceiling, Floor, HalfUp, HalfDown, HalfEven => 2);
+    }
+
+    mod case_neg_2_0_000x {
+        use super::*;
+
+        define_test_input!(-2 . 0 000x);
+
+        impl_test!(Up, Floor => 3);
+        impl_test!(Down, Ceiling, HalfUp, HalfDown, HalfEven => 2);
     }
 }
 
@@ -329,10 +426,10 @@ mod test_round_u32 {
         ( $value:literal $($t:tt)* ) => {
             define_test_input!(sign=Sign::Plus, value=$value $($t)*);
         };
-        ( sign=$sign:expr, value=$value:literal ) => {
+        ( sign=$sign:expr, value=$value:literal ...000x ) => {
             define_test_input!(sign=$sign, value=$value, trailing_zeros=false);
         };
-        ( sign=$sign:expr, value=$value:literal 000... ) => {
+        ( sign=$sign:expr, value=$value:literal ) => {
             define_test_input!(sign=$sign, value=$value, trailing_zeros=true);
         };
         ( sign=$sign:expr, value=$value:expr, trailing_zeros=$trailing_zeros:literal ) => {
@@ -340,20 +437,21 @@ mod test_round_u32 {
         };
     }
 
-    mod case_13950000_000 {
+    mod case_13950000 {
         use super::*;
 
-        define_test_input!( 13950000 000... );
+        define_test_input!(13950000);
 
         impl_test!(3 :: Up => 13950000);
         impl_test!(5 :: Up, Ceiling, HalfUp, HalfEven => 14000000);
         impl_test!(5 :: Down, HalfDown => 13900000);
     }
 
-    mod case_neg_35488622 {
+    mod case_neg_35488622_000x {
          use super::*;
 
-        define_test_input!( - 35488622 );
+        // ...000x indicates non-zero trailing digit
+        define_test_input!(-35488622 ...000x);
 
         impl_test!(1 :: Up => 35488630);
         impl_test!(1 :: Down => 35488620);
