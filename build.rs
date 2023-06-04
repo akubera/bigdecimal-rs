@@ -30,6 +30,7 @@ fn write_default_precision(outdir_path: &PathBuf, filename: &str) -> std::io::Re
     write!(default_precision_rs, "const DEFAULT_PRECISION: u64 = {};", default_prec)?;
 
     println!("cargo:rerun-if-changed={}", default_precision_rs_path.display());
+    println!("cargo:rerun-if-env-changed={}", "RUST_BIGDECIMAL_DEFAULT_PRECISION");
 
     Ok(())
 }
