@@ -85,24 +85,24 @@ cargo:test-1.54:
   <<: *cargo-test-script
 
 
-cargo:build-1.68:
+cargo:build-1.70:
   stage: build
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
   <<: *cargo-build-script
 
-cargo:test-1.68:
+cargo:test-1.70:
   stage: test
   needs:
-    - "cargo:build-1.68"
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+    - "cargo:build-1.70"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
   <<: *cargo-test-script
 
 
 coverage-test:
   stage: test
   needs:
-    - "cargo:test-1.68"
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+    - "cargo:test-1.70"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
 
   variables:
     CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
@@ -127,6 +127,26 @@ coverage-test:
       coverage_report:
         coverage_format: cobertura
         path: cobertura.xml
+
+
+cargo:benchmark:
+  stage: test
+  needs:
+    - "cargo:test-1.70"
+  image: "akubera/bigdecimal-benchmark-base:1.70.0-bullseye"
+  when: manual
+  allow_failure: true
+  cache: []
+  variables:
+    CARGO_HOME: /usr/local/cargo
+    BENCHMARK_EXTRAS: 1
+  script:
+    - scripts/benchmark-bigdecimal
+  artifacts:
+    expose_as: 'criterion-benchmark-report'
+    paths:
+      - target/criterion
+      - "*.html"
 
 
 cargo-publish:
