@@ -1555,7 +1555,7 @@ impl Div<BigDecimal> for BigDecimal {
             };
         }
 
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
 
         return impl_division(self.int_val, &other.int_val, scale, max_precision);
     }
@@ -1581,7 +1581,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
             };
         }
 
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
 
         return impl_division(self.int_val, &other.int_val, scale, max_precision);
     }
@@ -1614,7 +1614,7 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
             };
         }
 
-        let max_precision = 100;
+        let max_precision = DEFAULT_PRECISION;
 
         return impl_division(num_int.clone(), den_int, scale, max_precision);
     }
