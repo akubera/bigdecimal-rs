@@ -139,11 +139,10 @@ cargo:benchmark:
   cache: []
   variables:
     CARGO_HOME: /usr/local/cargo
-    BENCHMARK_EXTRAS: 1
+    BENCHMARK_EXTRAS: "1"
   script:
     - scripts/benchmark-bigdecimal
   artifacts:
-    expose_as: 'criterion-benchmark-report'
     paths:
       - target/criterion
       - "*.html"
