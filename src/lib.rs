@@ -91,6 +91,7 @@ extern crate paste;
 
 mod parsing;
 pub mod rounding;
+pub use rounding::RoundingMode;
 
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
@@ -239,6 +240,83 @@ impl BigDecimal {
             Ordering::Equal => self.clone(),
         }
     }
+
+    /// Return a new BigDecimal after shortening the digits and rounding
+    pub fn with_scale_round(&self, new_scale: i64, mode: RoundingMode) -> BigDecimal {
+        use stdlib::cmp::Ordering::*;
+
+        if self.int_val.is_zero() {
+            return BigDecimal::new(BigInt::zero(), new_scale);
+        }
+
+        match new_scale.cmp(&self.scale) {
+            Ordering::Equal => {
+                self.clone()
+            }
+            Ordering::Greater => {
+                // increase number of zeros
+                let scale_diff = new_scale - self.scale;
+                let int_val = &self.int_val * ten_to_the(scale_diff as u64);
+                BigDecimal::new(int_val, new_scale)
+            }
+            Ordering::Less => {
+                let (sign, mut digits) = self.int_val.to_radix_le(10);
+
+                let digit_count = digits.len();
+                let int_digit_count = digit_count as i64 - self.scale;
+                let rounded_int = match int_digit_count.cmp(&-new_scale) {
+                    Equal => {
+                        let (&last_digit, remaining) = digits.split_last().unwrap();
+                        let trailing_zeros = remaining.iter().all(Zero::is_zero);
+                        let rounded_digit = mode.round_pair(sign, (0, last_digit), trailing_zeros);
+                        BigInt::new(sign, vec![rounded_digit as u32])
+                    }
+                    Less => {
+                        debug_assert!(!digits.iter().all(Zero::is_zero));
+                        let rounded_digit = mode.round_pair(sign, (0, 0), false);
+                        BigInt::new(sign, vec![rounded_digit as u32])
+                    }
+                    Greater => {
+                        // location of new rounding point
+                        let scale_diff = (self.scale - new_scale) as usize;
+
+                        let low_digit = digits[scale_diff - 1];
+                        let high_digit = digits[scale_diff];
+                        let trailing_zeros = digits[0..scale_diff-1].iter().all(Zero::is_zero);
+                        let rounded_digit = mode.round_pair(sign, (high_digit, low_digit), trailing_zeros);
+
+                        debug_assert!(rounded_digit <= 10);
+
+                        if rounded_digit < 10 {
+                            digits[scale_diff] = rounded_digit;
+                        } else {
+                            digits[scale_diff] = 0;
+                            let mut i = scale_diff + 1;
+                            loop {
+                                if i == digit_count {
+                                    digits.push(1);
+                                    break;
+                                }
+
+                                if digits[i] < 9 {
+                                    digits[i] += 1;
+                                    break;
+                                }
+
+                                digits[i] = 0;
+                                i += 1;
+                            }
+                        }
+
+                        BigInt::from_radix_le(sign, &digits[scale_diff..], 10).unwrap()
+                    }
+                };
+
+                BigDecimal::new(rounded_int, new_scale)
+            }
+        }
+    }
+
 
     #[inline(always)]
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
