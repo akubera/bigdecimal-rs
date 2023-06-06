@@ -3400,3 +3400,13 @@ mod bigdecimal_tests {
         assert_eq!(value, expected);
     }
 }
+
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod test_with_scale_round {
+    use super::*;
+    use paste::paste;
+
+    include!("lib.tests.with_scale_round.rs");
+}
