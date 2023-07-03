@@ -17,11 +17,22 @@ variables:
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
 
+stages:
+  - check
+  - build
+  - test
+  - deploy
+
+
+.cargo-check-script: &cargo-check-script
+  script:
+    - rustc --version && cargo --version
+    - cargo check
+
 .cargo:build-script: &cargo-build-script
   script:
     - rustc --version && cargo --version
     - cargo build
-
 
 .cargo-test-script: &cargo-test-script
   script:
@@ -29,15 +40,32 @@ variables:
     - cargo test --verbose
 
 
+cargo:check:
+  stage: check
+  image: akubera/rust:stable
+  script:
+  <<: *cargo-check-script
+
+cargo:clippy:
+  stage: check
+  image: "akubera/rust:stable"
+  needs:
+    - cargo:check
+  allow_failure: true
+  script:
+    - cargo clippy -- -Dclippy::{dbg_macro,todo}
+
+
 cargo:build-stable:
   stage: build
-  image: "rust:latest"
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
   <<: *cargo-build-script
-
 
 cargo:test-stable:
   stage: test
-  image: "rust:latest"
+  image: akubera/rust:stable
   needs:
     - "cargo:build-stable"
   <<: *cargo-build-script
@@ -59,9 +87,16 @@ cargo:test-nightly:
   <<: *cargo-test-script
 
 
+cargo:check-1.43:
+  stage: check
+  image: "akubera/rust-kcov:1.43.1-buster"
+  <<: *cargo-check-script
+
 cargo:build-1.43:
   stage: build
   image: "akubera/rust-kcov:1.43.1-buster"
+  needs:
+    - "cargo:check-1.43"
   <<: *cargo-build-script
 
 cargo:test-1.43:
@@ -72,9 +107,16 @@ cargo:test-1.43:
   <<: *cargo-test-script
 
 
+cargo:check-1.54:
+  stage: check
+  image: "akubera/rust-kcov:1.54.0-bullseye"
+  <<: *cargo-check-script
+
 cargo:build-1.54:
   stage: build
   image: "akubera/rust-kcov:1.54.0-bullseye"
+  needs:
+    - "cargo:check-1.54"
   <<: *cargo-build-script
 
 cargo:test-1.54:
@@ -85,9 +127,16 @@ cargo:test-1.54:
   <<: *cargo-test-script
 
 
+cargo:check-1.70:
+  stage: check
+  image: "akubera/rust-grcov:1.70.0-bullseye"
+  <<: *cargo-check-script
+
 cargo:build-1.70:
   stage: build
   image: "akubera/rust-grcov:1.70.0-bullseye"
+  needs:
+    - "cargo:check-1.70"
   <<: *cargo-build-script
 
 cargo:test-1.70:
