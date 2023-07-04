@@ -16,6 +16,12 @@ variables:
   # this fixes an error when updating cargo registry
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
+  # default arguments to pass to cargo test
+  CARGO_BUILD_ARGS: ""
+
+  # default arguments to pass to cargo test
+  CARGO_TEST_ARGS: "--verbose"
+
 
 stages:
   - check
@@ -29,21 +35,20 @@ stages:
     - rustc --version && cargo --version
     - cargo check
 
-.cargo:build-script: &cargo-build-script
+.cargo-build-script: &cargo-build-script
   script:
     - rustc --version && cargo --version
-    - cargo build
+    - cargo build $CARGO_BUILD_ARGS
 
 .cargo-test-script: &cargo-test-script
   script:
     - rustc --version && cargo --version
-    - cargo test --verbose
+    - cargo test $CARGO_TEST_ARGS
 
 
 cargo:check:
   stage: check
   image: akubera/rust:stable
-  script:
   <<: *cargo-check-script
 
 cargo:clippy:
@@ -54,6 +59,15 @@ cargo:clippy:
   allow_failure: true
   script:
     - cargo clippy -- -Dclippy::{dbg_macro,todo}
+
+cargo:semver-checks:
+  stage: check
+  image: "akubera/rust:stable"
+  needs:
+    - cargo:check
+  allow_failure: true
+  script:
+    - cargo semver-checks
 
 
 cargo:build-stable:
@@ -68,7 +82,25 @@ cargo:test-stable:
   image: akubera/rust:stable
   needs:
     - "cargo:build-stable"
+  <<: *cargo-test-script
+
+cargo:build:no-std:
+  stage: build
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
+  variables:
+    CARGO_BUILD_ARGS: "--no-default-features --lib"
   <<: *cargo-build-script
+
+cargo:test:no-std:
+  stage: test
+  image: akubera/rust:stable
+  needs:
+    - "cargo:build:no-std"
+  variables:
+    CARGO_TEST_ARGS: "--no-default-features --lib"
+  <<: *cargo-test-script
 
 
 cargo:build-nightly:
