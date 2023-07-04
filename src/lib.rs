@@ -844,7 +844,7 @@ impl BigDecimal {
         }
         let (sign, mut digits) = self.int_val.to_radix_be(10);
         let trailing_count = digits.iter().rev().take_while(|i| **i == 0).count();
-        let trunc_to = digits.len() - trailing_count as usize;
+        let trunc_to = digits.len() - trailing_count;
         digits.truncate(trunc_to);
         let int_val = BigInt::from_radix_be(sign, &digits, 10).unwrap();
         let scale = self.scale - trailing_count as i64;
@@ -1163,7 +1163,7 @@ impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> AddAssign<BigInt> for BigDecimal {
+impl AddAssign<BigInt> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: BigInt) {
         *self += BigDecimal::new(rhs, 0)
@@ -1330,7 +1330,7 @@ impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> SubAssign<BigInt> for BigDecimal {
+impl SubAssign<BigInt> for BigDecimal {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: BigInt) {
         *self -= BigDecimal::new(rhs, 0)
@@ -1865,7 +1865,7 @@ impl fmt::Display for BigDecimal {
                 // Case 2.1, entirely before the decimal point
                 // We should prepend zeros
                 let zeros = location as usize - abs_int.len();
-                let abs_int = abs_int + "0".repeat(zeros as usize).as_str();
+                let abs_int = abs_int + "0".repeat(zeros).as_str();
                 (abs_int, "".to_string())
             } else {
                 // Case 2.2, somewhere around the decimal point
@@ -1895,10 +1895,7 @@ impl fmt::Display for BigDecimal {
             before
         };
 
-        let non_negative = match self.int_val.sign() {
-            Sign::Plus | Sign::NoSign => true,
-            _ => false,
-        };
+        let non_negative = matches!(self.int_val.sign(), Sign::Plus | Sign::NoSign);
         //pad_integral does the right thing although we have a decimal
         f.pad_integral(non_negative, "", &complete_without_sign)
     }
