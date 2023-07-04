@@ -243,6 +243,16 @@ impl BigDecimal {
     }
 
     /// Return a new BigDecimal after shortening the digits and rounding
+    ///
+    /// ```
+    /// # use bigdecimal::*;
+    ///
+    /// let n: BigDecimal = "129.41675".parse().unwrap();
+    ///
+    /// assert_eq!(n.with_scale_round(2, RoundingMode::Up),  "129.42".parse().unwrap());
+    /// assert_eq!(n.with_scale_round(-1, RoundingMode::Down),  "120".parse().unwrap());
+    /// assert_eq!(n.with_scale_round(4, RoundingMode::HalfEven),  "129.4168".parse().unwrap());
+    /// ```
     pub fn with_scale_round(&self, new_scale: i64, mode: RoundingMode) -> BigDecimal {
         use stdlib::cmp::Ordering::*;
 
@@ -318,8 +328,11 @@ impl BigDecimal {
         }
     }
 
-
-    #[inline(always)]
+    /// Return a new BigDecimal object with same value and given scale,
+    /// padding with zeros or truncating digits as needed
+    ///
+    /// Useful for aligning decimals before adding/subtracting.
+    ///
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
         if self.int_val.is_zero() {
             return BigDecimal::new(BigInt::zero(), new_scale);
@@ -340,7 +353,19 @@ impl BigDecimal {
 
     /// Return a new BigDecimal object with precision set to new value
     ///
-    #[inline]
+    /// ```
+    /// # use bigdecimal::*;
+    ///
+    /// let n: BigDecimal = "129.41675".parse().unwrap();
+    ///
+    /// assert_eq!(n.with_prec(2),  "130".parse().unwrap());
+    ///
+    /// let n_p12 = n.with_prec(12);
+    /// let (i, scale) = n_p12.as_bigint_and_exponent();
+    /// assert_eq!(n_p12, "129.416750000".parse().unwrap());
+    /// assert_eq!(i, 129416750000_u64.into());
+    /// assert_eq!(scale, 9);
+    /// ```
     pub fn with_prec(&self, prec: u64) -> BigDecimal {
         let digits = self.digits();
 
@@ -373,16 +398,17 @@ impl BigDecimal {
 
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
     ///
-    /// # Examples
-    ///
     /// ```
-    /// extern crate num_bigint;
-    /// extern crate bigdecimal;
-    /// use std::str::FromStr;
+    /// # use bigdecimal::{BigDecimal, num_bigint::Sign};
     ///
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("-1").unwrap().sign(), num_bigint::Sign::Minus);
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("0").unwrap().sign(), num_bigint::Sign::NoSign);
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("1").unwrap().sign(), num_bigint::Sign::Plus);
+    /// fn sign_of(src: &str) -> Sign {
+    ///    let n: BigDecimal = src.parse().unwrap();
+    ///    n.sign()
+    /// }
+    ///
+    /// assert_eq!(sign_of("-1"), Sign::Minus);
+    /// assert_eq!(sign_of("0"),  Sign::NoSign);
+    /// assert_eq!(sign_of("1"),  Sign::Plus);
     /// ```
     #[inline]
     pub fn sign(&self) -> num_bigint::Sign {
@@ -395,12 +421,12 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// extern crate num_bigint;
-    /// extern crate bigdecimal;
-    /// use std::str::FromStr;
+    /// use bigdecimal::{BigDecimal, num_bigint::BigInt};
     ///
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().as_bigint_and_exponent(),
-    ///            (num_bigint::BigInt::from_str("11").unwrap(), 1));
+    /// let n: BigDecimal = "1.23456".parse().unwrap();
+    /// let expected = ("123456".parse::<BigInt>().unwrap(), 5);
+    /// assert_eq!(n.as_bigint_and_exponent(), expected);
+    /// ```
     #[inline]
     pub fn as_bigint_and_exponent(&self) -> (BigInt, i64) {
         (self.int_val.clone(), self.scale)
@@ -412,12 +438,12 @@ impl BigDecimal {
     /// # Examples
     ///
     /// ```
-    /// extern crate num_bigint;
-    /// extern crate bigdecimal;
-    /// use std::str::FromStr;
+    /// use bigdecimal::{BigDecimal, num_bigint::BigInt};
     ///
-    /// assert_eq!(bigdecimal::BigDecimal::from_str("1.1").unwrap().into_bigint_and_exponent(),
-    ///            (num_bigint::BigInt::from_str("11").unwrap(), 1));
+    /// let n: BigDecimal = "1.23456".parse().unwrap();
+    /// let expected = ("123456".parse::<num_bigint::BigInt>().unwrap(), 5);
+    /// assert_eq!(n.into_bigint_and_exponent(), expected);
+    /// ```
     #[inline]
     pub fn into_bigint_and_exponent(self) -> (BigInt, i64) {
         (self.int_val, self.scale)
@@ -431,6 +457,15 @@ impl BigDecimal {
     }
 
     /// Compute the absolute value of number
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "123.45".parse().unwrap();
+    /// assert_eq!(n.abs(), "123.45".parse().unwrap());
+    ///
+    /// let n: BigDecimal = "-123.45".parse().unwrap();
+    /// assert_eq!(n.abs(), "123.45".parse().unwrap());
+    /// ```
     #[inline]
     pub fn abs(&self) -> BigDecimal {
         BigDecimal {
@@ -439,7 +474,13 @@ impl BigDecimal {
         }
     }
 
-    #[inline]
+    /// Multiply decimal by 2 (efficiently)
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "123.45".parse().unwrap();
+    /// assert_eq!(n.double(), "246.90".parse().unwrap());
+    /// ```
     pub fn double(&self) -> BigDecimal {
         if self.is_zero() {
             self.clone()
@@ -451,11 +492,16 @@ impl BigDecimal {
         }
     }
 
-    /// Divide this efficiently by 2
+    /// Divide decimal by 2 (efficiently)
     ///
-    /// Note, if this is odd, the precision will increase by 1, regardless
-    /// of the context's limit.
+    /// *Note*: If the last digit in the decimal is odd, the precision
+    ///         will increase by 1
     ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "123.45".parse().unwrap();
+    /// assert_eq!(n.half(), "61.725".parse().unwrap());
+    /// ```
     #[inline]
     pub fn half(&self) -> BigDecimal {
         if self.is_zero() {
@@ -473,8 +519,22 @@ impl BigDecimal {
         }
     }
 
+    /// Square a decimal: *x²*
     ///
-    #[inline]
+    /// No rounding or truncating of digits; this is the full result
+    /// of the squaring operation.
+    ///
+    /// *Note*: doubles the scale of bigdecimal, which might lead to
+    ///         accidental exponential-complexity if used in a loop.
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
+    /// assert_eq!(n.square(), "1.24456874744734405154288399835406316085210256".parse().unwrap());
+    ///
+    /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
+    /// assert_eq!(n.square(), "8.5351685337567832225E+169".parse().unwrap());
+    /// ```
     pub fn square(&self) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             self.clone()
@@ -486,7 +546,22 @@ impl BigDecimal {
         }
     }
 
-    #[inline]
+    /// Cube a decimal: *x³*
+    ///
+    /// No rounding or truncating of digits; this is the full result
+    /// of the cubing operation.
+    ///
+    /// *Note*: triples the scale of bigdecimal, which might lead to
+    ///         accidental exponential-complexity if used in a loop.
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
+    /// assert_eq!(n.cube(), "1.388443899780141911774491376394890472130000455312878627147979955904".parse().unwrap());
+    ///
+    /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
+    /// assert_eq!(n.cube(), "-7.88529874035334084567570176625E+254".parse().unwrap());
+    /// ```
     pub fn cube(&self) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             self.clone()
@@ -500,8 +575,19 @@ impl BigDecimal {
 
     /// Take the square root of the number
     ///
+    /// Uses default-precision, set from build time environment variable
+    //// `RUST_BIGDECIMAL_DEFAULT_PRECISION` (defaults to 100)
+    ///
     /// If the value is < 0, None is returned
     ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
+    /// assert_eq!(n.sqrt().unwrap(), "1.056220817156016181190291268045893004363809142172289919023269377496528394924695970851558013658193913".parse().unwrap());
+    ///
+    /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
+    /// assert_eq!(n.sqrt(), None);
+    /// ```
     #[inline]
     pub fn sqrt(&self) -> Option<BigDecimal> {
         if self.is_zero() || self.is_one() {
