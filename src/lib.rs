@@ -1,5 +1,5 @@
 // Copyright 2016 Adam Sunderland
-//           2016-2017 Andrew Kubera
+//           2016-2023 Andrew Kubera
 //           2017 Ruben De Smet
 // See the COPYRIGHT file at the top-level directory of this
 // distribution.
