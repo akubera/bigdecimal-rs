@@ -6,3 +6,5 @@ target
 .*cache/
 
 benches/test-data/
+
+builds/
