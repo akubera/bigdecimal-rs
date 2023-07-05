@@ -1,14 +1,17 @@
 
 cache:
-  policy: pull-push
-  # should we only share cache between jobs on one tag?
-  #   key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - .cargo/bin
-    - .cargo/registry/index
-    - .cargo/registry/cache
-    - target/debug/deps
-    - target/debug/build
+  - key: cargo-registry
+    policy: pull
+    paths:
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target/debug/deps
+  # each job manually specifies its build cache - no way to automate on version
+  - key: rustbuild-${RUST_CACHE_KEY}
+    policy: pull-push
+    paths:
+      - target/debug/deps
+      - target/debug/build
 
 variables:
   # store cargo registry in the project directory
@@ -17,37 +20,125 @@ variables:
   # this fixes an error when updating cargo registry
   CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
 
+  # default arguments to pass to cargo test
+  CARGO_BUILD_ARGS: ""
 
-.cargo:build-script: &cargo-build-script
+  # default arguments to pass to cargo test
+  CARGO_TEST_ARGS: "--verbose"
+
+
+stages:
+  - check
+  - build
+  - test
+  - deploy
+
+
+.cargo-check-script: &cargo-check-script
   script:
     - rustc --version && cargo --version
-    - cargo build
+    - cargo check
 
+.cargo-build-script: &cargo-build-script
+  script:
+    - rustc --version && cargo --version
+    - printenv CARGO_BUILD_ARGS
+    - cargo build $CARGO_BUILD_ARGS
 
 .cargo-test-script: &cargo-test-script
   script:
     - rustc --version && cargo --version
-    - cargo test --verbose
+    - printenv CARGO_TEST_ARGS
+    - cargo test $CARGO_TEST_ARGS
+
+
+cargo:check:
+  stage: check
+  image: akubera/rust:stable
+  cache:
+    - key: cargo-registry
+      policy: pull-push
+      paths:
+        - .cargo/registry/index
+        - .cargo/registry/cache
+        - target/debug/deps
+    - key: rustbuild-${RUST_CACHE_KEY}
+      policy: pull-push
+      paths:
+        - target/debug/deps
+        - target/debug/build
+  variables:
+    RUST_CACHE_KEY: "stable"
+  <<: *cargo-check-script
+
+cargo:clippy:
+  stage: check
+  image: "akubera/rust:stable"
+  needs:
+    - cargo:check
+  allow_failure: true
+  variables:
+    RUST_CACHE_KEY: "stable"
+  script:
+    - cargo clippy -- -Dclippy::{dbg_macro,todo}
+
+cargo:semver-checks:
+  stage: check
+  image: "akubera/rust:stable"
+  needs:
+    - cargo:check
+  allow_failure: true
+  variables:
+    RUST_CACHE_KEY: "stable"
+  script:
+    - cargo semver-checks
 
 
 cargo:build-stable:
   stage: build
-  image: "rust:latest"
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
+  variables:
+    RUST_CACHE_KEY: "stable"
   <<: *cargo-build-script
-
 
 cargo:test-stable:
   stage: test
-  image: "rust:latest"
+  image: akubera/rust:stable
   needs:
     - "cargo:build-stable"
+  variables:
+    RUST_CACHE_KEY: "stable"
+  <<: *cargo-test-script
+
+cargo:build:no-std:
+  stage: build
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
+  variables:
+    RUST_CACHE_KEY: "stable+no_std"
+    CARGO_BUILD_ARGS: "--no-default-features --lib"
   <<: *cargo-build-script
+
+cargo:test:no-std:
+  stage: test
+  image: akubera/rust:stable
+  needs:
+    - "cargo:build:no-std"
+  variables:
+    RUST_CACHE_KEY: "stable+no_std"
+    CARGO_TEST_ARGS: "--no-default-features --lib"
+  <<: *cargo-test-script
 
 
 cargo:build-nightly:
   stage: build
   image: rustlang/rust:nightly
   allow_failure: true
+  variables:
+    RUST_CACHE_KEY: "nightly"
   <<: *cargo-build-script
 
 
@@ -57,69 +148,97 @@ cargo:test-nightly:
   needs:
     - cargo:build-nightly
   allow_failure: true
+  variables:
+    RUST_CACHE_KEY: "nightly"
   <<: *cargo-test-script
 
 
-cargo:build-1.34:
+cargo:check-1.43:
+  stage: check
+  image: "akubera/rust-kcov:1.43.1-buster"
+  variables:
+    RUST_CACHE_KEY: "1.43"
+  <<: *cargo-check-script
+
+cargo:build-1.43:
   stage: build
-  image: "akubera/rust-kcov:1.34.2-stretch"
+  image: "akubera/rust-kcov:1.43.1-buster"
+  needs:
+    - "cargo:check-1.43"
+  variables:
+    RUST_CACHE_KEY: "1.43"
   <<: *cargo-build-script
 
-cargo:test-1.34:
+cargo:test-1.43:
   stage: test
   needs:
-    - cargo:build-1.34
-  image: "akubera/rust-kcov:1.34.2-stretch"
-  allow_failure: true
+    - "cargo:build-1.43"
+  image: "akubera/rust-kcov:1.43.1-buster"
+  variables:
+    RUST_CACHE_KEY: "1.43"
   <<: *cargo-test-script
 
 
-cargo:build-1.42:
-  stage: build
-  image: "akubera/rust-kcov:1.42.0-buster"
-  <<: *cargo-build-script
-
-cargo:test·1.42:
-  stage: test
-  needs:
-    - "cargo:build-1.42"
-  image: "akubera/rust-kcov:1.42.0-buster"
-  <<: *cargo-test-script
-
+cargo:check-1.54:
+  stage: check
+  image: "akubera/rust-kcov:1.54.0-bullseye"
+  variables:
+    RUST_CACHE_KEY: "1.54"
+  <<: *cargo-check-script
 
 cargo:build-1.54:
   stage: build
   image: "akubera/rust-kcov:1.54.0-bullseye"
+  needs:
+    - "cargo:check-1.54"
+  variables:
+    RUST_CACHE_KEY: "1.54"
   <<: *cargo-build-script
 
-cargo:test·1.54:
+cargo:test-1.54:
   stage: test
   needs:
     - "cargo:build-1.54"
   image: "akubera/rust-kcov:1.54.0-bullseye"
+  variables:
+    RUST_CACHE_KEY: "1.54"
   <<: *cargo-test-script
 
 
-cargo:build-1.68:
+cargo:check-1.70:
+  stage: check
+  image: "akubera/rust-grcov:1.70.0-bullseye"
+  variables:
+    RUST_CACHE_KEY: "1.70"
+  <<: *cargo-check-script
+
+cargo:build-1.70:
   stage: build
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
+  needs:
+    - "cargo:check-1.70"
+  variables:
+    RUST_CACHE_KEY: "1.70"
   <<: *cargo-build-script
 
-cargo:test-1.68:
+cargo:test-1.70:
   stage: test
   needs:
-    - "cargo:build-1.68"
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+    - "cargo:build-1.70"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
+  variables:
+    RUST_CACHE_KEY: "1.70"
   <<: *cargo-test-script
 
 
 coverage-test:
   stage: test
   needs:
-    - "cargo:test-1.68"
-  image: "akubera/rust-grcov:1.68.2-bullseye"
+    - "cargo:test-1.70"
+  image: "akubera/rust-grcov:1.70.0-bullseye"
 
   variables:
+    RUST_CACHE_KEY: "1.70"
     CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
     LLVM_PROFILE_FILE: "target/coverage/%p-%m.profraw"
     RUSTFLAGS: "-Cinstrument-coverage -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off "
@@ -142,6 +261,26 @@ coverage-test:
       coverage_report:
         coverage_format: cobertura
         path: cobertura.xml
+
+
+cargo:benchmark:
+  stage: test
+  needs:
+    - "cargo:test-1.70"
+  image: "akubera/bigdecimal-benchmark-base:1.70.0-bullseye"
+  when: manual
+  allow_failure: true
+  cache: []
+  variables:
+    RUST_CACHE_KEY: "1.70"
+    CARGO_HOME: /usr/local/cargo
+    BENCHMARK_EXTRAS: "1"
+  script:
+    - scripts/benchmark-bigdecimal
+  artifacts:
+    paths:
+      - target/criterion
+      - "*.html"
 
 
 cargo-publish:

@@ -4,3 +4,7 @@ target
 .vscode/
 
 .*cache/
+
+benches/test-data/
+
+builds/
