@@ -20,7 +20,7 @@ Add bigdecimal as a dependency to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-bigdecimal = "0.3"
+bigdecimal = "0.4"
 ```
 
 Import and use the `BigDecimal` struct to solve your problems:
