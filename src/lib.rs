@@ -94,7 +94,7 @@ mod parsing;
 pub mod rounding;
 pub use rounding::RoundingMode;
 
-pub mod digitbuffers;
+pub mod digit_buffers;
 
 #[inline(always)]
 fn ten_to_the(pow: u64) -> BigInt {
