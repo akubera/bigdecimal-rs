@@ -39,4 +39,5 @@ mod stdlib {
     pub use siphasher::sip::SipHasher as DefaultHasher;
 
     pub use alloc::string;
+    pub use alloc::vec;
 }

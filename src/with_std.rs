@@ -16,6 +16,7 @@ mod stdlib {
         iter,
         str,
         string,
+        vec,
         i8,
         i16,
         u16,
