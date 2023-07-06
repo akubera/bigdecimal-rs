@@ -103,20 +103,20 @@ impl_radix_type!(
 
 /// Generic Digit Buffer
 ///
-pub struct DigitBuf<BaseType, E: Endianess, R: RadixType> {
-    _data: Vec<BaseType>,
+pub struct DigitBuf<E: Endianess, R: RadixType> {
+    _data: Vec<R::Base>,
     _endianess: PhantomData<E>,
     _radix: PhantomData<R>,
 }
 
 
 /// Buffer of individual digits
-pub type IndividualDigitBuf = DigitBuf<u8, BigEndian, RADIX_10_u8>;
+pub type IndividualDigitBuf = DigitBuf<BigEndian, RADIX_10_u8>;
 
 /// Buffer storing 9 decimal digits in a u32
-pub type StandardDigitBuf = DigitBuf<u32, LittleEndian, Radix10e9>;
+pub type StandardDigitBuf = DigitBuf<LittleEndian, Radix10e9>;
 
-pub type PostgresStyle = DigitBuf<i16, LittleEndian, RADIX_10E4_i16>;
+pub type PostgresStyle = DigitBuf<LittleEndian, RADIX_10E4_i16>;
 
 
 enum DigitBuffers {
