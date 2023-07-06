@@ -9,13 +9,11 @@
 //! those matching the source of the digits: strings of human
 //! readable, or base-10000,
 //!
-//! This module
+//! This module contains them all.
 //!
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
-
-// struct DigitBuffer;
 
 use stdlib::marker::PhantomData;
 use stdlib::u64;
@@ -43,6 +41,7 @@ pub struct Radix10e9;
 pub struct Radix2e32;
 pub struct Radix2e64;
 
+/// All the information needed to specify a bigdecimal's radix
 pub trait RadixType {
     type Base;
     type BaseDouble;
@@ -97,9 +96,6 @@ impl_radix_type!(
         radix = 10
 );
 
-//struct DigitBuffer<T, E: Endianess> {
-//}
-//
 
 /// Generic Digit Buffer
 ///
@@ -128,7 +124,7 @@ enum DigitBuffers {
     Postgres(PostgresStyle),
 }
 
-pub struct DigitInfo {
+pub struct DigitBufInfo {
     /// Any of the digit buffers
     data: DigitBuffers,
 }
