@@ -17,6 +17,10 @@ mod stdlib {
         str,
         string,
         i8,
+        i16,
+        u16,
+        u32,
+        u64,
         f32,
         f64,
     };
