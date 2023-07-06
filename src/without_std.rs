@@ -20,6 +20,7 @@ mod stdlib {
         default,
         fmt,
         hash,
+        marker,
         mem,
         num,
         ops,
