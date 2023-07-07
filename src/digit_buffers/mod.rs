@@ -168,17 +168,18 @@ where
     R::Base: ToPrimitive,
     R::Base: num_traits::Num,
     R::Base: num_integer::Integer,
+    R::Base: Into<R::BaseDouble>,
     R::BaseDouble: num_traits::AsPrimitive<R::Base>,
     R::BaseDouble: num_traits::Num,
     R::BaseDouble: num_integer::Integer,
 {
     const BIG_DIGIT_RADIX: R::BaseDouble = R::RADIX;
 
-//     // pub(crate) fn from_raw_integer<N: num_traits::AsPrimitive<R::BaseDouble> + Into<R::Base>>(n: N) -> Self {
-//     //     let v = n.into();
-//     //     debug_assert!(v < Self::BIG_DIGIT_RADIX);
-//     //     BigDigit(v)
-//     // }
+    pub(crate) fn from_raw_integer<N: Into<R::Base>>(n: N) -> Self {
+        let v = n.into();
+        debug_assert!(v.into() < Self::BIG_DIGIT_RADIX);
+        BigDigit(v)
+    }
 
     pub(crate) fn from_literal_integer(n: i32) -> Self {
         debug_assert!(n >= 0);
@@ -216,6 +217,15 @@ mod tests {
 
         let x = BigDigitX::max();
         assert_eq!(x, 999999999);
+    }
+
+    #[test]
+    fn fromraw() {
+        type BigDigitX = BigDigit<Radix10e9>;
+
+        let y: u32 = 34;
+        let x = BigDigitX::from_raw_integer(y);
+        assert_eq!(x, 34);
     }
 }
 
