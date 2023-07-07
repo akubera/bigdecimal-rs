@@ -46,16 +46,28 @@ pub trait RadixType {
     type Base;
     type BaseDouble;
 
-    fn radix() -> Self::BaseDouble;
+    const RADIX: Self::BaseDouble;
+    const POWER_OF_TEN: Option<usize>;
+    const IS_POW_OF_TEN: bool = Self::POWER_OF_TEN.is_none();
+    // fn radix() -> Self::BaseDouble;
+    // fn is_power_of_ten() -> bool { !Self::power_of_ten().is_none() }
+    // fn power_of_ten() -> Option<usize>;
 }
 
 macro_rules! impl_radix_type {
-    ($t:ty : base=$base:ty, base-double=$doublewide:ty, radix=$radix:expr) => {
+    ($t:ty : base=$base:ty, base-double=$doublewide:ty, radix=$radix:expr $(,)?) => {
+        impl_radix_type!($t : base=$base, base-double=$doublewide, radix=$radix, pow_of_ten=None);
+    };
+    ($t:ty : base=$base:ty, base-double=$doublewide:ty, radix=$radix:expr, pow_of_ten=$pow_of_ten:literal $(,)?) => {
+        impl_radix_type!($t : base=$base, base-double=$doublewide, radix=$radix, pow_of_ten=Some($pow_of_ten));
+    };
+    ($t:ty : base=$base:ty, base-double=$doublewide:ty, radix=$radix:expr, pow_of_ten=$pow_of_ten:expr $(,)?) => {
         impl RadixType for $t {
             type Base = $base;
             type BaseDouble = $doublewide;
 
-            fn radix() -> Self::BaseDouble { $radix }
+            const RADIX: Self::BaseDouble = $radix;
+            const POWER_OF_TEN: Option<usize> = $pow_of_ten;
         }
     };
 }
@@ -78,14 +90,16 @@ impl_radix_type!(
     RADIX_10E4_i16:
         base = i16,
         base-double = i32,
-        radix = 10_000
+        radix = 10_000,
+        pow_of_ten = 4,
 );
 
 impl_radix_type!(
     Radix10e9:
         base = u32,
         base-double = u64,
-        radix = 1_000_000_000
+        radix = 1_000_000_000,
+        pow_of_ten = 9
 );
 
 impl_radix_type!(
@@ -93,7 +107,8 @@ impl_radix_type!(
         base = u8,
         // u8 can fit 10**2, so it's appropriate for double-wide type
         base-double = u8,
-        radix = 10
+        radix = 10,
+        pow_of_ten = 1
 );
 
 
@@ -110,21 +125,121 @@ pub struct DigitBuf<E: Endianess, R: RadixType> {
 pub type IndividualDigitBuf = DigitBuf<BigEndian, RADIX_10_u8>;
 
 /// Buffer storing 9 decimal digits in a u32
-pub type StandardDigitBuf = DigitBuf<LittleEndian, Radix10e9>;
+// pub type StandardDigitBuf = DigitBuf<LittleEndian, Radix10e9>;
 
-pub type PostgresStyle = DigitBuf<LittleEndian, RADIX_10E4_i16>;
+// pub type PostgresStyle = DigitBuf<LittleEndian, RADIX_10E4_i16>;
 
 
 enum DigitBuffers {
     /// Individual digits
     Individual(IndividualDigitBuf),
-    ///
-    Standard(IndividualDigitBuf),
-    /// Postgres style
-    Postgres(PostgresStyle),
+    // ///
+    // Standard(StandardDigitBuf),
+    // /// Postgres style
+    // Postgres(PostgresStyle),
 }
+
 
 pub struct DigitBufInfo {
     /// Any of the digit buffers
     data: DigitBuffers,
+}
+
+/// BigiDigit, properties based on a radix type
+#[derive(Default,Clone,Copy,Eq,PartialEq,Ord,PartialOrd)]
+pub struct BigDigit<R: RadixType>(R::Base);
+
+impl<R:RadixType> std::fmt::Debug for BigDigit<R>
+where
+    R::Base: std::fmt::Display
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BigDigit({})", self.0)
+    }
+}
+
+use num_traits::{ToPrimitive, FromPrimitive};
+
+
+impl<R: RadixType> BigDigit<R>
+where
+    R::Base: 'static + Copy,
+    R::Base: FromPrimitive,
+    R::Base: ToPrimitive,
+    R::Base: num_traits::Num,
+    R::Base: num_integer::Integer,
+    R::BaseDouble: num_traits::AsPrimitive<R::Base>,
+    R::BaseDouble: num_traits::Num,
+    R::BaseDouble: num_integer::Integer,
+{
+    const BIG_DIGIT_RADIX: R::BaseDouble = R::RADIX;
+
+//     // pub(crate) fn from_raw_integer<N: num_traits::AsPrimitive<R::BaseDouble> + Into<R::Base>>(n: N) -> Self {
+//     //     let v = n.into();
+//     //     debug_assert!(v < Self::BIG_DIGIT_RADIX);
+//     //     BigDigit(v)
+//     // }
+
+    pub(crate) fn from_literal_integer(n: i32) -> Self {
+        debug_assert!(n >= 0);
+        // debug_assert!(n < Self::BIG_DIGIT_RADIX.as_());
+        let x: R::Base = FromPrimitive::from_i32(n).unwrap();
+        BigDigit(x)
+    }
+
+    /// Return value zero
+    pub fn zero() -> Self {
+        BigDigit(num_traits::Zero::zero())
+    }
+
+    /// Return value one
+    pub fn one() -> Self {
+        BigDigit(num_traits::One::one())
+    }
+
+    pub fn max() -> Self {
+        use num_traits::One;
+        use num_traits::AsPrimitive;
+
+        let max_val: R::BaseDouble = Self::BIG_DIGIT_RADIX - One::one();
+        BigDigit(max_val.as_())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn max() {
+        type BigDigitX = BigDigit<Radix10e9>;
+
+        let x = BigDigitX::max();
+        assert_eq!(x, 999999999);
+    }
+}
+
+impl<R:'static+Copy+RadixType> num_traits::AsPrimitive<R::Base> for BigDigit<R>
+where
+    R::Base: 'static + Copy
+{
+    fn as_(self) -> R::Base {
+        self.0
+    }
+}
+
+impl<R:RadixType> std::cmp::PartialEq<u32> for BigDigit<R>
+where
+    R::Base: std::cmp::PartialEq<u32>
+{
+    #[inline]
+    fn eq(&self, other: &u32) -> bool { self.0 == *other }
+}
+
+impl<R:RadixType> std::cmp::PartialEq<i32> for BigDigit<R>
+where
+    R::Base: std::cmp::PartialEq<i32>
+{
+    #[inline]
+    fn eq(&self, other: &i32) -> bool { self.0 == *other }
 }
