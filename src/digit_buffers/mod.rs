@@ -37,7 +37,10 @@ pub struct RADIX_10_u8;
 
 /// Radix=*10,000* storage=*i16*
 pub struct RADIX_10E4_i16;
-pub struct Radix10e9;
+
+/// Radix=*1,000,000,000* storage=*u32*
+pub struct Radix10p9U32;
+
 pub struct Radix2e32;
 pub struct Radix2e64;
 
@@ -95,7 +98,7 @@ impl_radix_type!(
 );
 
 impl_radix_type!(
-    Radix10e9:
+    Radix10p9U32:
         base = u32,
         base-double = u64,
         radix = 1_000_000_000,
@@ -125,7 +128,7 @@ pub struct DigitBuf<E: Endianess, R: RadixType> {
 pub type IndividualDigitBuf = DigitBuf<BigEndian, RADIX_10_u8>;
 
 /// Buffer storing 9 decimal digits in a u32
-// pub type StandardDigitBuf = DigitBuf<LittleEndian, Radix10e9>;
+// pub type StandardDigitBuf = DigitBuf<LittleEndian, Radix10p9U32>;
 
 // pub type PostgresStyle = DigitBuf<LittleEndian, RADIX_10E4_i16>;
 
@@ -213,7 +216,7 @@ mod tests {
 
     #[test]
     fn max() {
-        type BigDigitX = BigDigit<Radix10e9>;
+        type BigDigitX = BigDigit<Radix10p9U32>;
 
         let x = BigDigitX::max();
         assert_eq!(x, 999999999);
@@ -221,7 +224,7 @@ mod tests {
 
     #[test]
     fn fromraw() {
-        type BigDigitX = BigDigit<Radix10e9>;
+        type BigDigitX = BigDigit<Radix10p9U32>;
 
         let y: u32 = 34;
         let x = BigDigitX::from_raw_integer(y);
