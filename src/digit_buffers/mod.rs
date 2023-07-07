@@ -14,6 +14,7 @@
 #![allow(non_camel_case_types)]
 #![allow(dead_code)]
 
+mod alignment;
 
 use stdlib::marker::PhantomData;
 use stdlib::u64;
