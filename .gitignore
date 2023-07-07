@@ -8,3 +8,12 @@ target
 benches/test-data/
 
 builds/
+
+*.tgz
+*.tar
+*.bak
+*.backup
+
+*venv*/
+.python-version
+*.ipynb
