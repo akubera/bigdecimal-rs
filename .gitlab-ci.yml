@@ -182,6 +182,7 @@ cargo:test-1.43:
 cargo:check-1.54:
   stage: check
   image: "akubera/rust-kcov:1.54.0-bullseye"
+  when: manual
   variables:
     RUST_CACHE_KEY: "1.54"
   <<: *cargo-check-script
@@ -208,6 +209,7 @@ cargo:test-1.54:
 cargo:check-1.70:
   stage: check
   image: "akubera/rust-grcov:1.70.0-bullseye"
+  when: manual
   variables:
     RUST_CACHE_KEY: "1.70"
   <<: *cargo-check-script
