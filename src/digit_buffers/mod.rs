@@ -253,3 +253,66 @@ where
     #[inline]
     fn eq(&self, other: &i32) -> bool { self.0 == *other }
 }
+
+
+// macro_rules! impl_partial_eq {
+//     (BigDigit < $t:ty) => {
+//         impl<R> std::cmp::PartialEq<$t> for BigDigit<R> {
+//             #[inline]
+//             fn eq(&self, other: &$t) -> bool { self.0 as $t == *other }
+//         }
+//         impl<R> std::cmp::PartialEq<BigDigit> for $t {
+//             #[inline]
+//             fn eq(&self, other: &BigDigit) -> bool { other.0 as $t == *self }
+//         }
+//         impl<R> std::cmp::PartialOrd<$t> for BigDigit<R> {
+//             #[inline]
+//             fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+//                 <$t>::from(self.0).partial_cmp(other)
+//             }
+//         }
+//     };
+//     (BigDigit > $t:ty) => {
+//         impl<R> std::cmp::PartialEq<$t> for BigDigit<R> {
+//             type BigDigitBase = R::Base;
+//             #[inline]
+//             fn eq(&self, other: &$t) -> bool { self.0.eq(&BigDigitBase::from(*other)) }
+//         }
+//         impl<R> std::cmp::PartialEq<BigDigit<R>> for $t {
+//             #[inline]
+//             fn eq(&self, other: &BigDigit) -> bool { other.0.eq(&BigDigitBase::from(*self)) }
+//         }
+//         impl<R> std::cmp::PartialOrd<$t> for BigDigit<R> {
+//             #[inline]
+//             fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+//                 self.0.partial_cmp(&BigDigitBase::from(*other))
+//             }
+//         }
+//     };
+//     (BigDigit <> $t:ty) => {
+//         impl<R> std::cmp::PartialEq<$t> for BigDigit<R> {
+//             #[inline]
+//             fn eq(&self, other: &$t) -> bool { (self.0 as i64).eq(&(*other as i64)) }
+//         }
+//         impl<R> std::cmp::PartialEq<BigDigit<R>> for $t {
+//             #[inline]
+//             fn eq(&self, other: &BigDigit) -> bool { (other.0 as i64).eq(&(*self as i64)) }
+//         }
+//         impl<R> std::cmp::PartialOrd<$t> for BigDigit<R> {
+//             #[inline]
+//             fn partial_cmp(&self, other: &$t) -> Option<std::cmp::Ordering> {
+//                 (self.0 as i64).partial_cmp(&i64::from(*other))
+//             }
+//         }
+//     };
+// }
+
+// impl_partial_eq!(BigDigit > u8);
+// impl_partial_eq!(BigDigit > u16);
+// impl_partial_eq!(BigDigit > u32);
+// impl_partial_eq!(BigDigit < u64);
+// impl_partial_eq!(BigDigit < u128);
+// impl_partial_eq!(BigDigit <> i8);
+// impl_partial_eq!(BigDigit <> i16);
+// impl_partial_eq!(BigDigit <> i32);
+// impl_partial_eq!(BigDigit <> i64);
