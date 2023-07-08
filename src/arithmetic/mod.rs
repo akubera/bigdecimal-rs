@@ -8,6 +8,7 @@ pub(crate) mod multiplication;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
+pub(crate) mod decimal;
 
 /// Return 10^pow
 ///
