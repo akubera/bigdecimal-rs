@@ -2,8 +2,6 @@
 
 
 use std::env;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 
 fn main() -> std::io::Result<()> {
@@ -28,8 +26,17 @@ fn write_default_precision(outdir_path: &PathBuf, filename: &str) -> std::io::Re
 
     let default_precision_rs_path = outdir_path.join(filename);
 
-    let mut default_precision_rs = File::create(&default_precision_rs_path).expect("Could not create default_precision.rs");
-    write!(default_precision_rs, "const DEFAULT_PRECISION: u64 = {};", default_prec)?;
+    let default_precision = format!("const DEFAULT_PRECISION: u64 = {};", default_prec);
+
+    // Rewriting the file if it already exists with the same contents
+    // would force a rebuild.
+    match std::fs::read_to_string(&default_precision_rs_path) {
+        Ok(existing_contents) if existing_contents == default_precision => {},
+        _ => {
+            std::fs::write(&default_precision_rs_path, default_precision)
+                    .expect("Could not write big decimal default-precision file");
+        }
+    };
 
     println!("cargo:rerun-if-changed={}", default_precision_rs_path.display());
     println!("cargo:rerun-if-env-changed={}", "RUST_BIGDECIMAL_DEFAULT_PRECISION");
