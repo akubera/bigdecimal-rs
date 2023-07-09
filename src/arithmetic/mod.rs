@@ -7,6 +7,7 @@ use num_traits::AsPrimitive;
 pub(crate) mod decimal;
 
 pub(crate) mod addition;
+pub(crate) mod multiplication;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
