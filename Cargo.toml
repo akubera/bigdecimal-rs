@@ -36,6 +36,9 @@ siphasher = { version = "0.3.10", default-features = false }
 # BENCH: oorandom = { version = "11.1.3" }
 # BENCH: lazy_static = { version = "1" }
 
+# Only required for property testing - incompatible with older versions of rust
+# PROPERTY-TESTS: proptest = "1"
+
 [features]
 default = ["std"]
 string-only = []
