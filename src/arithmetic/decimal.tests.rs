@@ -9,6 +9,14 @@ macro_rules! impl_case {
             }
         }
     };
+    ($n:literal => $expected:literal) => {
+        paste! {
+            #[test]
+            fn [< case_ $n >]() {
+                assert_eq!(TEST_FUNC($n), $expected);
+            }
+        }
+    };
 }
 
 
@@ -47,6 +55,29 @@ mod dec_shift_right_u64 {
     impl_case!(18446744073709551615 >> 10 => 1844674407);
     impl_case!(18446744073709551615 >> 19 => 1);
     impl_case!(18446744073709551615 >> 20 => 0);
+}
+
+mod count_digits_u32 {
+    use super::*;
+    const TEST_FUNC: fn(u32) -> usize = count_digits_u32;
+
+    impl_case!(0 => 1);
+    impl_case!(1 => 1);
+    impl_case!(10 => 2);
+    impl_case!(999999 => 6);
+    impl_case!(4294967295 => 10);
+}
+
+mod count_digits_u64 {
+    use super::*;
+    const TEST_FUNC: fn(u64) -> usize = count_digits_u64;
+
+    impl_case!(0 => 1);
+    impl_case!(1 => 1);
+    impl_case!(10 => 2);
+    impl_case!(999999 => 6);
+    impl_case!(4294967295 => 10);
+    impl_case!(18446744073709551615 => 20);
 }
 
 

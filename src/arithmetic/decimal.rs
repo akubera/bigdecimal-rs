@@ -52,6 +52,83 @@ pub fn dec_shift_right_u64(x: u64, n: usize) -> u64 {
 }
 
 
+macro_rules! count_digits {
+    ($n:ident : u64) => {
+               if $n >= 10000000000000000000 {
+            20
+        } else if $n >= 1000000000000000000 {
+            19
+        } else if $n >= 100000000000000000 {
+            18
+        } else if $n >= 10000000000000000 {
+            17
+        } else if $n >= 1000000000000000 {
+            16
+        } else if $n >= 100000000000000 {
+            15
+        } else if $n >= 10000000000000 {
+            14
+        } else if $n >= 1000000000000 {
+            13
+        } else if $n >= 100000000000 {
+            12
+        } else if $n >= 10000000000 {
+            11
+        } else if $n >= 1000000000 {
+            10
+        } else {
+            count_digits!($n:u32)
+        }
+    };
+    ($n:ident : u32) => {
+               if $n >= 1000000000 {
+            10
+        } else if $n >= 100000000 {
+            9
+        } else if $n >= 10000000 {
+            8
+        } else if $n >= 1000000 {
+            7
+        } else if $n >= 100000 {
+            6
+        } else {
+            count_digits!($n:u16)
+        }
+    };
+    ($n:ident : u16) => {
+               if $n >= 100000 {
+            6
+        } else if $n >= 10000 {
+            5
+        } else if $n >= 1000 {
+            4
+        } else {
+            count_digits!($n:u8)
+        }
+    };
+    ($n:ident : u8) => {
+               if $n >= 100 {
+            3
+        } else if $n >= 10 {
+            2
+        } else {
+            1
+        }
+    };
+}
+
+/// Count digits in u32 (excluding leading-zeros)
+pub(crate) fn count_digits_u32(n: u32) -> usize {
+    count_digits!(n:u32)
+
+}
+
+/// Count digits in u64 (excluding leading-zeros)
+pub(crate) fn count_digits_u64(n: u64) -> usize {
+    count_digits!(n:u64)
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
