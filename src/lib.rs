@@ -2121,24 +2121,6 @@ impl From<BigInt> for BigDecimal {
 }
 
 
-impl TryFrom<f32> for BigDecimal {
-    type Error = ParseBigDecimalError;
-
-    #[inline]
-    fn try_from(n: f32) -> Result<Self, Self::Error> {
-        parsing::try_parse_from_f32(n)
-    }
-}
-
-impl TryFrom<f64> for BigDecimal {
-    type Error = ParseBigDecimalError;
-
-    #[inline]
-    fn try_from(n: f64) -> Result<Self, Self::Error> {
-        parsing::try_parse_from_f64(n)
-    }
-}
-
 impl FromPrimitive for BigDecimal {
     #[inline]
     fn from_i64(n: i64) -> Option<Self> {

@@ -1,6 +1,7 @@
 //! Code for implementing From/To BigDecimals
 
-use super::BigDecimal;
+use crate::BigDecimal;
+use crate::stdlib::convert::TryFrom;
 
 
 macro_rules! impl_from_int_primitive {
@@ -35,3 +36,22 @@ impl_from_int_primitive!(i16);
 impl_from_int_primitive!(i32);
 impl_from_int_primitive!(i64);
 impl_from_int_primitive!(i128);
+
+
+impl TryFrom<f32> for BigDecimal {
+    type Error = super::ParseBigDecimalError;
+
+    #[inline]
+    fn try_from(n: f32) -> Result<Self, Self::Error> {
+        crate::parsing::try_parse_from_f32(n)
+    }
+}
+
+impl TryFrom<f64> for BigDecimal {
+    type Error = super::ParseBigDecimalError;
+
+    #[inline]
+    fn try_from(n: f64) -> Result<Self, Self::Error> {
+        crate::parsing::try_parse_from_f64(n)
+    }
+}
