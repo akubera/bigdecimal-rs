@@ -2100,27 +2100,6 @@ impl ToPrimitive for BigDecimal {
 }
 
 
-impl From<(BigInt, i64)> for BigDecimal {
-    #[inline]
-    fn from((int_val, scale): (BigInt, i64)) -> Self {
-        BigDecimal {
-            int_val: int_val,
-            scale: scale,
-        }
-    }
-}
-
-impl From<BigInt> for BigDecimal {
-    #[inline]
-    fn from(int_val: BigInt) -> Self {
-        BigDecimal {
-            int_val: int_val,
-            scale: 0,
-        }
-    }
-}
-
-
 impl FromPrimitive for BigDecimal {
     #[inline]
     fn from_i64(n: i64) -> Option<Self> {

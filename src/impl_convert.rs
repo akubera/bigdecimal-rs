@@ -3,6 +3,8 @@
 use crate::BigDecimal;
 use crate::stdlib::convert::TryFrom;
 
+use num_bigint::BigInt;
+
 
 macro_rules! impl_from_int_primitive {
     ($t:ty) => {
@@ -53,5 +55,26 @@ impl TryFrom<f64> for BigDecimal {
     #[inline]
     fn try_from(n: f64) -> Result<Self, Self::Error> {
         crate::parsing::try_parse_from_f64(n)
+    }
+}
+
+
+impl From<BigInt> for BigDecimal {
+    fn from(int_val: BigInt) -> Self {
+        BigDecimal {
+            int_val: int_val,
+            scale: 0,
+        }
+    }
+}
+
+// Anything that may be a big-integer paired with a scale
+// parameter may be a bigdecimal
+impl<T: Into<BigInt>> From<(T, i64)> for BigDecimal {
+    fn from((int_val, scale): (T, i64)) -> Self {
+        Self {
+            int_val: int_val.into(),
+            scale: scale,
+        }
     }
 }
