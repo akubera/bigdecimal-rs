@@ -92,6 +92,8 @@ extern crate paste;
 
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+// Add<T>, Sub<T>, etc...
+mod impl_ops;
 
 // Implementations of num_traits
 mod impl_num;
