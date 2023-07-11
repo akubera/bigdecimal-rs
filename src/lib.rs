@@ -90,6 +90,9 @@ mod macros;
 #[cfg(test)]
 extern crate paste;
 
+// From<T>, To<T>, TryFrom<T> impls
+mod impl_convert;
+
 mod parsing;
 pub mod rounding;
 pub use rounding::RoundingMode;
@@ -2096,43 +2099,6 @@ impl ToPrimitive for BigDecimal {
     }
 }
 
-impl From<i64> for BigDecimal {
-    #[inline]
-    fn from(n: i64) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<u64> for BigDecimal {
-    #[inline]
-    fn from(n: u64) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<i128> for BigDecimal {
-    fn from(n: i128) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<u128> for BigDecimal {
-    fn from(n: u128) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
 
 impl From<(BigInt, i64)> for BigDecimal {
     #[inline]
@@ -2154,25 +2120,6 @@ impl From<BigInt> for BigDecimal {
     }
 }
 
-macro_rules! impl_from_type {
-    ($FromType:ty, $AsType:ty) => {
-        impl From<$FromType> for BigDecimal {
-            #[inline]
-            #[allow(clippy::cast_lossless)]
-            fn from(n: $FromType) -> Self {
-                BigDecimal::from(n as $AsType)
-            }
-        }
-    };
-}
-
-impl_from_type!(u8, u64);
-impl_from_type!(u16, u64);
-impl_from_type!(u32, u64);
-
-impl_from_type!(i8, i64);
-impl_from_type!(i16, i64);
-impl_from_type!(i32, i64);
 
 impl TryFrom<f32> for BigDecimal {
     type Error = ParseBigDecimalError;
