@@ -4,8 +4,12 @@ use crate::BigDecimal;
 use crate::stdlib::ops::{
     Add, AddAssign,
     Sub, SubAssign,
+    Mul, MulAssign,
     Neg,
 };
+
+use num_traits::{Zero, One};
+
 
 macro_rules! impl_add_for_primitive {
     ($t:ty) => {
@@ -156,3 +160,73 @@ impl_sub_for_primitive!(i16);
 impl_sub_for_primitive!(i32);
 impl_sub_for_primitive!(i64);
 impl_sub_for_primitive!(i128);
+
+
+macro_rules! impl_mul_for_primitive {
+    ($t:ty) => {
+        impl_mul_for_primitive!(IMPL:MUL $t);
+        impl_mul_for_primitive!(IMPL:MUL-ASSIGN $t);
+        impl_mul_for_primitive!(IMPL:MUL &$t);
+        impl_mul_for_primitive!(IMPL:MUL-ASSIGN &$t);
+    };
+    (IMPL:MUL $t:ty) => {
+        impl Mul<$t> for BigDecimal {
+            type Output = BigDecimal;
+
+            fn mul(mut self, rhs: $t) -> BigDecimal {
+                self *= rhs;
+                self
+            }
+        }
+
+        impl Mul<$t> for &BigDecimal {
+            type Output = BigDecimal;
+
+            fn mul(self, rhs: $t) -> BigDecimal {
+                let res = BigDecimal::from(rhs);
+                res * self
+            }
+        }
+
+        impl Mul<BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn mul(self, rhs: BigDecimal) -> BigDecimal {
+                rhs * self
+            }
+        }
+
+        impl Mul<&BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn mul(self, rhs: &BigDecimal) -> BigDecimal {
+                rhs * self
+            }
+        }
+    };
+    (IMPL:MUL-ASSIGN $t:ty) => {
+        impl MulAssign<$t> for BigDecimal {
+            fn mul_assign(&mut self, rhs: $t) {
+                if rhs.is_zero() {
+                    *self = BigDecimal::zero()
+                } else if rhs.is_one() {
+                    // no-op
+                } else {
+                    *self *= BigDecimal::from(rhs);
+                }
+            }
+        }
+    };
+}
+
+
+impl_mul_for_primitive!(u8);
+impl_mul_for_primitive!(u16);
+impl_mul_for_primitive!(u32);
+impl_mul_for_primitive!(u64);
+impl_mul_for_primitive!(u128);
+impl_mul_for_primitive!(i8);
+impl_mul_for_primitive!(i16);
+impl_mul_for_primitive!(i32);
+impl_mul_for_primitive!(i64);
+impl_mul_for_primitive!(i128);
