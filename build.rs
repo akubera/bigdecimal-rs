@@ -1,10 +1,15 @@
 #![allow(clippy::style)]
 
+extern crate autocfg;
 
 use std::env;
 use std::path::PathBuf;
 
+
 fn main() -> std::io::Result<()> {
+    let ac = autocfg::new();
+    ac.emit_rustc_version(1, 70);
+
     let outdir = match std::env::var_os("OUT_DIR") {
         None => return Ok(()),
         Some(outdir) => outdir,
