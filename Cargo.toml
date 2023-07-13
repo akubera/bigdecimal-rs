@@ -28,7 +28,7 @@ serde = { version = "1.0", optional = true, default-features = false }
 
 [dev-dependencies]
 paste = "1"
-serde_json = "1.0"
+serde_json = "<1.0.101"
 siphasher = { version = "0.3.10", default-features = false }
 # The following dev-dependencies are only required for benchmarking
 #   (use the `benchmark-bigdecimal` script to uncomment these and run benchmarks)
