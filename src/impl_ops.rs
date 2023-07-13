@@ -253,6 +253,7 @@ macro_rules! impl_div_for_primitive {
         impl Div<$t> for BigDecimal {
             type Output = BigDecimal;
 
+            #[cfg(rustc_1_70)]  // Option::is_some_and
             fn div(self, denom: $t) -> BigDecimal {
                 if denom.is_one() {
                     self
@@ -261,6 +262,21 @@ macro_rules! impl_div_for_primitive {
                 } else if denom.clone() == 2 {
                     self.half()
                 } else if denom.checked_neg().is_some_and(|n| n == 2) {
+                    self.half().neg()
+                } else {
+                    self / BigDecimal::from(denom)
+                }
+            }
+
+            #[cfg(not(rustc_1_70))]
+            fn div(self, denom: $t) -> BigDecimal {
+                if denom.is_one() {
+                    self
+                } else if denom.checked_neg().map(|n| n == 1).unwrap_or(false) {
+                    self.neg()
+                } else if denom.clone() == 2 {
+                    self.half()
+                } else if denom.checked_neg().map(|n| n == 2).unwrap_or(false) {
                     self.half().neg()
                 } else {
                     self / BigDecimal::from(denom)
