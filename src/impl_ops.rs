@@ -5,8 +5,12 @@ use crate::stdlib::ops::{
     Add, AddAssign,
     Sub, SubAssign,
     Mul, MulAssign,
+    Div, DivAssign,
     Neg,
 };
+
+
+use crate::stdlib::convert::TryFrom;
 
 use num_traits::{Zero, One};
 
@@ -230,3 +234,192 @@ impl_mul_for_primitive!(i16);
 impl_mul_for_primitive!(i32);
 impl_mul_for_primitive!(i64);
 impl_mul_for_primitive!(i128);
+
+macro_rules! impl_div_for_primitive {
+    (f32) => {
+        impl_div_for_primitive!(IMPL:DIV:FLOAT f32);
+        impl_div_for_primitive!(IMPL:DIV:REF &f32);
+    };
+    (f64) => {
+        impl_div_for_primitive!(IMPL:DIV:FLOAT f64);
+        impl_div_for_primitive!(IMPL:DIV:REF &f64);
+    };
+    ($t:ty) => {
+        impl_div_for_primitive!(IMPL:DIV $t);
+        impl_div_for_primitive!(IMPL:DIV:REF &$t);
+        impl_div_for_primitive!(IMPL:DIV-ASSIGN $t);
+    };
+    (IMPL:DIV $t:ty) => {
+        impl Div<$t> for BigDecimal {
+            type Output = BigDecimal;
+
+            fn div(self, denom: $t) -> BigDecimal {
+                if denom.is_one() {
+                    self
+                } else if denom.checked_neg().is_some_and(|n| n == 1) {
+                    self.neg()
+                } else if denom.clone() == 2 {
+                    self.half()
+                } else if denom.checked_neg().is_some_and(|n| n == 2) {
+                    self.half().neg()
+                } else {
+                    self / BigDecimal::from(denom)
+                }
+            }
+        }
+
+        impl Div<$t> for &BigDecimal {
+            type Output = BigDecimal;
+
+            fn div(self, denom: $t) -> BigDecimal {
+                self.clone() / denom
+            }
+        }
+
+        impl Div<BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: BigDecimal) -> BigDecimal {
+                if self.is_one() {
+                    denom.inverse()
+                } else {
+                    BigDecimal::from(self) / denom
+                }
+            }
+        }
+
+        impl Div<&BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: &BigDecimal) -> BigDecimal {
+                BigDecimal::from(self) / denom
+            }
+        }
+    };
+    (IMPL:DIV-ASSIGN $t:ty) => {
+        impl DivAssign<$t> for BigDecimal {
+            fn div_assign(&mut self, rhs: $t) {
+                if rhs.is_zero() {
+                    *self = BigDecimal::zero()
+                } else if rhs.is_one() {
+                    // no-op
+                } else {
+                    *self = self.clone() / BigDecimal::from(rhs);
+                }
+            }
+        }
+    };
+    (IMPL:DIV:REF $t:ty) => {
+        impl Div<$t> for BigDecimal {
+            type Output = BigDecimal;
+
+            fn div(self, denom: $t) -> BigDecimal {
+                self / *denom
+            }
+        }
+
+        impl Div<BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: BigDecimal) -> Self::Output {
+                *self / denom
+            }
+        }
+
+        impl Div<&BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: &BigDecimal) -> Self::Output {
+                *self / denom
+            }
+        }
+
+        impl DivAssign<$t> for BigDecimal {
+            fn div_assign(&mut self, denom: $t) {
+                self.div_assign(*denom)
+            }
+        }
+    };
+    (IMPL:DIV:FLOAT $t:ty) => {
+        impl Div<$t> for BigDecimal {
+            type Output = BigDecimal;
+
+            fn div(self, denom: $t) -> BigDecimal {
+                if !denom.is_normal() {
+                    BigDecimal::zero()
+                } else if denom == (1.0 as $t) {
+                    self
+                } else if denom == (-1.0 as $t) {
+                    self.neg()
+                } else if denom == (2.0 as $t) {
+                    self.half()
+                } else if denom == (-2.0 as $t) {
+                    self.half().neg()
+                } else {
+                    self / BigDecimal::try_from(denom).unwrap()
+                }
+            }
+        }
+
+        impl Div<$t> for &BigDecimal {
+            type Output = BigDecimal;
+
+            fn div(self, denom: $t) -> BigDecimal {
+                self.clone() / denom
+            }
+        }
+
+        impl Div<BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: BigDecimal) -> Self::Output {
+                if !self.is_normal() {
+                    BigDecimal::zero()
+                } else if self.is_one() {
+                    denom.inverse()
+                } else {
+                    BigDecimal::try_from(self).unwrap() / denom
+                }
+            }
+        }
+
+        impl Div<&BigDecimal> for $t {
+            type Output = BigDecimal;
+
+            fn div(self, denom: &BigDecimal) -> Self::Output {
+                if !self.is_normal() {
+                    BigDecimal::zero()
+                } else if self.is_one() {
+                    denom.inverse()
+                } else {
+                    BigDecimal::try_from(self).unwrap() / denom
+                }
+            }
+        }
+
+        impl DivAssign<$t> for BigDecimal {
+            fn div_assign(&mut self, denom: $t) {
+                if !denom.is_normal() {
+                    *self = BigDecimal::zero()
+                } else {
+                    *self = self.clone() / BigDecimal::try_from(denom).unwrap()
+                };
+            }
+        }
+    };
+}
+
+
+impl_div_for_primitive!(u8);
+impl_div_for_primitive!(u16);
+impl_div_for_primitive!(u32);
+impl_div_for_primitive!(u64);
+impl_div_for_primitive!(u128);
+impl_div_for_primitive!(i8);
+impl_div_for_primitive!(i16);
+impl_div_for_primitive!(i32);
+impl_div_for_primitive!(i64);
+impl_div_for_primitive!(i128);
+
+impl_div_for_primitive!(f32);
+impl_div_for_primitive!(f64);

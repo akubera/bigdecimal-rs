@@ -1650,7 +1650,6 @@ impl MulAssign<BigInt> for BigDecimal {
     }
 }
 
-impl_div_for_primitives!();
 
 #[inline(always)]
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
