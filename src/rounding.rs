@@ -172,7 +172,13 @@ impl RoundingMode {
     /// Calculation of pair of digits from full number, and the replacement of that number
     /// should be handled separately
     ///
-    pub fn round_u32(&self, at_digit: stdlib::num::NonZeroU8, sign: Sign, value: u32, trailing_zeros: bool) -> u32 {
+    pub fn round_u32(
+        &self,
+        at_digit: stdlib::num::NonZeroU8,
+        sign: Sign,
+        value: u32,
+        trailing_zeros: bool,
+    ) -> u32 {
         let shift = 10u32.pow(at_digit.get() as u32 - 1);
         let splitter = shift * 10;
 
@@ -448,7 +454,7 @@ mod test_round_u32 {
     }
 
     mod case_neg_35488622_000x {
-         use super::*;
+        use super::*;
 
         // ...000x indicates non-zero trailing digit
         define_test_input!(-35488622 ...000x);

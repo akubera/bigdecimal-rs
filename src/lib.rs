@@ -73,7 +73,7 @@ use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 
-use num_bigint::{BigInt, ParseBigIntError, Sign, ToBigInt};
+use num_bigint::{BigInt, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
@@ -89,6 +89,14 @@ mod macros;
 
 #[cfg(test)]
 extern crate paste;
+
+// From<T>, To<T>, TryFrom<T> impls
+mod impl_convert;
+// Add<T>, Sub<T>, etc...
+mod impl_ops;
+
+// Implementations of num_traits
+mod impl_num;
 
 mod parsing;
 pub mod rounding;
@@ -1108,6 +1116,7 @@ impl One for BigDecimal {
     }
 }
 
+
 impl Add<BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
@@ -1642,7 +1651,6 @@ impl MulAssign<BigInt> for BigDecimal {
     }
 }
 
-impl_div_for_primitives!();
 
 #[inline(always)]
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
@@ -1993,242 +2001,6 @@ impl fmt::Debug for BigDecimal {
     }
 }
 
-impl Num for BigDecimal {
-    type FromStrRadixErr = ParseBigDecimalError;
-
-    /// Creates and initializes a BigDecimal.
-    #[inline]
-    fn from_str_radix(s: &str, radix: u32) -> Result<BigDecimal, ParseBigDecimalError> {
-        if radix != 10 {
-            return Err(ParseBigDecimalError::Other(String::from(
-                "The radix for decimal MUST be 10",
-            )));
-        }
-
-        let exp_separator: &[_] = &['e', 'E'];
-
-        // split slice into base and exponent parts
-        let (base_part, exponent_value) = match s.find(exp_separator) {
-            // exponent defaults to 0 if (e|E) not found
-            None => (s, 0),
-
-            // split and parse exponent field
-            Some(loc) => {
-                // slice up to `loc` and 1 after to skip the 'e' char
-                let (base, exp) = (&s[..loc], &s[loc + 1..]);
-
-                // special consideration for rust 1.0.0 which would not
-                // parse a leading '+'
-                let exp = match exp.chars().next() {
-                    Some('+') => &exp[1..],
-                    _ => exp,
-                };
-
-                (base, i64::from_str(exp)?)
-            }
-        };
-
-        // TEMPORARY: Test for emptiness - remove once BigInt supports similar error
-        if base_part.is_empty() {
-            return Err(ParseBigDecimalError::Empty);
-        }
-
-        // split decimal into a digit string and decimal-point offset
-        let (digits, decimal_offset): (String, _) = match base_part.find('.') {
-            // No dot! pass directly to BigInt
-            None => (base_part.to_string(), 0),
-
-            // decimal point found - necessary copy into new string buffer
-            Some(loc) => {
-                // split into leading and trailing digits
-                let (lead, trail) = (&base_part[..loc], &base_part[loc + 1..]);
-
-                // copy all leading characters into 'digits' string
-                let mut digits = String::from(lead);
-
-                // copy all trailing characters after '.' into the digits string
-                digits.push_str(trail);
-
-                // count number of trailing digits
-                let trail_digits = trail.chars().filter(|c| *c != '_').count();
-
-                (digits, trail_digits as i64)
-            }
-        };
-
-        let scale = decimal_offset - exponent_value;
-        let big_int = BigInt::from_str_radix(&digits, radix)?;
-
-        Ok(BigDecimal::new(big_int, scale))
-    }
-}
-
-impl ToPrimitive for BigDecimal {
-    fn to_i64(&self) -> Option<i64> {
-        match self.sign() {
-            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i64(),
-            Sign::NoSign => Some(0),
-        }
-    }
-    fn to_i128(&self) -> Option<i128> {
-        match self.sign() {
-            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i128(),
-            Sign::NoSign => Some(0),
-        }
-    }
-    fn to_u64(&self) -> Option<u64> {
-        match self.sign() {
-            Sign::Plus => self.with_scale(0).int_val.to_u64(),
-            Sign::NoSign => Some(0),
-            Sign::Minus => None,
-        }
-    }
-    fn to_u128(&self) -> Option<u128> {
-        match self.sign() {
-            Sign::Plus => self.with_scale(0).int_val.to_u128(),
-            Sign::NoSign => Some(0),
-            Sign::Minus => None,
-        }
-    }
-
-    fn to_f64(&self) -> Option<f64> {
-        self.int_val.to_f64().map(|x| x * 10f64.powi(-self.scale as i32))
-    }
-}
-
-impl From<i64> for BigDecimal {
-    #[inline]
-    fn from(n: i64) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<u64> for BigDecimal {
-    #[inline]
-    fn from(n: u64) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<i128> for BigDecimal {
-    fn from(n: i128) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<u128> for BigDecimal {
-    fn from(n: u128) -> Self {
-        BigDecimal {
-            int_val: BigInt::from(n),
-            scale: 0,
-        }
-    }
-}
-
-impl From<(BigInt, i64)> for BigDecimal {
-    #[inline]
-    fn from((int_val, scale): (BigInt, i64)) -> Self {
-        BigDecimal {
-            int_val: int_val,
-            scale: scale,
-        }
-    }
-}
-
-impl From<BigInt> for BigDecimal {
-    #[inline]
-    fn from(int_val: BigInt) -> Self {
-        BigDecimal {
-            int_val: int_val,
-            scale: 0,
-        }
-    }
-}
-
-macro_rules! impl_from_type {
-    ($FromType:ty, $AsType:ty) => {
-        impl From<$FromType> for BigDecimal {
-            #[inline]
-            #[allow(clippy::cast_lossless)]
-            fn from(n: $FromType) -> Self {
-                BigDecimal::from(n as $AsType)
-            }
-        }
-    };
-}
-
-impl_from_type!(u8, u64);
-impl_from_type!(u16, u64);
-impl_from_type!(u32, u64);
-
-impl_from_type!(i8, i64);
-impl_from_type!(i16, i64);
-impl_from_type!(i32, i64);
-
-impl TryFrom<f32> for BigDecimal {
-    type Error = ParseBigDecimalError;
-
-    #[inline]
-    fn try_from(n: f32) -> Result<Self, Self::Error> {
-        parsing::try_parse_from_f32(n)
-    }
-}
-
-impl TryFrom<f64> for BigDecimal {
-    type Error = ParseBigDecimalError;
-
-    #[inline]
-    fn try_from(n: f64) -> Result<Self, Self::Error> {
-        parsing::try_parse_from_f64(n)
-    }
-}
-
-impl FromPrimitive for BigDecimal {
-    #[inline]
-    fn from_i64(n: i64) -> Option<Self> {
-        Some(BigDecimal::from(n))
-    }
-
-    #[inline]
-    fn from_u64(n: u64) -> Option<Self> {
-        Some(BigDecimal::from(n))
-    }
-
-    #[inline]
-    fn from_i128(n: i128) -> Option<Self> {
-        Some(BigDecimal::from(n))
-    }
-
-    #[inline]
-    fn from_u128(n: u128) -> Option<Self> {
-        Some(BigDecimal::from(n))
-    }
-
-    #[inline]
-    fn from_f32(n: f32) -> Option<Self> {
-        BigDecimal::try_from(n).ok()
-    }
-
-    #[inline]
-    fn from_f64(n: f64) -> Option<Self> {
-        BigDecimal::try_from(n).ok()
-    }
-}
-
-impl ToBigInt for BigDecimal {
-    fn to_bigint(&self) -> Option<BigInt> {
-        Some(self.with_scale(0).int_val)
-    }
-}
 
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
@@ -3483,3 +3255,9 @@ mod test_with_scale_round {
 
     include!("lib.tests.with_scale_round.rs");
 }
+
+// enable these tests with scripts/bigdecimal-property-tests
+// ::PROPERTY-TESTS:: #[cfg(test)] #[macro_use] extern crate proptest;
+// ::PROPERTY-TESTS:: #[cfg(test)] mod property_tests {
+// ::PROPERTY-TESTS::       use super::*; use paste::paste;
+// ::PROPERTY-TESTS::       include!("lib.tests.property-tests.rs"); }

@@ -1,0 +1,19 @@
+#!/bin/sh
+#
+# Run commands with property-tests enabled for bigdecimal crate
+#
+# Tests are defined in src/lib.tests.property-test.rs
+#
+
+# enable property-test dependencies in Cargo
+sed -i.bak -e 's|# PROPERTY-TESTS: ||' Cargo.toml
+
+# include the property-test file in lib.rs
+sed -i.bak -e 's|// ::PROPERTY-TESTS:: ||' src/lib.rs
+
+# Run commands
+"$@"
+
+# Restore Cargo.toml with backup
+mv Cargo.toml.bak Cargo.toml
+mv src/lib.rs.bak src/lib.rs
