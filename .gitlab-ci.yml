@@ -116,6 +116,9 @@ cargo:check:
   variables:
     RUST_CACHE_KEY: "stable"
   <<: *script-cargo-check
+  script:
+    # enable property tests for the stable 'pipeline'
+    - scripts/bigdecimal-property-tests cargo check --tests
 
 cargo:clippy:
   stage: check
@@ -153,6 +156,10 @@ cargo:build-stable:
   variables:
     RUST_CACHE_KEY: "stable"
   <<: *script-cargo-build
+  script:
+    # enable property tests for the stable 'pipeline'
+    - scripts/bigdecimal-property-tests cargo build --tests
+
 
 cargo:test-stable:
   stage: test
@@ -162,6 +169,9 @@ cargo:test-stable:
   variables:
     RUST_CACHE_KEY: "stable"
   <<: *script-cargo-test
+  script:
+    # enable property tests for the stable 'pipeline'
+    - scripts/bigdecimal-property-tests cargo test
 
 
 cargo:build:no-std:
