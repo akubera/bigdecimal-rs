@@ -17,3 +17,5 @@ builds/
 *venv*/
 .python-version
 *.ipynb
+
+proptest-regressions
