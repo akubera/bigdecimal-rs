@@ -23,4 +23,6 @@ mod stdlib {
 
     #[cfg(test)]
     pub use std::collections::hash_map::DefaultHasher;
+
+    pub use std::vec::Vec;
 }
