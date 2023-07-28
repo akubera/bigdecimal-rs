@@ -102,26 +102,49 @@ mod parsing;
 pub mod rounding;
 pub use rounding::RoundingMode;
 
-#[inline(always)]
+/// Return 10^pow
+///
+/// Try to calculate this with fewest number of allocations
+///
 fn ten_to_the(pow: u64) -> BigInt {
     if pow < 20 {
-        BigInt::from(10u64.pow(pow as u32))
+        return BigInt::from(10u64.pow(pow as u32));
+    }
+
+    // linear case of 10^pow = 10^(19 * count + rem)
+    if pow < 590 {
+        let ten_to_nineteen = 10u64.pow(19);
+
+        // count factors of 19
+        let (count, rem) = pow.div_rem(&19);
+
+        let mut res = BigInt::from(ten_to_nineteen);
+        for _ in 1..count {
+            res *= ten_to_nineteen;
+        }
+        if rem != 0 {
+            res *= 10u64.pow(rem as u32);
+        }
+
+        return res;
+    }
+
+    // use recursive algorithm where linear case might be too slow
+    let (quotient, rem) = pow.div_rem(&16);
+    let x = ten_to_the(quotient);
+
+    let x2 = &x * &x;
+    let x4 = &x2 * &x2;
+    let x8 = &x4 * &x4;
+    let res = &x8 * &x8;
+
+    if rem == 0 {
+        res
     } else {
-        let (half, rem) = pow.div_rem(&16);
-
-        let mut x = ten_to_the(half);
-
-        for _ in 0..4 {
-            x = &x * &x;
-        }
-
-        if rem == 0 {
-            x
-        } else {
-            x * ten_to_the(rem)
-        }
+        res * 10u64.pow(rem as u32)
     }
 }
+
 
 #[inline(always)]
 fn count_decimal_digits(int: &BigInt) -> u64 {
