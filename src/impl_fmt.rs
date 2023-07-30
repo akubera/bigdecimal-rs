@@ -2,6 +2,7 @@
 //!
 
 use crate::*;
+use stdlib::fmt::Write;
 
 
 impl fmt::Display for BigDecimal {
@@ -68,8 +69,68 @@ impl fmt::Debug for BigDecimal {
 }
 
 
+#[inline(never)]
+pub(crate) fn write_scientific_notation<W: Write>(n: &BigDecimal, w: &mut W) -> fmt::Result {
+    if n.is_zero() {
+        return w.write_str("0e0");
+    }
+
+    if n.int_val.sign() == Sign::Minus {
+        w.write_str("-")?;
+    }
+
+    let digits = n.int_val.magnitude();
+
+    let dec_str = digits.to_str_radix(10);
+    let (first_digit, remaining_digits) = dec_str.as_str().split_at(1);
+    w.write_str(first_digit)?;
+    if !remaining_digits.is_empty() {
+        w.write_str(".")?;
+        w.write_str(remaining_digits)?;
+    }
+    write!(w, "e{}", remaining_digits.len() as i64 - n.scale)
+}
+
+
+#[inline(never)]
+pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) -> fmt::Result {
+    if n.is_zero() {
+        return out.write_str("0e0");
+    }
+
+    if n.int_val.sign() == Sign::Minus {
+        out.write_char('-')?;
+    }
+
+    let digits = n.int_val.magnitude();
+
+    let dec_str = digits.to_str_radix(10);
+    let digit_count = dec_str.len();
+
+    let top_digit_exponent = digit_count as i128 - n.scale as i128;
+
+    let shift_amount = match top_digit_exponent.rem_euclid(3) {
+        0 => 3,
+        i => i,
+    };
+
+    let (head, rest) = dec_str.split_at(shift_amount as usize);
+    let exp = top_digit_exponent - shift_amount;
+    debug_assert_eq!(exp % 3, 0);
+
+    out.write_str(head)?;
+
+    if !rest.is_empty() {
+        out.write_char('.')?;
+        out.write_str(rest)?;
+    }
+
+    return write!(out, "e{}", exp);
+}
+
+
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
     #[test]
@@ -109,5 +170,17 @@ mod tests {
             let var = BigDecimal::from_str(source).unwrap();
             assert_eq!(format!("{:?}", var), expected);
         }
+    }
+
+    mod write_scientific_notation {
+        use super::*;
+
+        include!("impl_fmt.tests.scientific_notation.rs");
+    }
+
+    mod write_engineering_notation {
+        use super::*;
+
+        include!("impl_fmt.tests.engineering_notation.rs");
     }
 }

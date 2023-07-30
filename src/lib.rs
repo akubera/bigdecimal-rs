@@ -882,6 +882,50 @@ impl BigDecimal {
         let scale = self.scale - trailing_count as i64;
         BigDecimal::new(int_val, scale)
     }
+
+    //////////////////////////
+    // Formatting methods
+
+    /// Create string of this bigdecimal in scientific notation
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_scientific_notation(), "1.2345678e7");
+    /// ```
+    pub fn to_scientific_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_scientific_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in scientific notation to writer `w`
+    pub fn write_scientific_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_scientific_notation(self, w)
+    }
+
+    /// Create string of this bigdecimal in engineering notation
+    ///
+    /// Engineering notation is scientific notation with the exponent
+    /// coerced to a multiple of three
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_engineering_notation(), "12.345678e6");
+    /// ```
+    ///
+    pub fn to_engineering_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_engineering_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in engineering notation to writer `w`
+    pub fn write_engineering_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_engineering_notation(self, w)
+    }
+
 }
 
 #[derive(Debug, PartialEq)]
