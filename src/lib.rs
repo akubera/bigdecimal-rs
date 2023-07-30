@@ -122,6 +122,8 @@ mod impl_num;
 // Implementations for deserializations and serializations
 #[cfg(feature = "serde")]
 pub mod impl_serde;
+// Implementations of std::fmt formatting and stringification
+mod impl_fmt;
 
 // construct BigDecimals from strings and floats
 mod parsing;
