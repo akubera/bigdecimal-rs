@@ -1193,12 +1193,6 @@ impl fmt::Display for BigDecimal {
     }
 }
 
-impl fmt::Debug for BigDecimal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BigDecimal(\"{}\")", self)
-    }
-}
-
 
 /// Immutable big-decimal, referencing a borrowed buffer of digits
 ///
@@ -2017,22 +2011,6 @@ mod bigdecimal_tests {
             assert_eq!(format!("{:4.1}", x), results.3);
             assert_eq!(format!("{:+05.1}", x), results.4);
             assert_eq!(format!("{:<4.1}", x), results.5);
-        }
-    }
-
-    #[test]
-    fn test_debug() {
-        let vals = vec![
-            ("BigDecimal(\"123.456\")", "123.456"),
-            ("BigDecimal(\"123.400\")", "123.400"),
-            ("BigDecimal(\"1.20\")", "01.20"),
-            // ("BigDecimal(\"1.2E3\")", "01.2E3"), <- ambiguous precision
-            ("BigDecimal(\"1200\")", "01.2E3"),
-        ];
-
-        for (expected, source) in vals {
-            let var = BigDecimal::from_str(source).unwrap();
-            assert_eq!(format!("{:?}", var), expected);
         }
     }
 
