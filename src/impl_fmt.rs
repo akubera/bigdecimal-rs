@@ -115,11 +115,20 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
 
     let shift_amount = match top_digit_exponent.rem_euclid(3) {
         0 => 3,
-        i => i,
+        i => i as usize,
     };
 
-    let (head, rest) = dec_str.split_at(shift_amount as usize);
-    let exp = top_digit_exponent - shift_amount;
+    let exp = top_digit_exponent - shift_amount as i128;
+
+    // handle adding zero padding
+    if let Some(padding_zero_count) = shift_amount.checked_sub(dec_str.len()) {
+        let zeros = &"000"[..padding_zero_count];
+        out.write_str(&dec_str)?;
+        out.write_str(zeros)?;
+        return write!(out, "e{}", exp);
+    }
+
+    let (head, rest) = dec_str.split_at(shift_amount);
     debug_assert_eq!(exp % 3, 0);
 
     out.write_str(head)?;
@@ -226,6 +235,12 @@ mod test {
         impl_case!(case_5_31e5 : "5.31e5" => "531e3");
         impl_case!(case_5_31e6 : "5.31e6" => "5.31e6");
         impl_case!(case_5_31e7 : "5.31e7" => "53.1e6");
+
+        impl_case!(case_1e2 : "1e2" => "100e0");
+        impl_case!(case_1e119 : "1e19" => "10e18");
+        impl_case!(case_1e3000 : "1e3000" => "1e3000");
+        impl_case!(case_4_2e7 : "4.2e7" => "42e6");
+        impl_case!(case_4_2e8 : "4.2e8" => "420e6");
 
         impl_case!(case_4e99999999999999 : "4e99999999999999" => "4e99999999999999");
         impl_case!(case_4e99999999999998 : "4e99999999999998" => "400e99999999999996");
