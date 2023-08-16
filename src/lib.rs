@@ -77,8 +77,7 @@ use num_bigint::{BigInt, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
-#[allow(clippy::approx_constant)] // requires Rust 1.43.0
-const LOG2_10: f64 = 3.321928094887362_f64;
+use stdlib::f64::consts::LOG2_10;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
