@@ -64,7 +64,11 @@ impl fmt::Display for BigDecimal {
 
 impl fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BigDecimal(\"{}\")", self)
+        if self.scale.abs() < 40 {
+            write!(f, "BigDecimal(\"{}\")", self)
+        } else {
+            write!(f, "BigDecimal(\"{:?}e{}\")", self.int_val, -self.scale)
+        }
     }
 }
 
@@ -156,20 +160,28 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_debug() {
-        let vals = vec![
-            ("BigDecimal(\"123.456\")", "123.456"),
-            ("BigDecimal(\"123.400\")", "123.400"),
-            ("BigDecimal(\"1.20\")", "01.20"),
-            // ("BigDecimal(\"1.2E3\")", "01.2E3"), <- ambiguous precision
-            ("BigDecimal(\"1200\")", "01.2E3"),
-        ];
+    mod test_debug {
+        use super::*;
 
-        for (expected, source) in vals {
-            let var = BigDecimal::from_str(source).unwrap();
-            assert_eq!(format!("{:?}", var), expected);
+        macro_rules! impl_case {
+            ($name:ident : $s:literal => $expected:literal) => {
+                #[test]
+                fn $name() {
+                    let d: BigDecimal = $s.parse().unwrap();
+                    let s = format!("{:?}", d);
+                    assert_eq!(s, $expected)
+                }
+            };
         }
+
+        impl_case!(case_0: "0" => r#"BigDecimal("0")"#);
+        impl_case!(case_1: "1" => r#"BigDecimal("1")"#);
+        impl_case!(case_123_400: "123.400" => r#"BigDecimal("123.400")"#);
+        impl_case!(case_123_456: "123.456" => r#"BigDecimal("123.456")"#);
+        impl_case!(case_01_20: "01.20" => r#"BigDecimal("1.20")"#);
+        impl_case!(case_1_20: "1.20" => r#"BigDecimal("1.20")"#);
+        impl_case!(case_01_2e3: "01.2E3" => r#"BigDecimal("1200")"#);
+        impl_case!(case_avagadro: "6.02214076e1023" => r#"BigDecimal("602214076e1015")"#);
     }
 
     mod write_scientific_notation {
