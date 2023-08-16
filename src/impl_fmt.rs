@@ -60,11 +60,20 @@ impl BigDecimal {
 
         let shift_amount = match top_digit_exponent.rem_euclid(3) {
             0 => 3,
-            i => i,
+            i => i as usize,
         };
 
-        let (head, rest) = dec_str.split_at(shift_amount as usize);
-        let exp = top_digit_exponent - shift_amount;
+        let exp = top_digit_exponent - shift_amount as i128;
+
+        // handle adding zero padding
+        if let Some(padding_zero_count) = shift_amount.checked_sub(dec_str.len()) {
+            let zeros = &"000"[..padding_zero_count];
+            out.write_str(&dec_str)?;
+            out.write_str(zeros)?;
+            return write!(out, "e{}", exp);
+        }
+
+        let (head, rest) = dec_str.split_at(shift_amount);
         debug_assert_eq!(exp % 3, 0);
 
         out.write_str(head)?;
