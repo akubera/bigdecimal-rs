@@ -67,7 +67,7 @@ use self::stdlib::convert::TryFrom;
 use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
-use self::stdlib::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+use self::stdlib::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign};
 use self::stdlib::iter::{self, Sum};
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
@@ -1848,6 +1848,15 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+forward_val_assignop!(impl DivAssign for BigDecimal, div_assign);
+
+impl<'a> DivAssign<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn div_assign(&mut self, rhs: &BigDecimal) {
+        *self = &*self / rhs;
+    }
+}
+
 impl Rem<BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
@@ -1920,6 +1929,15 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
             }
         };
         BigDecimal::new(result, scale)
+    }
+}
+
+forward_val_assignop!(impl RemAssign for BigDecimal, rem_assign);
+
+impl<'a> RemAssign<&'a BigDecimal> for BigDecimal {
+    #[inline]
+    fn rem_assign(&mut self, rhs: &BigDecimal) {
+        *self = &*self % rhs;
     }
 }
 
