@@ -20,7 +20,7 @@ use stdlib::iter;
 impl PartialEq for BigDecimal
 {
     fn eq(&self, rhs: &BigDecimal) -> bool {
-        self.take_ref() == rhs.take_ref()
+        self.to_ref() == rhs.to_ref()
     }
 }
 
@@ -91,7 +91,7 @@ mod test_bigintref {
 
         assert_eq!(x, y);
 
-        let x_ref = x.take_ref();
+        let x_ref = x.to_ref();
         assert_eq!(x_ref, &y);
         assert_ne!(x_ref.neg(), x_ref);
         assert_eq!(x_ref.neg().neg(), x_ref);

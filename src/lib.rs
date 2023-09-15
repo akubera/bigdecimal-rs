@@ -234,6 +234,12 @@ impl BigDecimal {
         }
     }
 
+    /// Make a BigDecimalRef of this value
+    pub fn to_ref<'a>(&'a self) -> BigDecimalRef<'a> {
+        // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
+        self.into()
+    }
+
     /// Creates and initializes a `BigDecimal`.
     ///
     /// Decodes using `str::from_utf8` and forwards to `BigDecimal::from_str_radix`.
