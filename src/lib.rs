@@ -68,7 +68,7 @@ use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
 use self::stdlib::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use self::stdlib::iter::{self, Sum};
+use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
@@ -93,6 +93,9 @@ extern crate paste;
 mod impl_convert;
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
+
+// PartialEq
+mod impl_cmp;
 
 // Implementations of num_traits
 mod impl_num;
@@ -1114,55 +1117,6 @@ impl Ord for BigDecimal {
     }
 }
 
-impl PartialEq for BigDecimal {
-    #[inline]
-    fn eq(&self, rhs: &BigDecimal) -> bool {
-        match (self.sign(), rhs.sign()) {
-            // both zero
-            (Sign::NoSign, Sign::NoSign) => return true,
-            // signs are different
-            (a, b) if a != b => return false,
-            // signs are same, do nothing
-            _ => {}
-        }
-
-        let unscaled_int;
-        let scaled_int;
-        let trailing_zero_count;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                unscaled_int = &self.int_val;
-                scaled_int = &rhs.int_val;
-                trailing_zero_count = (self.scale - rhs.scale) as usize;
-            }
-            Ordering::Less => {
-                unscaled_int = &rhs.int_val;
-                scaled_int = &self.int_val;
-                trailing_zero_count = (rhs.scale - self.scale) as usize;
-            }
-            Ordering::Equal => return self.int_val == rhs.int_val,
-        }
-
-        if trailing_zero_count < 20 {
-            let scaled_int = scaled_int * ten_to_the(trailing_zero_count as u64);
-            return &scaled_int == unscaled_int;
-        }
-
-        let (_, unscaled_digits) = unscaled_int.to_radix_le(10);
-        let (_, scaled_digits) = scaled_int.to_radix_le(10);
-
-        // different lengths with trailing zeros
-        if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
-            return false;
-        }
-
-        // add leading zero digits to digits that need scaled
-        let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
-
-        // return true if all digits are the same
-        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| { digit_a == digit_b })
-    }
-}
 
 impl Default for BigDecimal {
     #[inline]
