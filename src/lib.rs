@@ -1942,24 +1942,6 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl Neg for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(mut self) -> BigDecimal {
-        self.int_val = -self.int_val;
-        self
-    }
-}
-
-impl<'a> Neg for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(self) -> BigDecimal {
-        -self.clone()
-    }
-}
 
 impl Signed for BigDecimal {
     #[inline]
