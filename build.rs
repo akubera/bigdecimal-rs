@@ -7,6 +7,9 @@ fn main() {
     let ac = autocfg::new();
     ac.emit_rustc_version(1, 70);
 
+    // Option::zip
+    ac.emit_rustc_version(1, 46);
+
     let outdir: PathBuf = std::env::var_os("OUT_DIR").unwrap().into();
     write_default_precision_file(&outdir);
 }

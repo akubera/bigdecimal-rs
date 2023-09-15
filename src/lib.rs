@@ -441,16 +441,27 @@ impl BigDecimal {
     }
 
     /// Return this BigDecimal with the given precision, rounding if needed
+    #[cfg(rustc_1_46)]  // Option::zip
     pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
         let digit_count = self.digits();
         let new_prec = prec.get().to_i64();
         let new_scale = new_prec
                         .zip(digit_count.to_i64())
-                        .map(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
-                        .flatten()
-                        .map(|prec_diff| self.scale.checked_add(prec_diff))
-                        .flatten()
+                        .and_then(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
+                        .and_then(|prec_diff| self.scale.checked_add(prec_diff))
                         .expect("precision overflow");
+
+        self.with_scale_round(new_scale, round)
+    }
+
+    #[cfg(not(rustc_1_46))]
+    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+        let new_scale = self.digits().to_i64().and_then(
+                            |old_prec| {
+                                prec.get().to_i64().and_then(
+                                    |new_prec| { new_prec.checked_sub(old_prec) })})
+                            .and_then(|prec_diff| self.scale.checked_add(prec_diff))
+                            .expect("precision overflow");
 
         self.with_scale_round(new_scale, round)
     }
