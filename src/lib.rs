@@ -73,7 +73,7 @@ use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 
-use num_bigint::{BigInt, ParseBigIntError, Sign};
+use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
@@ -145,12 +145,16 @@ fn ten_to_the(pow: u64) -> BigInt {
 }
 
 
-#[inline(always)]
+/// Return number of decimal digits in integer
 fn count_decimal_digits(int: &BigInt) -> u64 {
-    if int.is_zero() {
+    count_decimal_digits_uint(int.magnitude())
+}
+
+/// Return number of decimal digits in unsigned integer
+fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
+    if uint.is_zero() {
         return 1;
     }
-    let uint = int.magnitude();
     let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
     // guess number of digits based on number of bits in UInt
     let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
@@ -160,6 +164,7 @@ fn count_decimal_digits(int: &BigInt) -> u64 {
     }
     digits
 }
+
 
 /// Internal function used for rounding
 ///
@@ -2067,6 +2072,73 @@ impl fmt::Display for BigDecimal {
 impl fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BigDecimal(\"{}\")", self)
+    }
+}
+
+
+/// A big-decimal wrapping a borrowed (immutable) buffer of digits
+///
+/// The non-digit information like `scale` and `sign` may be changed
+/// on these objects, which otherwise would require cloning the full
+/// digit buffer in the BigDecimal.
+///
+/// May be transformed into full BigDecimal object using the to_owned()
+/// method.
+///
+/// BigDecimalRefs should be preferred over using &BigDecimal for most
+/// functions that need an immutable reference to a bigdecimal.
+///
+#[derive(Clone, Copy, Debug)]
+pub struct BigDecimalRef<'a> {
+    sign: Sign,
+    digits: &'a BigUint,
+    scale: i64,
+}
+
+impl BigDecimalRef<'_> {
+    /// Clone digits to make this reference a full BigDecimal object
+    pub fn to_owned(&self) -> BigDecimal {
+        BigDecimal {
+            scale: self.scale,
+            int_val: BigInt::from_biguint(self.sign, self.digits.clone()),
+        }
+    }
+
+    /// Sign of decimal
+    pub fn sign(&self) -> Sign {
+        self.sign
+    }
+
+    /// Count number of decimal digits
+    pub fn count_digits(&self) -> u64 {
+        count_decimal_digits_uint(self.digits)
+    }
+
+    /// Take absolute value of the decimal (non-negative sign)
+    pub fn abs(&self) -> Self {
+        Self {
+            sign: self.sign * self.sign,
+            digits: self.digits,
+            scale: self.scale,
+        }
+    }
+}
+
+impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
+    fn from(n: &'a BigDecimal) -> Self {
+        let sign = n.int_val.sign();
+        let mag = n.int_val.magnitude();
+        Self {
+            sign: sign,
+            digits: mag,
+            scale: n.scale,
+        }
+    }
+}
+
+impl<'a> From<BigDecimalRef<'a>> for BigDecimal {
+    fn from(n: BigDecimalRef<'a>) -> Self {
+        n.to_owned()
     }
 }
 
