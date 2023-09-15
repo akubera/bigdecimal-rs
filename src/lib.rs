@@ -426,6 +426,21 @@ impl BigDecimal {
         }
     }
 
+    /// Return this BigDecimal with the given precision, rounding if needed
+    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+        let digit_count = self.digits();
+        let new_prec = prec.get().to_i64();
+        let new_scale = new_prec
+                        .zip(digit_count.to_i64())
+                        .map(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
+                        .flatten()
+                        .map(|prec_diff| self.scale.checked_add(prec_diff))
+                        .flatten()
+                        .expect("precision overflow");
+
+        self.with_scale_round(new_scale, round)
+    }
+
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
     ///
     /// ```
