@@ -3356,8 +3356,14 @@ mod test_with_scale_round {
     include!("lib.tests.with_scale_round.rs");
 }
 
-// enable these tests with scripts/bigdecimal-property-tests
-// ::PROPERTY-TESTS:: #[cfg(test)] #[macro_use] extern crate proptest;
-// ::PROPERTY-TESTS:: #[cfg(test)] mod property_tests {
-// ::PROPERTY-TESTS::       use super::*; use paste::paste;
-// ::PROPERTY-TESTS::       include!("lib.tests.property-tests.rs"); }
+
+#[cfg(all(test, property_tests))]
+extern crate proptest;
+
+#[cfg(all(test, property_tests))]
+mod proptests {
+    use super::*;
+    use paste::paste;
+
+    include!("lib.tests.property-tests.rs");
+}

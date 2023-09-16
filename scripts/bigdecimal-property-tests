@@ -9,7 +9,7 @@
 sed -i.bak -e 's|# PROPERTY-TESTS: ||' Cargo.toml
 
 # include the property-test file in lib.rs
-sed -i.bak -e 's|// ::PROPERTY-TESTS:: ||' src/lib.rs
+sed -i.bak -e 's|// ::PROPERTY-TESTS:: ||' build.rs
 
 # Run commands
 "$@"

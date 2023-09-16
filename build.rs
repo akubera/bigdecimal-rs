@@ -10,6 +10,9 @@ fn main() {
     // Option::zip
     ac.emit_rustc_version(1, 46);
 
+    // Remove this comment if enabled proptests
+    // ::PROPERTY-TESTS:: autocfg::emit("property_tests");
+
     let outdir: PathBuf = std::env::var_os("OUT_DIR").unwrap().into();
     write_default_precision_file(&outdir);
 }
