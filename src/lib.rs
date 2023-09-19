@@ -969,7 +969,7 @@ impl BigDecimal {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParseBigDecimalError {
     ParseDecimal(ParseFloatError),
     ParseInt(ParseIntError),
