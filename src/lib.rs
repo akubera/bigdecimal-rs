@@ -2067,6 +2067,12 @@ impl BigDecimalRef<'_> {
         count_decimal_digits_uint(self.digits)
     }
 
+    /// Split into components
+    #[allow(dead_code)]
+    pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
+        (self.sign, self.scale, self.digits)
+    }
+
     /// Take absolute value of the decimal (non-negative sign)
     pub fn abs(&self) -> Self {
         Self {
