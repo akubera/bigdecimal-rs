@@ -1919,69 +1919,6 @@ mod bigdecimal_tests {
         assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
-    /// Test multiplication of two bigdecimals
-    #[test]
-    fn test_mul() {
-        let vals = vec![
-            ("2", "1", "2"),
-            ("12.34", "1.234", "15.22756"),
-            ("2e1", "1", "20"),
-            ("3", ".333333", "0.999999"),
-            ("2389472934723", "209481029831", "500549251119075878721813"),
-            ("1e-450", "1e500", ".1e51"),
-            ("-995052931372975485719.533153137", "4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("995052931372975485719.533153137", "-4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("-8.37664968", "-1.9086963714056968482094712882596748", "15.988480848752691653730876239769592670324064"),
-            ("-8.37664968", "0", "0"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&a * &b, c);
-
-            a *= b;
-            assert_eq!(a, c);
-        }
-    }
-
-    /// Test multiplication between big decimal and big integer
-    #[test]
-    fn test_mul_bigint() {
-        let vals = vec![
-            ("2", "1", "2"),
-            ("8.561", "10", "85.61"),
-            ("1.0000", "638655273892892437", "638655273892892437"),
-            ("10000", "638655273892892437", "6386552738928924370000"),
-            (".0005", "368408638655273892892437473", "184204319327636946446218.7365"),
-            ("9e-1", "368408638655273892892437473", "331567774789746503603193725.7"),
-            ("-1.175470587012343730098", "577575785", "-678923347.038065234601180476930"),
-            ("-1.175470587012343730098", "-76527768352678", "89956140788267.069799533723307502444"),
-            ("-1.175470587012343730098", "0", "0"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = num_bigint::BigInt::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(b.clone() * a.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(b.clone() * &a, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&b * a.clone(), c);
-            assert_eq!(&a * &b, c);
-            assert_eq!(&b * &a, c);
-        }
-    }
-
     #[test]
     fn test_div() {
         let vals = vec![
