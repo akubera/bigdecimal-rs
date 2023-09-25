@@ -104,13 +104,22 @@ mod parsing;
 pub mod rounding;
 pub use rounding::RoundingMode;
 
+// Mathematical context
+mod context;
+pub use context::Context;
+
 /// Return 10^pow
 ///
 /// Try to calculate this with fewest number of allocations
 ///
 fn ten_to_the(pow: u64) -> BigInt {
+    ten_to_the_uint(pow).into()
+}
+
+/// Return 10^pow
+fn ten_to_the_uint(pow: u64) -> BigUint {
     if pow < 20 {
-        return BigInt::from(10u64.pow(pow as u32));
+        return BigUint::from(10u64.pow(pow as u32));
     }
 
     // linear case of 10^pow = 10^(19 * count + rem)
@@ -120,7 +129,7 @@ fn ten_to_the(pow: u64) -> BigInt {
         // count factors of 19
         let (count, rem) = pow.div_rem(&19);
 
-        let mut res = BigInt::from(ten_to_nineteen);
+        let mut res = BigUint::from(ten_to_nineteen);
         for _ in 1..count {
             res *= ten_to_nineteen;
         }
@@ -133,7 +142,7 @@ fn ten_to_the(pow: u64) -> BigInt {
 
     // use recursive algorithm where linear case might be too slow
     let (quotient, rem) = pow.div_rem(&16);
-    let x = ten_to_the(quotient);
+    let x = ten_to_the_uint(quotient);
 
     let x2 = &x * &x;
     let x4 = &x2 * &x2;
