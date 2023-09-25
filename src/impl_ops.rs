@@ -1,6 +1,9 @@
 //! Implement math operations: Add,Sub, etc
 
-use crate::BigDecimal;
+use crate::{
+    BigDecimal,
+    BigDecimalRef,
+};
 use crate::stdlib::ops::{
     Add, AddAssign,
     Sub, SubAssign,
@@ -439,3 +442,35 @@ impl_div_for_primitive!(i128);
 
 impl_div_for_primitive!(f32);
 impl_div_for_primitive!(f64);
+
+
+impl Neg for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(mut self) -> BigDecimal {
+        self.int_val = -self.int_val;
+        self
+    }
+}
+
+impl<'a> Neg for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(self) -> BigDecimal {
+        -self.clone()
+    }
+}
+
+impl Neg for BigDecimalRef<'_> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            sign: self.sign.neg(),
+            digits: self.digits,
+            scale: self.scale,
+        }
+    }
+}

@@ -68,12 +68,12 @@ use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
 use self::stdlib::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use self::stdlib::iter::{self, Sum};
+use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 
-use num_bigint::{BigInt, ParseBigIntError, Sign};
+use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
@@ -93,6 +93,9 @@ extern crate paste;
 mod impl_convert;
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
+
+// PartialEq
+mod impl_cmp;
 
 // Implementations of num_traits
 mod impl_num;
@@ -145,12 +148,16 @@ fn ten_to_the(pow: u64) -> BigInt {
 }
 
 
-#[inline(always)]
+/// Return number of decimal digits in integer
 fn count_decimal_digits(int: &BigInt) -> u64 {
-    if int.is_zero() {
+    count_decimal_digits_uint(int.magnitude())
+}
+
+/// Return number of decimal digits in unsigned integer
+fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
+    if uint.is_zero() {
         return 1;
     }
-    let uint = int.magnitude();
     let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
     // guess number of digits based on number of bits in UInt
     let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
@@ -160,6 +167,7 @@ fn count_decimal_digits(int: &BigInt) -> u64 {
     }
     digits
 }
+
 
 /// Internal function used for rounding
 ///
@@ -224,6 +232,12 @@ impl BigDecimal {
             int_val: digits,
             scale: scale,
         }
+    }
+
+    /// Make a BigDecimalRef of this value
+    pub fn to_ref<'a>(&'a self) -> BigDecimalRef<'a> {
+        // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
+        self.into()
     }
 
     /// Creates and initializes a `BigDecimal`.
@@ -427,16 +441,27 @@ impl BigDecimal {
     }
 
     /// Return this BigDecimal with the given precision, rounding if needed
+    #[cfg(rustc_1_46)]  // Option::zip
     pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
         let digit_count = self.digits();
         let new_prec = prec.get().to_i64();
         let new_scale = new_prec
                         .zip(digit_count.to_i64())
-                        .map(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
-                        .flatten()
-                        .map(|prec_diff| self.scale.checked_add(prec_diff))
-                        .flatten()
+                        .and_then(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
+                        .and_then(|prec_diff| self.scale.checked_add(prec_diff))
                         .expect("precision overflow");
+
+        self.with_scale_round(new_scale, round)
+    }
+
+    #[cfg(not(rustc_1_46))]
+    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+        let new_scale = self.digits().to_i64().and_then(
+                            |old_prec| {
+                                prec.get().to_i64().and_then(
+                                    |new_prec| { new_prec.checked_sub(old_prec) })})
+                            .and_then(|prec_diff| self.scale.checked_add(prec_diff))
+                            .expect("precision overflow");
 
         self.with_scale_round(new_scale, round)
     }
@@ -1109,55 +1134,6 @@ impl Ord for BigDecimal {
     }
 }
 
-impl PartialEq for BigDecimal {
-    #[inline]
-    fn eq(&self, rhs: &BigDecimal) -> bool {
-        match (self.sign(), rhs.sign()) {
-            // both zero
-            (Sign::NoSign, Sign::NoSign) => return true,
-            // signs are different
-            (a, b) if a != b => return false,
-            // signs are same, do nothing
-            _ => {}
-        }
-
-        let unscaled_int;
-        let scaled_int;
-        let trailing_zero_count;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                unscaled_int = &self.int_val;
-                scaled_int = &rhs.int_val;
-                trailing_zero_count = (self.scale - rhs.scale) as usize;
-            }
-            Ordering::Less => {
-                unscaled_int = &rhs.int_val;
-                scaled_int = &self.int_val;
-                trailing_zero_count = (rhs.scale - self.scale) as usize;
-            }
-            Ordering::Equal => return self.int_val == rhs.int_val,
-        }
-
-        if trailing_zero_count < 20 {
-            let scaled_int = scaled_int * ten_to_the(trailing_zero_count as u64);
-            return &scaled_int == unscaled_int;
-        }
-
-        let (_, unscaled_digits) = unscaled_int.to_radix_le(10);
-        let (_, scaled_digits) = scaled_int.to_radix_le(10);
-
-        // different lengths with trailing zeros
-        if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
-            return false;
-        }
-
-        // add leading zero digits to digits that need scaled
-        let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
-
-        // return true if all digits are the same
-        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| { digit_a == digit_b })
-    }
-}
 
 impl Default for BigDecimal {
     #[inline]
@@ -1937,24 +1913,6 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl Neg for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(mut self) -> BigDecimal {
-        self.int_val = -self.int_val;
-        self
-    }
-}
-
-impl<'a> Neg for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(self) -> BigDecimal {
-        -self.clone()
-    }
-}
 
 impl Signed for BigDecimal {
     #[inline]
@@ -2067,6 +2025,79 @@ impl fmt::Display for BigDecimal {
 impl fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BigDecimal(\"{}\")", self)
+    }
+}
+
+
+/// A big-decimal wrapping a borrowed (immutable) buffer of digits
+///
+/// The non-digit information like `scale` and `sign` may be changed
+/// on these objects, which otherwise would require cloning the full
+/// digit buffer in the BigDecimal.
+///
+/// May be transformed into full BigDecimal object using the to_owned()
+/// method.
+///
+/// BigDecimalRefs should be preferred over using &BigDecimal for most
+/// functions that need an immutable reference to a bigdecimal.
+///
+#[derive(Clone, Copy, Debug)]
+pub struct BigDecimalRef<'a> {
+    sign: Sign,
+    digits: &'a BigUint,
+    scale: i64,
+}
+
+impl BigDecimalRef<'_> {
+    /// Clone digits to make this reference a full BigDecimal object
+    pub fn to_owned(&self) -> BigDecimal {
+        BigDecimal {
+            scale: self.scale,
+            int_val: BigInt::from_biguint(self.sign, self.digits.clone()),
+        }
+    }
+
+    /// Sign of decimal
+    pub fn sign(&self) -> Sign {
+        self.sign
+    }
+
+    /// Count number of decimal digits
+    pub fn count_digits(&self) -> u64 {
+        count_decimal_digits_uint(self.digits)
+    }
+
+    /// Split into components
+    #[allow(dead_code)]
+    pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
+        (self.sign, self.scale, self.digits)
+    }
+
+    /// Take absolute value of the decimal (non-negative sign)
+    pub fn abs(&self) -> Self {
+        Self {
+            sign: self.sign * self.sign,
+            digits: self.digits,
+            scale: self.scale,
+        }
+    }
+}
+
+impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
+    fn from(n: &'a BigDecimal) -> Self {
+        let sign = n.int_val.sign();
+        let mag = n.int_val.magnitude();
+        Self {
+            sign: sign,
+            digits: mag,
+            scale: n.scale,
+        }
+    }
+}
+
+impl<'a> From<BigDecimalRef<'a>> for BigDecimal {
+    fn from(n: BigDecimalRef<'a>) -> Self {
+        n.to_owned()
     }
 }
 
