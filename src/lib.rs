@@ -2289,34 +2289,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_add() {
-        let vals = vec![
-            ("12.34", "1.234", "13.574"),
-            ("12.34", "-1.234", "11.106"),
-            ("1234e6", "1234e-6", "1234000000.001234"),
-            ("1234e-6", "1234e6", "1234000000.001234"),
-            ("18446744073709551616.0", "1", "18446744073709551617"),
-            ("184467440737e3380", "0", "184467440737e3380"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() + b.clone(), c);
-
-            assert_eq!(a.clone() + &b, c);
-            assert_eq!(&a + b.clone(), c);
-            assert_eq!(&a + &b, c);
-
-            a += b;
-            assert_eq!(a, c);
-        }
-    }
-
-    #[test]
     fn test_sub() {
         let vals = vec![
             ("12.34", "1.234", "11.106"),
