@@ -74,3 +74,30 @@ pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
     }
     digits
 }
+
+
+/// Return difference of two numbers, returning diff as u64
+pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)
+where
+    T: ToPrimitive + stdlib::ops::Sub<Output=T> + stdlib::cmp::Ord
+{
+    use stdlib::cmp::Ordering::*;
+
+    match a.cmp(&b) {
+        Less => (Less, (b - a).to_u64().unwrap()),
+        Greater => (Greater, (a - b).to_u64().unwrap()),
+        Equal => (Equal, 0),
+    }
+}
+
+/// Return difference of two numbers, returning diff as usize
+#[allow(dead_code)]
+pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
+    use stdlib::cmp::Ordering::*;
+
+    match a.cmp(&b) {
+        Less => (Less, b - a),
+        Greater => (Greater, a - b),
+        Equal => (Equal, 0),
+    }
+}

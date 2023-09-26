@@ -141,9 +141,12 @@ pub use context::Context;
 use arithmetic::{
     ten_to_the,
     ten_to_the_uint,
+    diff,
+    diff_usize,
     count_decimal_digits,
     count_decimal_digits_uint,
 };
+
 
 /// Internal function used for rounding
 ///
