@@ -118,7 +118,7 @@ cargo:check:
   <<: *script-cargo-check
   script:
     # enable property tests for the stable 'pipeline'
-    - scripts/bigdecimal-property-tests cargo check --all-targets
+    - scripts/bigdecimal-property-tests run cargo check --all-targets
 
 cargo:clippy:
   stage: check
@@ -158,7 +158,7 @@ cargo:build-stable:
   <<: *script-cargo-build
   script:
     # enable property tests for the stable 'pipeline'
-    - scripts/bigdecimal-property-tests cargo build --all-targets
+    - scripts/bigdecimal-property-tests run cargo build --all-targets
 
 
 cargo:test-stable:
@@ -171,7 +171,7 @@ cargo:test-stable:
   <<: *script-cargo-test
   script:
     # enable property tests for the stable 'pipeline'
-    - scripts/bigdecimal-property-tests cargo test
+    - scripts/bigdecimal-property-tests run cargo test
 
 
 cargo:build:no-std:

@@ -3364,6 +3364,7 @@ extern crate proptest;
 mod proptests {
     use super::*;
     use paste::paste;
+    use proptest::*;
 
     include!("lib.tests.property-tests.rs");
 }
