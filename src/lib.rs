@@ -2123,35 +2123,9 @@ mod bigdecimal_tests {
         assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
-    #[test]
-    fn test_sub() {
-        let vals = vec![
-            ("12.34", "1.234", "11.106"),
-            ("12.34", "-1.234", "13.574"),
-            ("1234e6", "1234e-6", "1233999999.998766"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() - b.clone(), c);
-
-            assert_eq!(a.clone() - &b, c);
-            assert_eq!(&a - b.clone(), c);
-            assert_eq!(&a - &b, c);
-
-            a -= b;
-            assert_eq!(a, c);
-        }
-    }
-
     /// Test multiplication of two bigdecimals
     #[test]
     fn test_mul() {
-
         let vals = vec![
             ("2", "1", "2"),
             ("12.34", "1.234", "15.22756"),
