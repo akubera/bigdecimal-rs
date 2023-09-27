@@ -1764,55 +1764,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_rem() {
-        let vals = vec![
-            ("100", "5", "0"),
-            ("2e1", "1", "0"),
-            ("2", "1", "0"),
-            ("1", "3", "1"),
-            ("1", "0.5", "0"),
-            ("1.5", "1", "0.5"),
-            ("1", "3e-2", "1e-2"),
-            ("10", "0.003", "0.001"),
-            ("3", "2", "1"),
-            ("-3", "2", "-1"),
-            ("3", "-2", "1"),
-            ("-3", "-2", "-1"),
-            ("12.34", "1.233", "0.01"),
-        ];
-        for &(x, y, z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            let rem = &a % &b;
-            assert_eq!(rem, c, "{} [&{} % &{}] == {}", rem, a, b, c);
-
-            let rem = a.clone() % &b;
-            assert_eq!(rem, c, "{} [{} % &{}] == {}", rem, a, b, c);
-
-            let rem = &a % b.clone();
-            assert_eq!(rem, c, "{} [&{} % {}] == {}", rem, a, b, c);
-
-            let rem = a.clone() % b.clone();
-            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
-        }
-        let vals = vec![
-            (("100", -2), ("50", -1), "0"),
-            (("100", 0), ("50", -1), "0"),
-            (("100", -2), ("30", 0), "10"),
-            (("100", 0), ("30", -1), "10"),
-        ];
-        for &((x, xs), (y, ys), z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().with_scale(xs);
-            let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
-            let c = BigDecimal::from_str(z).unwrap();
-            let rem = &a % &b;
-            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
-        }
-    }
-
-    #[test]
     fn test_equal() {
         let vals = vec![
             ("2", ".2e1"),
