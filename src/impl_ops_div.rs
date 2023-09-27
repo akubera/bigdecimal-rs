@@ -86,3 +86,71 @@ impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
         return impl_division(num_int.clone(), den_int, scale, max_precision);
     }
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_div() {
+        let vals = vec![
+            ("0", "1", "0"),
+            ("0", "10", "0"),
+            ("2", "1", "2"),
+            ("2e1", "1", "2e1"),
+            ("10", "10", "1"),
+            ("100", "10.0", "1e1"),
+            ("20.0", "200", ".1"),
+            ("4", "2", "2.0"),
+            ("15", "3", "5.0"),
+            ("1", "2", "0.5"),
+            ("1", "2e-2", "5e1"),
+            ("1", "0.2", "5"),
+            ("1.0", "0.02", "50"),
+            ("1", "0.020", "5e1"),
+            ("5.0", "4.00", "1.25"),
+            ("5.0", "4.000", "1.25"),
+            ("5", "4.000", "1.25"),
+            ("5", "4", "125e-2"),
+            ("100", "5", "20"),
+            ("-50", "5", "-10"),
+            ("200", "-5", "-40."),
+            ("1", "3", ".3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
+            ("-2", "-3", ".6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"),
+            ("-12.34", "1.233", "-10.00811030008110300081103000811030008110300081103000811030008110300081103000811030008110300081103001"),
+            ("125348", "352.2283", "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"),
+        ];
+
+        for &(x, y, z) in vals.iter() {
+
+            let a = BigDecimal::from_str(x).unwrap();
+            let b = BigDecimal::from_str(y).unwrap();
+            let c = BigDecimal::from_str(z).unwrap();
+
+            assert_eq!(a.clone() / b.clone(), c);
+            assert_eq!(a.clone() / &b, c);
+            assert_eq!(&a / b.clone(), c);
+            assert_eq!(&a / &b, c);
+            // assert_eq!(q.scale, c.scale);
+
+            // let mut q = a;
+            // q /= b;
+            // assert_eq!(q, c);
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Division by zero")]
+    fn test_division_by_zero_panics() {
+        let x = BigDecimal::from_str("3.14").unwrap();
+        let _r = x / 0;
+    }
+
+    #[test]
+    #[should_panic(expected = "Division by zero")]
+    fn test_division_by_zero_panics_v2() {
+        let x = BigDecimal::from_str("3.14").unwrap();
+        let _r = x / BigDecimal::zero();
+    }
+}
