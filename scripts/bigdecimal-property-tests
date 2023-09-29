@@ -5,7 +5,7 @@
 # Tests are defined in src/lib.tests.property-test.rs
 #
 
-function enable_property_tests() {
+enable_property_tests() {
   # enable property-test dependencies in Cargo
   sed -i.bak -e 's|# PROPERTY-TESTS: ||' Cargo.toml
 
@@ -14,7 +14,7 @@ function enable_property_tests() {
 }
 
 
-function restore_disabled_property_tests() {
+restore_disabled_property_tests() {
   # Restore Cargo.toml with backup
   mv Cargo.toml.bak Cargo.toml
   mv build.rs.bak build.rs
