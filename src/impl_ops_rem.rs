@@ -79,6 +79,13 @@ impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
     }
 }
 
+impl RemAssign<&BigDecimal> for BigDecimal {
+    fn rem_assign(&mut self, other: &BigDecimal) {
+        let rem = (&*self).rem(other);
+        *self = rem;
+    }
+}
+
 
 #[cfg(test)]
 mod test {
@@ -103,6 +110,9 @@ mod test {
                 assert_eq!(a.clone() % &b, c);
                 assert_eq!(&a % b.clone(), c);
                 assert_eq!(&a % &b, c);
+
+                a %= &b;
+                assert_eq!(a, c);
             }
         };
     }

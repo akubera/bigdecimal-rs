@@ -71,7 +71,7 @@ use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
 use self::stdlib::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign, Rem
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign, Rem, RemAssign,
 };
 use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
