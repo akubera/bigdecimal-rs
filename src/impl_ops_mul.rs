@@ -1,21 +1,9 @@
 //! Multiplication operator trait implementation
 //!
 
-use crate::{
-    Sign,
-    BigDecimal,
-    BigDecimalRef,
-};
+use super::*;
+use crate::stdlib::mem::swap;
 
-use crate::stdlib::{
-    mem::swap,
-    ops::{Mul, MulAssign, AddAssign, Neg},
-    cmp::Ordering,
-};
-
-use num_bigint::{BigInt, BigUint};
-use num_traits::{Zero, One};
-use crate::ten_to_the;
 
 impl Mul<BigDecimal> for BigDecimal {
     type Output = BigDecimal;

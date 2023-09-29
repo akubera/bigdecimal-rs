@@ -52,6 +52,9 @@ pub extern crate num_bigint;
 pub extern crate num_traits;
 extern crate num_integer;
 
+#[cfg(test)]
+extern crate paste;
+
 #[cfg(feature = "serde")]
 extern crate serde;
 
@@ -67,7 +70,9 @@ use self::stdlib::convert::TryFrom;
 use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
-use self::stdlib::ops::{Add, AddAssign, Div, Mul, Neg, Rem, Sub};
+use self::stdlib::ops::{
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign, Rem
+};
 use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
@@ -86,11 +91,9 @@ include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
 #[macro_use]
 mod macros;
 
-#[cfg(test)]
-extern crate paste;
-
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
 mod impl_ops_add;
@@ -105,7 +108,10 @@ mod impl_cmp;
 // Implementations of num_traits
 mod impl_num;
 
+// construct BuildDecimals from strings and floats
 mod parsing;
+
+// Routines for rounding
 pub mod rounding;
 pub use rounding::RoundingMode;
 

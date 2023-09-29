@@ -2,21 +2,8 @@
 //! Multiplication operator trait implementation
 //!
 
-use crate::{
-    Sign,
-    BigDecimal,
-    BigDecimalRef,
-};
+use crate::*;
 
-use crate::stdlib::{
-    mem::swap,
-    ops::{Sub, SubAssign, Neg},
-    cmp::{self, Ordering},
-};
-
-use num_bigint::{BigInt, BigUint};
-use num_traits::{Zero, One};
-use crate::ten_to_the;
 
 impl Sub<BigDecimal> for BigDecimal {
     type Output = BigDecimal;
