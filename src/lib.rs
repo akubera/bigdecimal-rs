@@ -621,6 +621,12 @@ impl BigDecimal {
     /// ```
     #[inline]
     pub fn sqrt(&self) -> Option<BigDecimal> {
+        self.sqrt_with_context(&Context::default())
+    }
+
+    /// Take the square root of the number, using context for precision and rounding
+    ///
+    pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
         if self.is_zero() || self.is_one() {
             return Some(self.clone());
         }
@@ -628,66 +634,10 @@ impl BigDecimal {
             return None;
         }
 
-        // make guess
-        let guess = {
-            let magic_guess_scale = 1.1951678538495576_f64;
-            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 2.0;
-            let res = magic_guess_scale * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::sqrt::impl_sqrt(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (self.int_val.bits() as f64 / -LOG2_10 + self.scale as f64).round() as i64;
-                BigDecimal::new(BigInt::from(1), scale / 2)
-            }
-        };
-
-        // // wikipedia example - use for testing the algorithm
-        // if self == &BigDecimal::from_str("125348").unwrap() {
-        //     running_result = BigDecimal::from(600)
-        // }
-
-        // TODO: Use context variable to set precision
-        let max_precision = DEFAULT_PRECISION;
-
-        let next_iteration = move |r: BigDecimal| {
-            // division needs to be precise to (at least) one extra digit
-            let tmp = impl_division(
-                self.int_val.clone(),
-                &r.int_val,
-                self.scale - r.scale,
-                max_precision + 1,
-            );
-
-            // half will increase precision on each iteration
-            (tmp + r).half()
-        };
-
-        // calculate first iteration
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            // calculate next iteration
-            running_result = next_iteration(running_result);
-
-            // 'result' has clipped precision, 'running_result' has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return Some(result);
+        Some(result)
     }
 
     /// Take the cube root of the number
@@ -1123,8 +1073,6 @@ impl One for BigDecimal {
 }
 
 
-
-
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
     // quick zero check
     if num.is_zero() {
@@ -1347,6 +1295,19 @@ impl BigDecimalRef<'_> {
             sign: self.sign * self.sign,
             digits: self.digits,
             scale: self.scale,
+        }
+    }
+
+    /// Take square root of this number
+    pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
+        use Sign::*;
+
+        let (sign, scale, uint) = self.as_parts();
+
+        match sign {
+            Minus => None,
+            NoSign => Some(Zero::zero()),
+            Plus => Some(arithmetic::sqrt::impl_sqrt(uint, scale, ctx)),
         }
     }
 }

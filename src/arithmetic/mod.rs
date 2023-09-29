@@ -2,6 +2,7 @@
 
 use crate::*;
 
+pub(crate) mod sqrt;
 
 /// Return 10^pow
 ///
