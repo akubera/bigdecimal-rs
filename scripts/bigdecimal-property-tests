@@ -35,7 +35,7 @@ case "${CMD}" in
 
   test)
     enable_property_tests
-    cargo test $@
+    cargo test "$@"
     restore_disabled_property_tests
     ;;
 
