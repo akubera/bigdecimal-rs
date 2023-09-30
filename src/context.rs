@@ -1,22 +1,15 @@
 //! Define arithmetical context
 //!
 
-use crate::rounding::RoundingMode;
+use crate::*;
 use stdlib::num::NonZeroU64;
-use stdlib;
 
-use num_traits::{ToPrimitive, Zero};
-
-use crate::{
-    Sign,
-    BigDecimal,
-    BigDecimalRef
-};
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
 include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
 // const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
 include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
+
 
 /// Mathematical Context
 ///
