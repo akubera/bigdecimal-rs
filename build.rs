@@ -19,7 +19,7 @@ fn main() {
 }
 
 
-/// Create default_precision.rs, containg definition of constant DEFAULT_PRECISION loaded in src/lib.rs
+/// Create default_precision.rs, containing definition of constant DEFAULT_PRECISION loaded in src/lib.rs
 fn write_default_precision_file(outdir: &Path) {
     let env_var = env::var("RUST_BIGDECIMAL_DEFAULT_PRECISION").unwrap_or_else(|_| "100".to_owned());
     println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_DEFAULT_PRECISION");

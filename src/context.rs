@@ -24,7 +24,7 @@ include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 /// | `RUST_BIGDECIMAL_DEFAULT_PRECISION`     | digit precision | 100      |
 /// | `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE` | rounding-mode   | HalfEven |
 ///
-/// It is recommended that the user set explict values of a Context and *not*
+/// It is recommended that the user set explicit values of a Context and *not*
 /// rely on compile time constants, but the option is there if necessary.
 ///
 #[derive(Debug, Clone)]

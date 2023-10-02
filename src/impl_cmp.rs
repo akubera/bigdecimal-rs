@@ -1,4 +1,4 @@
-//! Implementation of comparsion operations
+//! Implementation of comparison operations
 //!
 //! Comparisons between decimals and decimal refs
 //! are not directly supported as we lose some type
