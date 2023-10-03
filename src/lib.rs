@@ -227,6 +227,25 @@ impl BigDecimal {
         }
     }
 
+    /// Returns the scale of the BigDecimal
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bigdecimal::BigDecimal;
+    /// use std::str::FromStr;
+    ///
+    /// let a = BigDecimal::from(12345);  // No fractional part
+    /// let b = BigDecimal::from_str("123.45").unwrap();  // Fractional part
+    ///
+    /// assert_eq!(a.get_scale(), 0);
+    /// assert_eq!(b.get_scale(), 2);
+    /// ```
+    #[inline]
+    pub fn get_scale(&self) -> i64 {
+        self.scale
+    }
+
     /// Creates and initializes a `BigDecimal`.
     ///
     /// Decodes using `str::from_utf8` and forwards to `BigDecimal::from_str_radix`.
@@ -2229,6 +2248,24 @@ mod bigdecimal_tests {
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
+
+    #[test]
+    fn test_get_scale() {
+        // Zero value
+        let vals = BigDecimal::from(0);
+        assert_eq!(vals.get_scale(), 0);
+
+        let vals = BigDecimal::from_str("1.0").unwrap();
+        assert_eq!(vals.get_scale(), 1);
+
+        // Fractional part
+        let vals = BigDecimal::from_str("1.23").unwrap();
+        assert_eq!(vals.get_scale(), 2);
+
+        // Fractional part with trailing zeros
+        let c = BigDecimal::from_str("1.230").unwrap();
+        assert_eq!(c.get_scale(), 3);
+    }
 
     #[test]
     fn test_sum() {
