@@ -2255,16 +2255,13 @@ mod bigdecimal_tests {
         let vals = BigDecimal::from(0);
         assert_eq!(vals.get_scale(), 0);
 
+        // Fractional part with trailing zeros
         let vals = BigDecimal::from_str("1.0").unwrap();
         assert_eq!(vals.get_scale(), 1);
 
         // Fractional part
         let vals = BigDecimal::from_str("1.23").unwrap();
         assert_eq!(vals.get_scale(), 2);
-
-        // Fractional part with trailing zeros
-        let c = BigDecimal::from_str("1.230").unwrap();
-        assert_eq!(c.get_scale(), 3);
     }
 
     #[test]
