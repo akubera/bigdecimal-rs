@@ -112,7 +112,7 @@ mod impl_cmp;
 // Implementations of num_traits
 mod impl_num;
 
-// construct BuildDecimals from strings and floats
+// construct BigDecimals from strings and floats
 mod parsing;
 
 // Routines for rounding
