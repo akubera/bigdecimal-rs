@@ -655,72 +655,24 @@ impl BigDecimal {
         Some(result)
     }
 
-    /// Take the cube root of the number
+    /// Take the cube root of the number, using default context
     ///
     #[inline]
     pub fn cbrt(&self) -> BigDecimal {
+        self.cbrt_with_context(&Context::default())
+    }
+
+    /// Take cube root of self, using properties of context
+    pub fn cbrt_with_context(&self, ctx: &Context) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             return self.clone();
         }
-        if self.is_negative() {
-            return -self.abs().cbrt();
-        }
 
-        // make guess
-        let guess = {
-            let magic_guess_scale = 1.124960491619939_f64;
-            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 3.0;
-            let res = magic_guess_scale * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::cbrt::impl_cbrt(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (self.int_val.bits() as f64 / LOG2_10 - self.scale as f64).round() as i64;
-                BigDecimal::new(BigInt::from(1), -scale / 3)
-            }
-        };
-
-        // TODO: Use context variable to set precision
-        let max_precision = DEFAULT_PRECISION;
-
-        let three = BigDecimal::from(3);
-
-        let next_iteration = move |r: BigDecimal| {
-            let sqrd = r.square();
-            let tmp = impl_division(
-                self.int_val.clone(),
-                &sqrd.int_val,
-                self.scale - sqrd.scale,
-                max_precision + 1,
-            );
-            let tmp = tmp + r.double();
-            impl_division(tmp.int_val, &three.int_val, tmp.scale - three.scale, max_precision + 1)
-        };
-
-        // result initial
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            running_result = next_iteration(running_result);
-
-            // result has clipped precision, running_result has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return result;
+        // always copy sign
+        result.take_with_sign(self.sign())
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
