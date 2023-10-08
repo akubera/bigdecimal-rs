@@ -356,6 +356,21 @@ impl BigDecimal {
         }
     }
 
+    /// Take and return bigdecimal with the given sign
+    ///
+    /// The Sign value `NoSign` is ignored: only use Plus & Minus
+    ///
+    pub(crate) fn take_with_sign(self, sign: Sign) -> BigDecimal {
+        let BigDecimal { scale, mut int_val } = self;
+        if int_val.sign() != sign && sign != Sign::NoSign {
+            int_val = int_val.neg();
+        }
+        BigDecimal {
+            int_val: int_val,
+            scale: scale,
+        }
+    }
+
     /// Return a new BigDecimal object with precision set to new value
     ///
     /// ```
