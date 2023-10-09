@@ -678,61 +678,20 @@ impl BigDecimal {
     /// Compute the reciprical of the number: x<sup>-1</sup>
     #[inline]
     pub fn inverse(&self) -> BigDecimal {
+        self.inverse_with_context(&Context::default())
+    }
+
+    /// Return inverse of self, rounding with ctx
+    pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             return self.clone();
         }
-        if self.is_negative() {
-            return self.abs().inverse().neg();
-        }
-        let guess = {
-            let bits = self.int_val.bits() as f64;
-            let scale = self.scale as f64;
 
-            let magic_factor = 0.721507597259061_f64;
-            let initial_guess = scale * LOG2_10 - bits;
-            let res = magic_factor * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::inverse::impl_inverse_uint_scale(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (bits / LOG2_10 + scale).round() as i64;
-                BigDecimal::new(BigInt::from(1), -scale)
-            }
-        };
-
-        let max_precision = DEFAULT_PRECISION;
-        let next_iteration = move |r: BigDecimal| {
-            let two = BigDecimal::from(2);
-            let tmp = two - self * &r;
-
-            r * tmp
-        };
-
-        // calculate first iteration
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            // calculate next iteration
-            running_result = next_iteration(running_result).with_prec(max_precision);
-
-            // 'result' has clipped precision, 'running_result' has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return result;
+        // always copy sign
+        result.take_with_sign(self.sign())
     }
 
     /// Return number rounded to round_digits precision after the decimal point
