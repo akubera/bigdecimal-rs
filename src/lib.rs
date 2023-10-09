@@ -669,7 +669,7 @@ impl BigDecimal {
         }
 
         let uint = self.int_val.magnitude();
-        let result = arithmetic::cbrt::impl_cbrt(uint, self.scale, ctx);
+        let result = arithmetic::cbrt::impl_cbrt_uint_scale(uint, self.scale, ctx);
 
         // always copy sign
         result.take_with_sign(self.sign())
@@ -2015,23 +2015,6 @@ mod bigdecimal_tests {
 
             let sqrt = BigDecimal::new(BigInt::from_str(s).unwrap(), scale).sqrt().unwrap();
             assert_eq!(sqrt, expected);
-        }
-    }
-
-    #[test]
-    fn test_cbrt() {
-        let vals = vec![
-            ("0.00", "0"),
-            ("1.00", "1"),
-            ("1.001", "1.000333222283909495175449559955220102010284758197360454054345461242739715702641939155238095670636841"),
-            ("10", "2.154434690031883721759293566519350495259344942192108582489235506346411106648340800185441503543243276"),
-            ("-59283293e25", "-84006090355.84281237113712383191213626687332139035750444925827809487776780721673264524620270275301685"),
-            ("94213372931e-127", "2.112049945275324414051072540210070583697242797173805198575907094646677475250362108901530353886613160E-39"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().cbrt();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
         }
     }
 
