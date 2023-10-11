@@ -238,11 +238,11 @@ impl BigDecimal {
     /// let a = BigDecimal::from(12345);  // No fractional part
     /// let b = BigDecimal::from_str("123.45").unwrap();  // Fractional part
     ///
-    /// assert_eq!(a.get_scale(), 0);
-    /// assert_eq!(b.get_scale(), 2);
+    /// assert_eq!(a.fractional_digit_count(), 0);
+    /// assert_eq!(b.fractional_digit_count(), 2);
     /// ```
     #[inline]
-    pub fn get_scale(&self) -> i64 {
+    pub fn fractional_digit_count(&self) -> i64 {
         self.scale
     }
 
@@ -2250,18 +2250,18 @@ mod bigdecimal_tests {
     use paste::paste;
 
     #[test]
-    fn test_get_scale() {
+    fn test_fractional_digit_count() {
         // Zero value
         let vals = BigDecimal::from(0);
-        assert_eq!(vals.get_scale(), 0);
+        assert_eq!(vals.fractional_digit_count(), 0);
 
         // Fractional part with trailing zeros
         let vals = BigDecimal::from_str("1.0").unwrap();
-        assert_eq!(vals.get_scale(), 1);
+        assert_eq!(vals.fractional_digit_count(), 1);
 
         // Fractional part
         let vals = BigDecimal::from_str("1.23").unwrap();
-        assert_eq!(vals.get_scale(), 2);
+        assert_eq!(vals.fractional_digit_count(), 2);
     }
 
     #[test]
