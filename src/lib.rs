@@ -196,7 +196,7 @@ impl BigDecimal {
     }
 
     /// Make a BigDecimalRef of this value
-    pub fn to_ref<'a>(&'a self) -> BigDecimalRef<'a> {
+    pub fn to_ref(&self) -> BigDecimalRef<'_> {
         // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
         self.into()
     }

@@ -43,7 +43,7 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
 fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
     // scale by ln(2)
-    let magic_factor = 0.6931471805599453_f64;
+    let magic_factor = stdlib::f64::consts::LN_2;
 
     let bit_count = bit_count as f64;
     let scale = scale as f64;

@@ -56,8 +56,7 @@ impl Context {
     pub fn with_prec<T: ToPrimitive>(&self, precision: T) -> Option<Self> {
         precision
             .to_u64()
-            .map(NonZeroU64::new)
-            .flatten()
+            .and_then(NonZeroU64::new)
             .map(|prec| {
                 Self {
                     precision: prec,
