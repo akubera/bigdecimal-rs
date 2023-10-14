@@ -1249,6 +1249,16 @@ impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
     }
 }
 
+impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
+    fn from(n: &'a BigInt) -> Self {
+        Self {
+            sign: n.sign(),
+            digits: n.magnitude(),
+            scale: 0,
+        }
+    }
+}
+
 impl<'a> From<BigDecimalRef<'a>> for BigDecimal {
     fn from(n: BigDecimalRef<'a>) -> Self {
         n.to_owned()
