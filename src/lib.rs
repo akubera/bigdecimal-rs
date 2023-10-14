@@ -1171,17 +1171,44 @@ impl fmt::Debug for BigDecimal {
 }
 
 
-/// A big-decimal wrapping a borrowed (immutable) buffer of digits
+/// Immutable big-decimal, referencing a borrowed buffer of digits
 ///
 /// The non-digit information like `scale` and `sign` may be changed
 /// on these objects, which otherwise would require cloning the full
 /// digit buffer in the BigDecimal.
 ///
-/// May be transformed into full BigDecimal object using the to_owned()
-/// method.
+/// Built from full `BigDecimal` object using the `to_ref()` method.
+/// `BigDecimal` not implement `AsRef`, so we will reserve the method
+/// `as_ref()` for a later time.
 ///
-/// BigDecimalRefs should be preferred over using &BigDecimal for most
-/// functions that need an immutable reference to a bigdecimal.
+/// May be transformed into full BigDecimal object using the `to_owned()`
+/// method.
+/// This clones the bigdecimal digits.
+///
+/// BigDecimalRef (or `Into<BigDecimalRef>`) should be preferred over
+/// using `&BigDecimal` for library functions that need an immutable
+/// reference to a bigdecimal, as it may be much more efficient.
+///
+/// NOTE: Using `&BigDecimalRef` is redundant, and not recommended.
+///
+/// ## Examples
+///
+/// ```
+/// # use bigdecimal::*; use std::ops::Neg;
+/// fn add_one<'a, N: Into<BigDecimalRef<'a>>>(n: N) -> BigDecimal {
+///     n.into() + 1
+/// }
+///
+/// let n: BigDecimal = "123.456".parse().unwrap();
+///
+/// // call via "standard" reference (implements Into)
+/// let m = add_one(&n);
+/// assert_eq!(m, "124.456".parse().unwrap());
+///
+/// // call by negating the reference (fast: no-digit cloning involved)
+/// let m = add_one(n.to_ref().neg());
+/// assert_eq!(m, "-122.456".parse().unwrap());
+/// ```
 ///
 #[derive(Clone, Copy, Debug)]
 pub struct BigDecimalRef<'a> {
