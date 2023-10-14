@@ -24,6 +24,14 @@ macro_rules! impl_add_for_primitive {
             type Output = BigDecimal;
 
             fn add(self, rhs: $t) -> BigDecimal {
+                self.to_ref() + rhs
+            }
+        }
+
+        impl Add<$t> for BigDecimalRef<'_> {
+            type Output = BigDecimal;
+
+            fn add(self, rhs: $t) -> BigDecimal {
                 BigDecimal::from(rhs) + self
             }
         }
