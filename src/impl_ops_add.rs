@@ -25,15 +25,13 @@ impl Add<BigDecimal> for BigDecimal {
 impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimal {
     type Output = BigDecimal;
 
-    fn add(self, rhs: T) -> BigDecimal {
-        let mut lhs = self;
-        lhs += rhs.into();
-        lhs
+    fn add(mut self, rhs: T) -> BigDecimal {
+        self.add_assign(rhs);
+        self
     }
 }
 
-
-impl<'a> Add<BigDecimal> for &'a BigDecimal {
+impl Add<BigDecimal> for &'_ BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -42,7 +40,7 @@ impl<'a> Add<BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
+impl<'a> Add<&'a BigDecimal> for &'_ BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -61,37 +59,55 @@ impl Add<BigInt> for BigDecimal {
 
     #[inline]
     fn add(self, rhs: BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val += rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) + rhs,
-        }
+        self + BigDecimal::from(rhs)
     }
 }
 
-impl<'a> Add<BigInt> for &'a BigDecimal {
+impl Add<BigInt> for &'_ BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     fn add(self, rhs: BigInt) -> BigDecimal {
-        BigDecimal::new(rhs, 0) + self
+        self.to_ref() + rhs
     }
 }
 
-impl<'a, 'b> Add<&'a BigInt> for &'b BigDecimal {
+impl<'a> Add<&'a BigInt> for &'_ BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     fn add(self, rhs: &BigInt) -> BigDecimal {
-        self.with_scale(0) + rhs
+        self.to_ref() + rhs
+    }
+}
+
+impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimalRef<'_> {
+    type Output = BigDecimal;
+    fn add(self, rhs: T) -> BigDecimal {
+        let rhs = rhs.into();
+        if self.scale >= rhs.scale {
+            self.to_owned() + rhs
+        } else {
+            rhs.to_owned() + self
+        }
+    }
+}
+
+impl Add<BigInt> for BigDecimalRef<'_> {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigInt) -> BigDecimal {
+        self + BigDecimal::from(rhs)
+    }
+}
+
+impl Add<BigDecimal> for BigDecimalRef<'_> {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigDecimal) -> BigDecimal {
+        rhs + self
     }
 }
 
