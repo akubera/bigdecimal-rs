@@ -116,7 +116,7 @@ mod impl_num;
 mod parsing;
 
 // Routines for rounding
-pub mod rounding;
+mod rounding;
 pub use rounding::RoundingMode;
 
 // Mathematical context
