@@ -22,23 +22,16 @@ impl Add<BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> Add<&'a BigDecimal> for BigDecimal {
+impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimal {
     type Output = BigDecimal;
 
-    #[inline]
-    fn add(self, rhs: &'a BigDecimal) -> BigDecimal {
+    fn add(self, rhs: T) -> BigDecimal {
         let mut lhs = self;
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val += &rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
-        }
+        lhs += rhs.into();
+        lhs
     }
 }
+
 
 impl<'a> Add<BigDecimal> for &'a BigDecimal {
     type Output = BigDecimal;
@@ -84,27 +77,6 @@ impl Add<BigInt> for BigDecimal {
     }
 }
 
-impl<'a> Add<&'a BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val += rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) + rhs,
-        }
-    }
-}
-
 impl<'a> Add<BigInt> for &'a BigDecimal {
     type Output = BigDecimal;
 
@@ -125,9 +97,11 @@ impl<'a, 'b> Add<&'a BigInt> for &'b BigDecimal {
 
 forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
 
-impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
+impl<'a, N: Into<BigDecimalRef<'a>>> AddAssign<N> for BigDecimal {
     #[inline]
-    fn add_assign(&mut self, rhs: &BigDecimal) {
+    fn add_assign(&mut self, rhs: N) {
+        // TODO: Replace to_owned() with efficient addition algorithm
+        let rhs = rhs.into().to_owned();
         match self.scale.cmp(&rhs.scale) {
             Ordering::Less => {
                 let scaled = self.with_scale(rhs.scale);
@@ -148,23 +122,15 @@ impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
 impl AddAssign<BigInt> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: BigInt) {
-        *self += BigDecimal::new(rhs, 0)
-    }
-}
+        let sign = rhs.sign();
+        let mag = rhs.magnitude();
+        let rhs_ref = BigDecimalRef {
+            scale: 0,
+            sign: sign,
+            digits: mag.into(),
+        };
 
-impl<'a> AddAssign<&'a BigInt> for BigDecimal {
-    #[inline]
-    fn add_assign(&mut self, rhs: &BigInt) {
-        match self.scale.cmp(&0) {
-            Ordering::Equal => self.int_val += rhs,
-            Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
-            Ordering::Less => {
-                // *self += BigDecimal::new(rhs, 0)
-                self.int_val *= ten_to_the((-self.scale) as u64);
-                self.int_val += rhs;
-                self.scale = 0;
-            }
-        }
+        self.add_assign(rhs_ref);
     }
 }
 
