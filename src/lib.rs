@@ -1293,6 +1293,11 @@ impl BigDecimalRef<'_> {
             Plus => Some(arithmetic::sqrt::impl_sqrt(uint, scale, ctx)),
         }
     }
+
+    /// Return if the referenced decimal is zero
+    pub fn is_zero(&self) -> bool {
+        self.digits.is_zero()
+    }
 }
 
 impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
