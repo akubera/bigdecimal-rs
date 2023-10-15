@@ -1,4 +1,4 @@
-//! Benchmarks for arithmetic opertaion
+//! Benchmarks for arithmetic operation
 
 extern crate criterion;
 extern crate bigdecimal;

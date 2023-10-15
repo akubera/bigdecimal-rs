@@ -5,15 +5,45 @@
 # Tests are defined in src/lib.tests.property-test.rs
 #
 
-# enable property-test dependencies in Cargo
-sed -i.bak -e 's|# PROPERTY-TESTS: ||' Cargo.toml
+enable_property_tests() {
+  # enable property-test dependencies in Cargo
+  sed -i.bak -e 's|# PROPERTY-TESTS: ||' Cargo.toml
 
-# include the property-test file in lib.rs
-sed -i.bak -e 's|// ::PROPERTY-TESTS:: ||' src/lib.rs
+  # add the property-test configuration in build.rs
+  sed -i.bak -e 's|// ::PROPERTY-TESTS:: ||' build.rs
+}
 
-# Run commands
-"$@"
 
-# Restore Cargo.toml with backup
-mv Cargo.toml.bak Cargo.toml
-mv src/lib.rs.bak src/lib.rs
+restore_disabled_property_tests() {
+  # Restore Cargo.toml with backup
+  mv Cargo.toml.bak Cargo.toml
+  mv build.rs.bak build.rs
+}
+
+
+DEFAULT_CMD=run
+CMD=${1:-$DEFAULT_CMD}
+shift
+
+case "${CMD}" in
+  run)
+    enable_property_tests
+    # Run commands
+    "$@"
+    restore_disabled_property_tests
+    ;;
+
+  test)
+    enable_property_tests
+    cargo test "$@"
+    restore_disabled_property_tests
+    ;;
+
+  enable)
+    enable_property_tests
+    ;;
+
+  disable)
+    restore_disabled_property_tests
+    ;;
+esac

@@ -1,18 +1,6 @@
 //! Implement math operations: Add,Sub, etc
 
-use crate::BigDecimal;
-use crate::stdlib::ops::{
-    Add, AddAssign,
-    Sub, SubAssign,
-    Mul, MulAssign,
-    Div, DivAssign,
-    Neg,
-};
-
-
-use crate::stdlib::convert::TryFrom;
-
-use num_traits::{Zero, One};
+use crate::*;
 
 
 macro_rules! impl_add_for_primitive {
@@ -33,6 +21,14 @@ macro_rules! impl_add_for_primitive {
         }
 
         impl Add<$t> for &BigDecimal {
+            type Output = BigDecimal;
+
+            fn add(self, rhs: $t) -> BigDecimal {
+                self.to_ref() + rhs
+            }
+        }
+
+        impl Add<$t> for BigDecimalRef<'_> {
             type Output = BigDecimal;
 
             fn add(self, rhs: $t) -> BigDecimal {
@@ -439,3 +435,35 @@ impl_div_for_primitive!(i128);
 
 impl_div_for_primitive!(f32);
 impl_div_for_primitive!(f64);
+
+
+impl Neg for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(mut self) -> BigDecimal {
+        self.int_val = -self.int_val;
+        self
+    }
+}
+
+impl<'a> Neg for &'a BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn neg(self) -> BigDecimal {
+        -self.clone()
+    }
+}
+
+impl Neg for BigDecimalRef<'_> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            sign: self.sign.neg(),
+            digits: self.digits,
+            scale: self.scale,
+        }
+    }
+}
