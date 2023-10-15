@@ -9,8 +9,14 @@ impl Add<BigDecimal> for BigDecimal {
 
     #[inline]
     fn add(self, rhs: BigDecimal) -> BigDecimal {
-        let mut lhs = self;
+        if rhs.is_zero() {
+            return self;
+        }
+        if self.is_zero() {
+            return rhs;
+        }
 
+        let mut lhs = self;
         match lhs.scale.cmp(&rhs.scale) {
             Ordering::Equal => {
                 lhs.int_val += rhs.int_val;
@@ -31,6 +37,17 @@ impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimal {
     }
 }
 
+impl Add<BigInt> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigInt) -> BigDecimal {
+        self + BigDecimal::from(rhs)
+    }
+}
+
+
+
 impl Add<BigDecimal> for &'_ BigDecimal {
     type Output = BigDecimal;
 
@@ -40,26 +57,21 @@ impl Add<BigDecimal> for &'_ BigDecimal {
     }
 }
 
-impl<'a> Add<&'a BigDecimal> for &'_ BigDecimal {
+impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for &'_ BigDecimal {
     type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &BigDecimal) -> BigDecimal {
-        let lhs = self;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Less => lhs.with_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
-            Ordering::Equal => BigDecimal::new(lhs.int_val.clone() + &rhs.int_val, lhs.scale),
+    fn add(self, rhs: T) -> BigDecimal {
+        let rhs = rhs.into();
+        if rhs.is_zero() {
+            return self.clone();
         }
-    }
-}
-
-impl Add<BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: BigInt) -> BigDecimal {
-        self + BigDecimal::from(rhs)
+        if self.is_zero() {
+            return rhs.to_owned();
+        }
+        if self.scale >= rhs.scale {
+            self.to_owned() + rhs
+        } else {
+            rhs.to_owned() + self
+        }
     }
 }
 
@@ -72,12 +84,13 @@ impl Add<BigInt> for &'_ BigDecimal {
     }
 }
 
-impl<'a> Add<&'a BigInt> for &'_ BigDecimal {
+
+impl Add<BigDecimal> for BigDecimalRef<'_> {
     type Output = BigDecimal;
 
     #[inline]
-    fn add(self, rhs: &BigInt) -> BigDecimal {
-        self.to_ref() + rhs
+    fn add(self, rhs: BigDecimal) -> BigDecimal {
+        rhs + self
     }
 }
 
@@ -102,7 +115,8 @@ impl Add<BigInt> for BigDecimalRef<'_> {
     }
 }
 
-impl Add<BigDecimal> for BigDecimalRef<'_> {
+
+impl Add<BigDecimal> for BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -111,7 +125,63 @@ impl Add<BigDecimal> for BigDecimalRef<'_> {
     }
 }
 
-forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
+impl<'a> Add<&'a BigDecimal> for BigInt {
+    type Output = BigDecimal;
+
+    fn add(self, rhs: &BigDecimal) -> BigDecimal {
+        rhs.to_ref().add(self)
+    }
+}
+
+impl<'a> Add<BigDecimalRef<'a>> for BigInt {
+    type Output = BigDecimal;
+
+    fn add(self, rhs: BigDecimalRef<'_>) -> BigDecimal {
+        rhs.add(self)
+    }
+}
+
+
+impl Add<BigDecimal> for &BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigDecimal) -> BigDecimal {
+        rhs + self
+    }
+}
+
+impl<'a> Add<&'a BigDecimal> for &BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: &BigDecimal) -> BigDecimal {
+        rhs + self
+    }
+}
+
+impl<'a> Add<BigDecimalRef<'a>> for &BigInt {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn add(self, rhs: BigDecimalRef<'_>) -> BigDecimal {
+        rhs + self
+    }
+}
+
+
+impl AddAssign<BigDecimal> for BigDecimal {
+    fn add_assign(&mut self, rhs: BigDecimal) {
+        if rhs.is_zero() {
+            return;
+        }
+        if self.is_zero() {
+            *self = rhs;
+            return;
+        }
+        self.add_assign(rhs.to_ref());
+    }
+}
 
 impl<'a, N: Into<BigDecimalRef<'a>>> AddAssign<N> for BigDecimal {
     #[inline]
@@ -157,21 +227,92 @@ mod test {
     use paste::paste;
 
     macro_rules! impl_case {
-        ($name:ident: $a:literal + $b:literal => $c:literal ) => {
+        ( $name:ident: $a:literal + $b:literal => $c:literal ) => {
             #[test]
             fn $name() {
-                let mut a: BigDecimal = $a.parse().unwrap();
+                let a: BigDecimal = $a.parse().unwrap();
                 let b: BigDecimal = $b.parse().unwrap();
                 let c: BigDecimal = $c.parse().unwrap();
 
-                assert_eq!(a.clone() + b.clone(), c);
+                assert_eq!(c, a.clone() + b.clone());
+                assert_eq!(c, a.clone() + b.to_ref());
+                assert_eq!(c, a.clone() + &b);
 
-                assert_eq!(a.clone() + &b, c);
-                assert_eq!(&a + b.clone(), c);
-                assert_eq!(&a + &b, c);
+                assert_eq!(c, &a + b.clone());
+                assert_eq!(c, &a + b.to_ref());
+                assert_eq!(c, &a + &b);
 
-                a += b;
-                assert_eq!(a, c);
+                assert_eq!(c, a.to_ref() + b.clone());
+                assert_eq!(c, a.to_ref() + b.to_ref());
+                assert_eq!(c, a.to_ref() + &b);
+
+                // Reversed
+
+                assert_eq!(c, b.clone() + a.clone());
+                assert_eq!(c, b.clone() + a.to_ref());
+                assert_eq!(c, b.clone() + &a);
+
+                assert_eq!(c, &b + a.clone());
+                assert_eq!(c, &b + a.to_ref());
+                assert_eq!(c, &b + &a);
+
+                assert_eq!(c, b.to_ref() + a.clone());
+                assert_eq!(c, b.to_ref() + a.to_ref());
+                assert_eq!(c, b.to_ref() + &a);
+
+                let mut n = a.clone();
+                n += b.clone();
+                assert_eq!(c, n);
+
+                let mut n = a.clone();
+                n += &b;
+                assert_eq!(c, n);
+
+                let mut n = a.clone();
+                n += b.to_ref();
+                assert_eq!(c, n);
+
+                let mut n = b.clone();
+                n += a.clone();
+                assert_eq!(c, n);
+
+                let mut n = b.clone();
+                n += &a;
+                assert_eq!(c, n);
+
+                let mut n = b.clone();
+                n += a.to_ref();
+                assert_eq!(c, n);
+            }
+        };
+        ( $name:ident: $a:literal + (int) $b:literal => $c:literal ) => {
+            #[test]
+            fn $name() {
+                let a: BigDecimal = $a.parse().unwrap();
+                let b: BigInt = $b.parse().unwrap();
+                let c: BigDecimal = $c.parse().unwrap();
+
+                assert_eq!(c, a.clone() + b.clone());
+                assert_eq!(c, a.clone() + &b);
+                assert_eq!(c, &a + &b);
+                assert_eq!(c, &a + b.clone());
+                assert_eq!(c, a.to_ref() + &b);
+
+                assert_eq!(c, b.clone() + a.clone());
+                assert_eq!(c, b.clone() + a.to_ref());
+                assert_eq!(c, b.clone() + &a);
+
+                assert_eq!(c, &b + a.clone());
+                assert_eq!(c, &b + a.to_ref());
+                assert_eq!(c, &b + &a);
+
+                let mut n = a.clone();
+                n += b.clone();
+                assert_eq!(c, n);
+
+                let mut n = a.clone();
+                n += &b;
+                assert_eq!(c, n);
             }
         };
     }
@@ -182,7 +323,12 @@ mod test {
     impl_case!(case_1234e6_1234en6: "1234e6" + "1234e-6" => "1234000000.001234");
     impl_case!(case_1234en6_1234e6: "1234e6" + "1234e-6" => "1234000000.001234");
     impl_case!(case_18446744073709551616_1: "18446744073709551616.0" + "1" => "18446744073709551617");
-    impl_case!(case_184467440737e3380_1: "184467440737e3380" + "0" => "184467440737e3380");
+    impl_case!(case_184467440737e3380_0: "184467440737e3380" + "0" => "184467440737e3380");
+    impl_case!(case_0_776en1: "0" + "77.6" => "77.6");
+
+    impl_case!(case_80802295e5_int0: "80802295e5" + (int)"0" => "80802295e5");
+    impl_case!(case_239200en4_intneg101: "23.9200" + (int)"-101" => "-77.0800");
+    impl_case!(case_46636423395767125en15_int0: "46.636423395767125" + (int)"123" => "169.636423395767125");
 
 
     #[cfg(property_tests)]
