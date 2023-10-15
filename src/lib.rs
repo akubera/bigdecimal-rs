@@ -1352,12 +1352,6 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
     }
 }
 
-impl<'a> From<BigDecimalRef<'a>> for BigDecimal {
-    fn from(n: BigDecimalRef<'a>) -> Self {
-        n.to_owned()
-    }
-}
-
 
 /// Tools to help serializing/deserializing `BigDecimal`s
 #[cfg(feature = "serde")]
