@@ -212,7 +212,7 @@ cargo:test:serde:
   stage: test
   image: akubera/rust:stable
   needs:
-    - "cargo:build:no-std"
+    - "cargo:build:serde"
   variables:
     RUST_CACHE_KEY: "stable+serde"
   <<: *script-cargo-test
