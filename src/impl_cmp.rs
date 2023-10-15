@@ -5,7 +5,7 @@
 //! inference features at the savings of a single
 //! '&' character.
 //!
-//! &BigDecimal and BigDecimalRef are comparible.
+//! &BigDecimal and BigDecimalRef are comparable.
 //!
 
 use crate::{
