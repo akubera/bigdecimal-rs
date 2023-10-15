@@ -1210,7 +1210,6 @@ impl BigDecimalRef<'_> {
     }
 
     /// Split into components
-    #[allow(dead_code)]
     pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
         (self.sign, self.scale, self.digits)
     }
