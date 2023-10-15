@@ -1251,6 +1251,36 @@ impl BigDecimalRef<'_> {
         }
     }
 
+    /// Clone digits, returning BigDecimal with given scale
+    ///
+    /// ```
+    /// # use bigdecimal::*;
+    ///
+    /// let n: BigDecimal = "123.45678".parse().unwrap();
+    /// let r = n.to_ref();
+    /// assert_eq!(r.to_owned_with_scale(5), n.clone());
+    /// assert_eq!(r.to_owned_with_scale(0), "123".parse().unwrap());
+    /// assert_eq!(r.to_owned_with_scale(-1), "12e1".parse().unwrap());
+    ///
+    /// let x = r.to_owned_with_scale(8);
+    /// assert_eq!(&x, &n);
+    /// assert_eq!(x.fractional_digit_count(), 8);
+    /// ```
+    pub fn to_owned_with_scale(&self, scale: i64) -> BigDecimal {
+        use stdlib::cmp::Ordering::*;
+
+        let digits = match scale.cmp(&self.scale) {
+            Equal => self.digits.clone(),
+            Greater => self.digits * ten_to_the_uint((scale - self.scale) as u64),
+            Less => self.digits / ten_to_the_uint((self.scale - scale) as u64)
+        };
+
+        BigDecimal {
+            scale: scale,
+            int_val: BigInt::from_biguint(self.sign, digits),
+        }
+    }
+
     /// Sign of decimal
     pub fn sign(&self) -> Sign {
         self.sign
