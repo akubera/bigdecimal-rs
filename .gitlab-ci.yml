@@ -243,39 +243,9 @@ cargo:test-1.43:
   <<: *script-cargo-test
 
 
-cargo:check-1.54:
-  stage: check
-  image: "akubera/rust-kcov:1.54.0-bullseye"
-  rules:
-    *rules-always-master-otherwise-manual
-  variables:
-    RUST_CACHE_KEY: "1.54"
-  <<: *script-cargo-check
-
-cargo:build-1.54:
-  stage: build
-  image: "akubera/rust-kcov:1.54.0-bullseye"
-  needs:
-    - "cargo:check-1.54"
-  variables:
-    RUST_CACHE_KEY: "1.54"
-  <<: *script-cargo-build
-
-cargo:test-1.54:
-  stage: test
-  needs:
-    - "cargo:build-1.54"
-  image: "akubera/rust-kcov:1.54.0-bullseye"
-  variables:
-    RUST_CACHE_KEY: "1.54"
-  <<: *script-cargo-test
-
-
 cargo:check-1.70:
   stage: check
   image: "akubera/rust-grcov:1.70.0-bullseye"
-  rules:
-    *rules-always-master-otherwise-manual
   variables:
     RUST_CACHE_KEY: "1.70"
   <<: *script-cargo-check
