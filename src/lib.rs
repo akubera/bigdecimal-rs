@@ -201,7 +201,9 @@ impl BigDecimal {
         self.into()
     }
 
-    /// Returns the scale of the BigDecimal
+    /// Returns the scale of the BigDecimal, the total number of
+    /// digits to the right of the decimal point (including insignificant
+    /// leading zeros)
     ///
     /// # Examples
     ///
@@ -211,9 +213,13 @@ impl BigDecimal {
     ///
     /// let a = BigDecimal::from(12345);  // No fractional part
     /// let b = BigDecimal::from_str("123.45").unwrap();  // Fractional part
+    /// let c = BigDecimal::from_str("0.0000012345").unwrap();  // Completely fractional part
+    /// let d = BigDecimal::from_str("5e9").unwrap();  // Negative-fractional part
     ///
     /// assert_eq!(a.fractional_digit_count(), 0);
     /// assert_eq!(b.fractional_digit_count(), 2);
+    /// assert_eq!(c.fractional_digit_count(), 10);
+    /// assert_eq!(d.fractional_digit_count(), -9);
     /// ```
     #[inline]
     pub fn fractional_digit_count(&self) -> i64 {
@@ -1250,7 +1256,13 @@ impl BigDecimalRef<'_> {
         self.sign
     }
 
-    /// Count number of decimal digits
+    /// Return number of digits 'right' of the decimal point
+    /// (including leading zeros)
+    pub fn fractional_digit_count(&self) -> i64 {
+        self.scale
+    }
+
+    /// Count total number of decimal digits
     pub fn count_digits(&self) -> u64 {
         count_decimal_digits_uint(self.digits)
     }
@@ -1490,14 +1502,22 @@ mod bigdecimal_tests {
         // Zero value
         let vals = BigDecimal::from(0);
         assert_eq!(vals.fractional_digit_count(), 0);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 0);
 
         // Fractional part with trailing zeros
         let vals = BigDecimal::from_str("1.0").unwrap();
         assert_eq!(vals.fractional_digit_count(), 1);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 1);
 
         // Fractional part
         let vals = BigDecimal::from_str("1.23").unwrap();
         assert_eq!(vals.fractional_digit_count(), 2);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 2);
+
+        // shifted to 'left' has negative scale
+        let vals = BigDecimal::from_str("123e5").unwrap();
+        assert_eq!(vals.fractional_digit_count(), -5);
+        assert_eq!(vals.to_ref().fractional_digit_count(), -5);
     }
 
     #[test]
