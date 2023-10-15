@@ -197,6 +197,29 @@ cargo:test:no-std:
     - cargo test --no-default-features --lib
 
 
+cargo:build:serde:
+  stage: build
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
+  variables:
+    RUST_CACHE_KEY: "stable+serde"
+  <<: *script-cargo-build
+  script:
+    - cargo build --features=serde --all-targets
+
+cargo:test:serde:
+  stage: test
+  image: akubera/rust:stable
+  needs:
+    - "cargo:build:no-std"
+  variables:
+    RUST_CACHE_KEY: "stable+serde"
+  <<: *script-cargo-test
+  script:
+    - cargo test --features=serde --all-targets
+
+
 cargo:build-nightly:
   stage: build
   image: rustlang/rust:nightly
