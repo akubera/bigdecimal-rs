@@ -25,4 +25,5 @@ mod stdlib {
     pub use std::collections::hash_map::DefaultHasher;
 
     pub use std::vec::Vec;
+    pub use std::borrow;
 }
