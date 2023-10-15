@@ -310,7 +310,6 @@ mod test {
                 // ignore non-normal numbers
                 prop_assume!(f.is_normal());
                 prop_assume!(g.is_normal());
-                prop_assume!((f.log10() - g.log10()).abs() < 100_000);
 
                 let a = BigDecimal::from_f32(f).unwrap();
                 let b = BigDecimal::from_f32(g).unwrap();
