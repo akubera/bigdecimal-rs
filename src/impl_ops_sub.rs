@@ -10,6 +10,14 @@ impl Sub<BigDecimal> for BigDecimal {
 
     #[inline]
     fn sub(self, rhs: BigDecimal) -> BigDecimal {
+        if rhs.is_zero() {
+            return self;
+        }
+
+        if self.is_zero() {
+            return rhs.neg();
+        }
+
         let mut lhs = self;
         let scale = cmp::max(lhs.scale, rhs.scale);
 
@@ -24,21 +32,34 @@ impl Sub<BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> Sub<&'a BigDecimal> for BigDecimal {
+impl<'a, T: Into<BigDecimalRef<'a>>> Sub<T> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-        let scale = cmp::max(lhs.scale, rhs.scale);
+    fn sub(mut self, rhs: T) -> BigDecimal {
+        let rhs = rhs.into();
+        if rhs.is_zero() {
+            return self
+        }
 
+        if self.is_zero() {
+            self.int_val = BigInt::from_biguint(rhs.sign.neg(), rhs.digits.clone());
+            self.scale = rhs.scale;
+            return self
+        }
+
+        let mut lhs = self;
         match lhs.scale.cmp(&rhs.scale) {
             Ordering::Equal => {
-                lhs.int_val -= &rhs.int_val;
+                lhs.int_val -= BigInt::from_biguint(rhs.sign, rhs.digits.clone());
                 lhs
             }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) - rhs,
-            Ordering::Greater => lhs - rhs.with_scale(scale),
+            Ordering::Less => {
+                lhs.take_and_scale(rhs.scale) - rhs.to_owned()
+            }
+            Ordering::Greater => {
+                lhs - rhs.to_owned_with_scale(lhs.scale)
+            },
         }
     }
 }
@@ -52,48 +73,15 @@ impl<'a> Sub<BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                let rhs = rhs.with_scale(self.scale);
-                self - rhs
-            }
-            Ordering::Less => self.with_scale(rhs.scale) - rhs,
-            Ordering::Equal => BigDecimal::new(&self.int_val - &rhs.int_val, self.scale),
-        }
-    }
-}
-
 impl Sub<BigInt> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     fn sub(self, rhs: BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) - rhs,
+        if rhs.is_zero() {
+            return self;
         }
-    }
-}
 
-impl<'a> Sub<&'a BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigInt) -> BigDecimal {
         let mut lhs = self;
 
         match lhs.scale.cmp(&0) {
@@ -119,31 +107,46 @@ impl<'a> Sub<BigInt> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Sub<&'a BigInt> for &'b BigDecimal {
+impl<'a, 'b, T: Into<BigDecimalRef<'b>>> Sub<T> for &'a BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn sub(self, rhs: &BigInt) -> BigDecimal {
-        self.with_scale(0) - rhs
+    fn sub(self, rhs: T) -> BigDecimal {
+        let rhs = rhs.into();
+
+        match self.scale.cmp(&rhs.scale) {
+            Ordering::Equal => self.clone() - rhs,
+            Ordering::Less => self.with_scale(rhs.scale) - rhs,
+            Ordering::Greater => self - rhs.to_owned_with_scale(self.scale),
+        }
     }
 }
 
 forward_val_assignop!(impl SubAssign for BigDecimal, sub_assign);
 
-impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
+impl<'rhs, T: Into<BigDecimalRef<'rhs>>> SubAssign<T> for BigDecimal {
     #[inline]
-    fn sub_assign(&mut self, rhs: &BigDecimal) {
+    fn sub_assign(&mut self, rhs: T) {
+        let rhs = rhs.into();
+        if rhs.is_zero() {
+            return;
+        }
+        if self.is_zero() {
+            *self = rhs.neg().to_owned();
+            return;
+        }
+
         match self.scale.cmp(&rhs.scale) {
+            Ordering::Equal => {
+                self.int_val -= rhs.to_owned().int_val;
+            }
             Ordering::Less => {
-                let lhs = self.with_scale(rhs.scale);
-                self.int_val = lhs.int_val - &rhs.int_val;
+                self.int_val *= ten_to_the((rhs.scale - self.scale) as u64);
+                self.int_val -= rhs.to_owned().int_val;
                 self.scale = rhs.scale;
             }
             Ordering::Greater => {
-                self.int_val -= rhs.with_scale(self.scale).int_val;
-            }
-            Ordering::Equal => {
-                self.int_val = &self.int_val - &rhs.int_val;
+                *self -= rhs.to_owned_with_scale(self.scale);
             }
         }
     }
@@ -153,21 +156,6 @@ impl SubAssign<BigInt> for BigDecimal {
     #[inline(always)]
     fn sub_assign(&mut self, rhs: BigInt) {
         *self -= BigDecimal::new(rhs, 0)
-    }
-}
-
-impl<'a> SubAssign<&'a BigInt> for BigDecimal {
-    #[inline(always)]
-    fn sub_assign(&mut self, rhs: &BigInt) {
-        match self.scale.cmp(&0) {
-            Ordering::Equal => SubAssign::sub_assign(&mut self.int_val, rhs),
-            Ordering::Greater => SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64)),
-            Ordering::Less => {
-                self.int_val *= ten_to_the((-self.scale) as u64);
-                SubAssign::sub_assign(&mut self.int_val, rhs);
-                self.scale = 0;
-            }
-        }
     }
 }
 
@@ -200,6 +188,8 @@ mod test {
     impl_case!(case_1234en2_1234en3: "12.34" - "1.234" => "11.106");
     impl_case!(case_1234en2_n1234en3: "12.34" - "-1.234" => "13.574");
     impl_case!(case_1234e6_1234en6: "1234e6" - "1234e-6" => "1233999999.998766");
+    impl_case!(case_85616001e4_0: "85616001e4" - "0" => "85616001e4");
+    impl_case!(case_0_520707672en5: "0" - "5207.07672" => "-520707672e-5");
 
     #[cfg(property_tests)]
     mod prop {
