@@ -16,16 +16,16 @@ function fetch_benchmark_bigdecimal_file() {
 	local FILENAME="random-bigdecimals-$1.txt"
 	local FILEPATH=$TEST_DATA_DIR/$FILENAME
 
-	if [ -e $FILEPATH ]; then
+	if [ -e "$FILEPATH" ]; then
 		echo "exists: $FILEPATH"
 	else
 		local URL=${GITLAB_URL_PATTERN//<FILENAME>/$FILENAME}
 		echo "fetching: $FILEPATH from $URL"
 
-		if [ $CURL ]; then
-			$CURL -s --fail -L $URL -o "$FILEPATH"
-		elif [ $WGET ]; then
-			$WGET --quiet $URL -O "$FILEPATH"
+		if [ "$CURL" ]; then
+			$CURL -s --fail -L "$URL" -o "$FILEPATH"
+		elif [ "$WGET" ]; then
+			"$WGET" --quiet "$URL" -O "$FILEPATH"
 		else
 			echo "No supported fetching program"
 		fi

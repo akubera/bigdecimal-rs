@@ -85,7 +85,15 @@ impl Num for BigDecimal {
             }
         };
 
-        let scale = decimal_offset - exponent_value;
+        let scale = match decimal_offset.checked_sub(exponent_value) {
+            Some(scale) => scale,
+            None => {
+                return Err(ParseBigDecimalError::Other(
+                    format!("Exponent overflow when parsing '{}'", s)
+                ))
+            }
+        };
+
         let big_int = BigInt::from_str_radix(&digits, radix)?;
 
         Ok(BigDecimal::new(big_int, scale))
@@ -161,5 +169,22 @@ impl FromPrimitive for BigDecimal {
 impl ToBigInt for BigDecimal {
     fn to_bigint(&self) -> Option<BigInt> {
         Some(self.with_scale(0).int_val)
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    mod from_str_radix {
+        use super::*;
+
+        #[test]
+        fn out_of_bounds() {
+            let d = BigDecimal::from_str_radix("1e-9223372036854775808", 10);
+            assert_eq!(d.unwrap_err(), ParseBigDecimalError::Other("Exponent overflow when parsing '1e-9223372036854775808'".to_string()));
+
+        }
     }
 }

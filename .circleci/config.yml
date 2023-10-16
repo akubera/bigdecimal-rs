@@ -14,7 +14,7 @@ jobs:
         default: "buster"
       rust-features:
         type: string
-        default: ""
+        default: "--all-targets"
     docker:
       - image: rust:<< parameters.rust-version >>-<< parameters.debian-version >>
     environment:
@@ -31,7 +31,7 @@ jobs:
             - bigdecimal-cargo-
       - run:
           name: Check
-          command: cargo check
+          command: cargo check << parameters.rust-features >>
       - save_cache:
           paths:
             - /usr/local/cargo

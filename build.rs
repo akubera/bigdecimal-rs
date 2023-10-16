@@ -1,50 +1,48 @@
-#![allow(clippy::style)]
-
-extern crate autocfg;
 
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 
-fn main() -> std::io::Result<()> {
+fn main() {
     let ac = autocfg::new();
     ac.emit_rustc_version(1, 70);
 
-    let outdir = match std::env::var_os("OUT_DIR") {
-        None => return Ok(()),
-        Some(outdir) => outdir,
-    };
-    let outdir_path = PathBuf::from(outdir);
+    // Option::zip
+    ac.emit_rustc_version(1, 46);
 
-    write_default_precision(&outdir_path, "default_precision.rs")?;
-    Ok(())
+    // Remove this comment if enabled proptests
+    // ::PROPERTY-TESTS:: autocfg::emit("property_tests");
+
+    let outdir: PathBuf = std::env::var_os("OUT_DIR").unwrap().into();
+    write_default_precision_file(&outdir);
+    write_default_rounding_mode(&outdir);
 }
 
-/// Create default_precision.rs, containg definition of constant DEFAULT_PRECISION
-fn write_default_precision(outdir_path: &PathBuf, filename: &str) -> std::io::Result<()>
-{
 
-    let default_prec = env::var("RUST_BIGDECIMAL_DEFAULT_PRECISION")
-        .map(|s| s.parse::<std::num::NonZeroU32>().expect("$RUST_BIGDECIMAL_DEFAULT_PRECISION must be an integer > 0"))
-        .map(|nz_num| nz_num.into())
-        .unwrap_or(100u32);
+/// Create default_precision.rs, containing definition of constant DEFAULT_PRECISION loaded in src/lib.rs
+fn write_default_precision_file(outdir: &Path) {
+    let env_var = env::var("RUST_BIGDECIMAL_DEFAULT_PRECISION").unwrap_or_else(|_| "100".to_owned());
+    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_DEFAULT_PRECISION");
 
-    let default_precision_rs_path = outdir_path.join(filename);
+    let rust_file_path = outdir.join("default_precision.rs");
 
-    let default_precision = format!("const DEFAULT_PRECISION: u64 = {};", default_prec);
+    let default_prec: u32 = env_var
+        .parse::<std::num::NonZeroU32>()
+        .expect("$RUST_BIGDECIMAL_DEFAULT_PRECISION must be an integer > 0")
+        .into();
 
-    // Rewriting the file if it already exists with the same contents
-    // would force a rebuild.
-    match std::fs::read_to_string(&default_precision_rs_path) {
-        Ok(existing_contents) if existing_contents == default_precision => {},
-        _ => {
-            std::fs::write(&default_precision_rs_path, default_precision)
-                    .expect("Could not write big decimal default-precision file");
-        }
-    };
+    let rust_file_contents = format!("const DEFAULT_PRECISION: u64 = {};", default_prec);
 
-    println!("cargo:rerun-if-changed={}", default_precision_rs_path.display());
-    println!("cargo:rerun-if-env-changed={}", "RUST_BIGDECIMAL_DEFAULT_PRECISION");
+    std::fs::write(rust_file_path, rust_file_contents).unwrap();
+}
 
-    Ok(())
+/// Create default_rounding_mode.rs, using value of RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE environment variable
+fn write_default_rounding_mode(outdir: &Path) {
+    let rounding_mode_name = env::var("RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE").unwrap_or_else(|_| "HalfEven".to_owned());
+    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE");
+
+    let rust_file_path = outdir.join("default_rounding_mode.rs");
+    let rust_file_contents = format!("const DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::{};", rounding_mode_name);
+
+    std::fs::write(rust_file_path, rust_file_contents).unwrap();
 }
