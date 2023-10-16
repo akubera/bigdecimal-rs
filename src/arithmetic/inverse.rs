@@ -17,6 +17,7 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
     // calculate first iteration
     let mut running_result = next_iteration(guess);
+    debug_assert!(!running_result.is_zero(), "Zero detected in inverse calculation of {}e{}", n, -scale);
 
     let mut prev_result = BigDecimal::one();
     let mut result = BigDecimal::zero();
@@ -68,14 +69,90 @@ fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
     res.scale -= scale;
     return res;
 }
-    }
-}
 
+
+#[cfg(test)]
+mod test_make_inv_guess {
+    use super::*;
+    use paste::paste;
+
+    macro_rules! impl_case {
+        ( $bin_count:literal, -$scale:literal => $expected:literal ) => {
+            paste! { impl_case!( [< case_ $bin_count _n $scale >]: $bin_count, -$scale => $expected); }
+        };
+        ( $bin_count:literal, $scale:literal => $expected:literal ) => {
+            paste! { impl_case!( [< case_ $bin_count _ $scale >]: $bin_count, $scale => $expected); }
+        };
+        ( $name:ident: $bin_count:expr, $scale:expr => $expected:literal ) => {
+            impl_case!($name: $bin_count, $scale, prec=5 => $expected);
+        };
+        ( $name:ident: $bin_count:expr, $scale:expr, prec=$prec:literal => $expected:literal ) => {
+            #[test]
+            fn $name() {
+                let guess = make_inv_guess($bin_count, $scale);
+                let expected: BigDecimal = $expected.parse().unwrap();
+                assert_eq!(guess.with_prec($prec), expected.with_prec($prec));
+            }
+        };
+    }
+
+    impl_case!(0, 0 => "0.69315");
+    impl_case!(1, 0 => "0.34657");
+    impl_case!(2, 0 => "0.17329");
+    impl_case!(2, 1 => "1.7329");
+
+    // 1 / (2^3 * 10^5) ~
+    impl_case!(3, -5 => "8.6643e-07");
+
+    // 2^-20
+    impl_case!(20, 0 => "6.6104e-07");
+    impl_case!(20, -900 => "6.6104E-907");
+    impl_case!(20, 800 => "6.6104E+793");
+
+    impl_case!(40, 10000 => "6.3041E+9987");
+
+    impl_case!(70, -5 => "5.8712e-27");
+    impl_case!(70, 5 => "5.8712e-17");
+    impl_case!(70, 50 => "5.8712e+28");
+
+    impl_case!(888, -300 => "3.3588E-568");
+    impl_case!(888, -19 => "3.3588E-287");
+    impl_case!(888, 0 => "3.3588E-268");
+    impl_case!(888, 270 => "335.88");
+
+    impl_case!(1022, 10 => "1.5423e-298");
+    impl_case!(1022, 308 => "1.5423");
+
+    impl_case!(1038, 316 => "2353.4");
+
+    impl_case!(case_31028_n659: 31028, -659 => "3.0347E-10000");
+    impl_case!(case_31028_0: 31028, 0 => "3.0347E-9341");
+    impl_case!(case_31028_1: 31028, 1 => "3.0347E-9340");
+    impl_case!(case_31028_9340: 31028, 9340 => ".30347");
+    impl_case!(case_31028_10000: 31028, 10000 => "3.0347E+659");
+
+    // impl_case!(case_max: u64::MAX, 270 => "335.88");
+}
 
 #[cfg(test)]
 mod test {
     use super::*;
     use stdlib::num::NonZeroU64;
+
+    #[test]
+    fn test_inverse_35543972957198043e291() {
+        let v = vec![
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            2324389888, 849200558
+        ];
+        let x = BigInt::new(Sign::Minus, v);
+        let d = BigDecimal::from(x);
+        let expected = "-2.813416500187520746852694701086705659180043761702417561798711758892800449936819185796527214192677476E-308".parse().unwrap();
+        assert_eq!(d.inverse(), expected);
+
+        assert_eq!(d.neg().inverse(), expected.neg());
+    }
 
     macro_rules! impl_case {
         ($name:ident: $prec:literal, $round:ident => $expected:literal) => {
