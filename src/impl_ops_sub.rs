@@ -89,7 +89,7 @@ impl<'a, T: Into<BigDecimalRef<'a>>> Sub<T> for BigDecimalRef<'_> {
         let rhs = rhs.into();
 
         match self.scale.cmp(&rhs.scale) {
-            Ordering::Equal => self.clone() - rhs,
+            Ordering::Equal => self.to_owned() - rhs,
             Ordering::Less => self.to_owned_with_scale(rhs.scale) - rhs,
             Ordering::Greater => self - rhs.to_owned_with_scale(self.scale),
         }
@@ -124,7 +124,7 @@ impl Sub<BigInt> for BigDecimalRef<'_> {
     }
 }
 
-impl<'a> Sub<BigDecimal> for BigInt {
+impl Sub<BigDecimal> for BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -133,7 +133,7 @@ impl<'a> Sub<BigDecimal> for BigInt {
     }
 }
 
-impl<'a> Sub<BigDecimal> for &BigInt {
+impl Sub<BigDecimal> for &BigInt {
     type Output = BigDecimal;
 
     #[inline]

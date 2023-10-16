@@ -209,15 +209,7 @@ impl<'a, N: Into<BigDecimalRef<'a>>> AddAssign<N> for BigDecimal {
 impl AddAssign<BigInt> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: BigInt) {
-        let sign = rhs.sign();
-        let mag = rhs.magnitude();
-        let rhs_ref = BigDecimalRef {
-            scale: 0,
-            sign: sign,
-            digits: mag.into(),
-        };
-
-        self.add_assign(rhs_ref);
+        self.add_assign(&rhs);
     }
 }
 

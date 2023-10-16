@@ -183,7 +183,7 @@ mod test {
         #[test]
         fn out_of_bounds() {
             let d = BigDecimal::from_str_radix("1e-9223372036854775808", 10);
-            assert_eq!(d.unwrap_err(), ParseBigDecimalError::Other("Exponent overflow when parsing '1e-9223372036854775808'".to_owned()));
+            assert_eq!(d.unwrap_err(), ParseBigDecimalError::Other("Exponent overflow when parsing '1e-9223372036854775808'".to_string()));
 
         }
     }
