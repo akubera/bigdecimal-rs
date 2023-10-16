@@ -153,4 +153,16 @@ mod test {
         let x = BigDecimal::from_str("3.14").unwrap();
         let _r = x / BigDecimal::zero();
     }
+
+    #[test]
+    fn test_division_by_large_number() {
+        let n = 1u8;
+        let d: BigDecimal = "79437738588056219546528239237352667078".parse().unwrap();
+
+        let quotient_n_ref_d = n / &d;
+        let quotient_n_d = n / d.clone();
+        assert_eq!(quotient_n_ref_d, quotient_n_d);
+
+        assert_eq!(quotient_n_ref_d, "1.258847517281104957975270408416632052090243053529147458917576143852500316808428812104171430669001064E-38".parse().unwrap());
+    }
 }

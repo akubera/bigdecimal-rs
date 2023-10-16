@@ -304,7 +304,7 @@ macro_rules! impl_div_for_primitive {
             type Output = BigDecimal;
 
             fn div(self, denom: &BigDecimal) -> BigDecimal {
-                BigDecimal::from(self) / denom
+                self / denom.clone()
             }
         }
     };
