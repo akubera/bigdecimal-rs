@@ -49,7 +49,7 @@ fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
     let magic_factor = stdlib::f64::consts::LN_2;
 
     let bit_count = bit_count as f64;
-    let initial_guess = magic_factor * 2f64.powf(-bit_count);
+    let initial_guess = magic_factor * exp2(-bit_count);
     if initial_guess.is_finite() && initial_guess != 0.0 {
         if let Ok(mut result) = BigDecimal::try_from(initial_guess) {
             result.scale -= scale;
@@ -63,7 +63,7 @@ fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
     let approx_scale_int = approx_scale.trunc();
     let approx_scale_frac = approx_scale - approx_scale_int;
 
-    let recip = 10f64.powf(-approx_scale_frac);
+    let recip = libm::exp10(-approx_scale_frac);
     let mut res = BigDecimal::from_f32((magic_factor * recip) as f32).unwrap();
     res.scale += approx_scale_int as i64;
     res.scale -= scale;

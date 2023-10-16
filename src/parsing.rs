@@ -1,6 +1,7 @@
 //! Routines for parsing values into BigDecimals
 
 use super::{BigDecimal, ParseBigDecimalError};
+use stdlib::num::FpCategory;
 
 use stdlib::cmp::{self, Ordering};
 
@@ -50,7 +51,7 @@ fn split_f32_into_parts(f: f32) -> (u32, i64, Sign) {
 /// Create bigdecimal from f32
 ///
 pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
-    if n.is_subnormal() {
+    if n.classify() == FpCategory::Subnormal {
         return parse_from_f32_subnormal(n);
     }
     let bits = n.to_bits();
@@ -97,7 +98,7 @@ pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
 
 /// Create bigdecimal from subnormal f32
 pub(crate) fn parse_from_f32_subnormal(n: f32) -> BigDecimal {
-    debug_assert!(n.is_subnormal());
+    debug_assert_eq!(n.classify(), FpCategory::Subnormal);
     let bits = n.to_bits();
 
     let sign_bit = bits >> 31;
@@ -168,7 +169,7 @@ fn split_f64_into_parts(f: f64) -> (u64, i64, Sign) {
 
 /// Create bigdecimal from subnormal f64
 pub(crate) fn parse_from_f64_subnormal(n: f64) -> BigDecimal {
-    debug_assert!(n.is_subnormal());
+    debug_assert_eq!(n.classify(), FpCategory::Subnormal);
     let bits = n.to_bits();
 
     let sign_bit = bits >> 63;
@@ -204,7 +205,7 @@ pub(crate) fn parse_from_f64_subnormal(n: f64) -> BigDecimal {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
-    if n.is_subnormal() {
+    if n.classify() == FpCategory::Subnormal {
         return parse_from_f64_subnormal(n);
     }
 
