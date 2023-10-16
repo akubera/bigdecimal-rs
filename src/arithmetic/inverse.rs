@@ -41,23 +41,33 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
     return result;
 }
 
+
+/// guess inverse based on the number of bits in the integer and decimal's scale
 fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
     // scale by ln(2)
     let magic_factor = stdlib::f64::consts::LN_2;
 
     let bit_count = bit_count as f64;
-    let scale = scale as f64;
-
-    let initial_guess = scale * LOG2_10 - bit_count;
-    let res = magic_factor * exp2(initial_guess);
-
-    match BigDecimal::try_from(res) {
-        Ok(res) => res,
-        Err(_) => {
-            // can't guess with float - just guess magnitude
-            let scale = (bit_count / LOG2_10 + scale).round() as i64;
-            BigDecimal::new(BigInt::from(1), -scale)
+    let initial_guess = magic_factor * 2f64.powf(-bit_count);
+    if initial_guess.is_finite() && initial_guess != 0.0 {
+        if let Ok(mut result) = BigDecimal::try_from(initial_guess) {
+            result.scale -= scale;
+            return result;
         }
+    }
+
+    // backup guess for out-of-range integers
+
+    let approx_scale = bit_count * stdlib::f64::consts::LOG10_2;
+    let approx_scale_int = approx_scale.trunc();
+    let approx_scale_frac = approx_scale - approx_scale_int;
+
+    let recip = 10f64.powf(-approx_scale_frac);
+    let mut res = BigDecimal::from_f32((magic_factor * recip) as f32).unwrap();
+    res.scale += approx_scale_int as i64;
+    res.scale -= scale;
+    return res;
+}
     }
 }
 
