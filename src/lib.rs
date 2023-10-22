@@ -1331,6 +1331,12 @@ impl BigDecimalRef<'_> {
     pub fn is_zero(&self) -> bool {
         self.digits.is_zero()
     }
+
+    /// Clone this value into dest
+    pub fn clone_into(&self, dest: &mut BigDecimal) {
+        dest.int_val = num_bigint::BigInt::from_biguint(self.sign, self.digits.clone());
+        dest.scale = self.scale;
+    }
 }
 
 impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
