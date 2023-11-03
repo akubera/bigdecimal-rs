@@ -129,7 +129,41 @@ impl ToPrimitive for BigDecimal {
     }
 
     fn to_f64(&self) -> Option<f64> {
-        self.int_val.to_f64().map(|x| x * powi(10f64, self.scale.neg().as_()))
+        self.int_val.to_f64().map(|f| {
+            // return f * powi(10f64, self.scale.neg().as_());
+            if f == 0.0 || self.scale <= 0 {
+                return f;
+            }
+
+            let mantissa_mask = (1u64 << 52) - 1;
+            let exp_mask = (1u64 << 12) - 1;
+
+            let bits = f.to_bits();
+            let e = (bits >> 52) & exp_mask;
+            let m = (bits & mantissa_mask) | (1 << 52);
+
+            let scale = self.scale as i32;
+
+            // split 53-digit number by div_rem(5**12 = 244140625 ~= 2**26.7)
+            let pow = 12;
+            let five_to_the_pow = 5u64.pow(pow);
+            let (h, l) = num_integer::div_rem(m, five_to_the_pow);
+
+            let a = h as f64 * powi(5f64, (pow as i32 - scale).as_());
+            let b = l as f64 * powi(5f64, (-scale).as_());
+
+            let mut result_bits = (a + b).to_bits();
+
+            // multiply by 2^-scale
+            let result_exp = (result_bits >> 52) & exp_mask;
+            let exp_shift = result_exp as i32 - 1075;
+            let new_exp = e as i32 + exp_shift - scale;
+            result_bits &= !(exp_mask << 52);
+            result_bits |= (new_exp as u64 & exp_mask) << 52;
+            result_bits |= (bits >> 63) << 63;
+
+            f64::from_bits(result_bits)
+        })
     }
 }
 
@@ -187,4 +221,35 @@ mod test {
 
         }
     }
+}
+
+
+#[cfg(test)]
+mod test_to_f64 {
+    use super::*;
+    use crate::stdlib;
+
+    macro_rules! impl_case {
+        ($name:ident: $f:expr) => {
+            #[test]
+            fn $name() {
+                let f: f64 = $f;
+                let s = format!("{}", f);
+                let n = BigDecimal::from_str(&s).unwrap();
+                assert_eq!(n.to_f64().unwrap(), f, "src='{}'", s);
+            }
+        };
+    }
+
+    impl_case!(case_875en6: 0.000875);
+    impl_case!(case_8712994288722404: 0.8712994288722404);
+    impl_case!(case_f64_min: stdlib::f64::MIN);
+    impl_case!(case_f64_max: stdlib::f64::MAX);
+    impl_case!(case_zero: 0.0);
+    impl_case!(case_neg_zero: -0.0);
+    impl_case!(case_pi: stdlib::f64::consts::PI);
+    impl_case!(case_pi_5: 3.1415);
+    impl_case!(case_pi_6: -3.14159);
+    impl_case!(case_1en500: 1e-500);
+    impl_case!(case_neg1en500: -1e-500);
 }
