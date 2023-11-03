@@ -196,7 +196,9 @@ mod test {
 
 /// Serialize/deserialize [`BigDecimal`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
 ///
-/// ```
+// The following example is ignored as it requires derives which we don't import and aren't compatible
+// with our locked versions of rust due to proc_macro2.
+/// ```ignore
 /// # extern crate serde;
 /// # use serde::{Serialize, Deserialize};
 /// # use bigdecimal::BigDecimal;
@@ -240,7 +242,9 @@ pub mod arbitrary_precision {
 
 /// Serialize/deserialize [`Option<BigDecimal>`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
 ///
-/// ```
+// The following example is ignored as it requires derives which we don't import and aren't compatible
+// with our locked versions of rust due to proc_macro2.
+/// ```ignore
 /// # extern crate serde;
 /// # use serde::{Serialize, Deserialize};
 /// # use bigdecimal::BigDecimal;
@@ -291,8 +295,6 @@ pub mod arbitrary_precision_option {
 }
 
 
-
-
 #[cfg(all(test, feature = "arbitrary-precision"))]
 mod test_arbitrary_precision {
     extern crate serde_json;
@@ -329,34 +331,23 @@ mod test_arbitrary_precision {
     #[test]
     #[cfg(not(feature = "arbitrary-precision"))]
     fn test_normal_precision() {
-        #[derive(Deserialize, Debug, PartialEq, Eq)]
-        struct ViaF64 {
-            n: BigDecimal,
-        }
-
-        let json = r#"{ "n": 0.1 }"#;
+        let json = r#"0.1"#;
         let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
-        let deser: ViaF64 = serde_json::from_str(json).expect("should parse JSON");
+        let deser: BigDecimal = serde_json::from_str(json).expect("should parse JSON");
 
         // 0.1 is directly representable in `BigDecimal`, but not `f64` so the default deserialization fails.
-        assert_ne!(expected, deser.n);
+        assert_ne!(expected, deser);
     }
 
     #[test]
     #[cfg(feature = "arbitrary-precision")]
     fn test_arbitrary_precision() {
-        use serde::Deserialize;
+        use crate::impl_serde::arbitrary_precision;
 
-        #[derive(Deserialize, Debug, PartialEq, Eq)]
-        struct ArbitraryPrec {
-            #[serde(with = "crate::impl_serde::arbitrary_precision")]
-            n: BigDecimal
-        }
-
-        let json = r#"{ "n": 0.1 }"#;
+        let json = r#"0.1"#;
         let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
-        let deser: ArbitraryPrec = serde_json::from_str(json).expect("should parse JSON");
+        let deser = arbitrary_precision::deserialize(&mut serde_json::Deserializer::from_str(json)).expect("should parse JSON");
 
-        assert_eq!(expected, deser.n);
+        assert_eq!(expected, deser);
     }
 }
