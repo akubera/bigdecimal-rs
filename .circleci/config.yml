@@ -107,6 +107,7 @@ workflows:
             rust-features:
             - "--features='serde'"
             - "--features='serde,string-only'"
+            - "--features='serde,arbitrary-precision'"
 
     - build-and-test:
        name: build-and-test:no-default-features
