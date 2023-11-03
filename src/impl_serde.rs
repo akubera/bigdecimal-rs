@@ -192,3 +192,171 @@ mod test {
         }
     }
 }
+
+
+/// Serialize/deserialize [`BigDecimal`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
+///
+/// ```
+/// # extern crate serde;
+/// # use serde::{Serialize, Deserialize};
+/// # use bigdecimal::BigDecimal;
+/// # use std::str::FromStr;
+///
+/// #[derive(Serialize, Deserialize)]
+/// pub struct ArbitraryExample {
+///     #[serde(with = "bigdecimal::impl_serde::arbitrary_precision")]
+///     value: BigDecimal,
+/// }
+///
+/// let value = ArbitraryExample { value: BigDecimal::from_str("123.400").unwrap() };
+/// assert_eq!(
+///     &serde_json::to_string(&value).unwrap(),
+///     r#"{"value":123.400}"#
+/// );
+/// ```
+#[cfg(feature = "arbitrary-precision")]
+pub mod arbitrary_precision {
+    use crate::{BigDecimal, FromStr, stdlib::string::ToString};
+    use serde::{Serialize, Deserialize};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<BigDecimal, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        serde_json::Number::deserialize(deserializer)?.to_string().parse().map_err(serde::de::Error::custom)
+
+    }
+
+    pub fn serialize<S>(value: &BigDecimal, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serde_json::Number::from_str(&value.to_string())
+            .map_err(serde::ser::Error::custom)?
+            .serialize(serializer)
+    }
+}
+
+
+/// Serialize/deserialize [`Option<BigDecimal>`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
+///
+/// ```
+/// # extern crate serde;
+/// # use serde::{Serialize, Deserialize};
+/// # use bigdecimal::BigDecimal;
+/// # use std::str::FromStr;
+///
+/// #[derive(Serialize, Deserialize)]
+/// pub struct ArbitraryExample {
+///     #[serde(with = "bigdecimal::impl_serde::arbitrary_precision_option")]
+///     value: Option<BigDecimal>,
+/// }
+///
+/// let value = ArbitraryExample { value: Some(BigDecimal::from_str("123.400").unwrap()) };
+/// assert_eq!(
+///     &serde_json::to_string(&value).unwrap(),
+///     r#"{"value":123.400}"#
+/// );
+///
+/// let value = ArbitraryExample { value: None };
+/// assert_eq!(
+///     &serde_json::to_string(&value).unwrap(),
+///     r#"{"value":null}"#
+/// );
+/// ```
+#[cfg(feature = "arbitrary-precision")]
+pub mod arbitrary_precision_option {
+    use crate::{BigDecimal, FromStr, stdlib::string::ToString};
+    use serde::{Serialize, Deserialize};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<BigDecimal>, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        Option::<serde_json::Number>::deserialize(deserializer)?.map(|num| num.to_string().parse().map_err(serde::de::Error::custom)).transpose()
+
+    }
+
+    pub fn serialize<S>(value: &Option<BigDecimal>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match *value {
+            Some(ref decimal) => serde_json::Number::from_str(&decimal.to_string())
+                .map_err(serde::ser::Error::custom)?
+                .serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+}
+
+
+
+
+#[cfg(all(test, feature = "arbitrary-precision"))]
+mod test_arbitrary_precision {
+    extern crate serde_json;
+
+    use crate::{BigDecimal, FromStr};
+    use serde::Deserialize;
+
+    #[test]
+    #[cfg(not(any(feature = "string-only", feature = "arbitrary-precision")))]
+    fn test_serde_deserialize_f64() {
+        use crate::{FromPrimitive,stdlib::f64::consts::PI};
+
+        let vals = vec![
+            1.0,
+            0.5,
+            0.25,
+            50.0,
+            50000.,
+            0.001,
+            12.34,
+            5.0 * 0.03125,
+            PI,
+            PI * 10000.0,
+            PI * 30000.0,
+        ];
+        for n in vals {
+            let expected = BigDecimal::from_f64(n).unwrap();
+            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+            assert_eq!(expected, value);
+        }
+    }
+
+    /// Not a great test but demonstrates why `arbitrary-precision` exists.
+    #[test]
+    #[cfg(not(feature = "arbitrary-precision"))]
+    fn test_normal_precision() {
+        #[derive(Deserialize, Debug, PartialEq, Eq)]
+        struct ViaF64 {
+            n: BigDecimal,
+        }
+
+        let json = r#"{ "n": 0.1 }"#;
+        let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
+        let deser: ViaF64 = serde_json::from_str(json).expect("should parse JSON");
+
+        // 0.1 is directly representable in `BigDecimal`, but not `f64` so the default deserialization fails.
+        assert_ne!(expected, deser.n);
+    }
+
+    #[test]
+    #[cfg(feature = "arbitrary-precision")]
+    fn test_arbitrary_precision() {
+        use serde::Deserialize;
+
+        #[derive(Deserialize, Debug, PartialEq, Eq)]
+        struct ArbitraryPrec {
+            #[serde(with = "crate::impl_serde::arbitrary_precision")]
+            n: BigDecimal
+        }
+
+        let json = r#"{ "n": 0.1 }"#;
+        let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
+        let deser: ArbitraryPrec = serde_json::from_str(json).expect("should parse JSON");
+
+        assert_eq!(expected, deser.n);
+    }
+}
