@@ -2076,7 +2076,7 @@ mod bigdecimal_tests {
             let expected = BigDecimal::from_str(s).unwrap();
             let display = format!("{}", expected);
             let parsed = BigDecimal::from_str(&display).unwrap();
-            assert_eq!(expected, parsed);
+            assert_eq!(expected, parsed, "[{s}] didn't round trip through [{display}]");
         }
     }
 }

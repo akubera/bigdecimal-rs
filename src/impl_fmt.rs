@@ -7,57 +7,16 @@ use stdlib::fmt::Write;
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
+
         // Acquire the absolute integer as a decimal string
-        let mut abs_int = self.int_val.magnitude().to_str_radix(10);
+        let abs_int = self.int_val.magnitude().to_str_radix(10);
 
-        // Split the representation at the decimal point
-        let (before, after) = if self.scale >= abs_int.len() as i64 {
-            // First case: the integer representation falls
-            // completely behind the decimal point
-            let scale = self.scale as usize;
-            let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
-            ("0".to_string(), after)
+        if (abs_int.len() as i64 - self.scale - 1).abs() > EXPONENTIAL_FORMAT_THRESHOLD {
+            format_exponential(self, f, abs_int)
         } else {
-            // Second case: the integer representation falls
-            // around, or before the decimal point
-            let location = abs_int.len() as i64 - self.scale;
-            if location > abs_int.len() as i64 {
-                // Case 2.1, entirely before the decimal point
-                // We should prepend zeros
-                let zeros = location as usize - abs_int.len();
-                let abs_int = abs_int + "0".repeat(zeros).as_str();
-                (abs_int, "".to_string())
-            } else {
-                // Case 2.2, somewhere around the decimal point
-                // Just split it in two
-                let after = abs_int.split_off(location as usize);
-                (abs_int, after)
-            }
-        };
-
-        // Alter precision after the decimal point
-        let after = if let Some(precision) = f.precision() {
-            let len = after.len();
-            if len < precision {
-                after + "0".repeat(precision - len).as_str()
-            } else {
-                // TODO: Should we round?
-                after[0..precision].to_string()
-            }
-        } else {
-            after
-        };
-
-        // Concatenate everything
-        let complete_without_sign = if !after.is_empty() {
-            before + "." + after.as_str()
-        } else {
-            before
-        };
-
-        let non_negative = matches!(self.int_val.sign(), Sign::Plus | Sign::NoSign);
-        //pad_integral does the right thing although we have a decimal
-        f.pad_integral(non_negative, "", &complete_without_sign)
+            format_full_scale(self, f, abs_int)
+        }
     }
 }
 
@@ -70,6 +29,141 @@ impl fmt::Debug for BigDecimal {
             write!(f, "BigDecimal(\"{:?}e{}\")", self.int_val, -self.scale)
         }
     }
+}
+
+
+fn format_full_scale(
+    this: &BigDecimal,
+    f: &mut fmt::Formatter,
+    mut abs_int: String,
+) -> fmt::Result {
+    // Split the representation at the decimal point
+    let (before, after) = if this.scale >= abs_int.len() as i64 {
+        // First case: the integer representation falls
+        // completely behind the decimal point
+        let scale = this.scale as usize;
+        let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
+        ("0".to_string(), after)
+    } else {
+        // Second case: the integer representation falls
+        // around, or before the decimal point
+        let location = abs_int.len() as i64 - this.scale;
+        if location > abs_int.len() as i64 {
+            // Case 2.1, entirely before the decimal point
+            // We should prepend zeros
+            let zeros = location as usize - abs_int.len();
+            let abs_int = abs_int + "0".repeat(zeros).as_str();
+            (abs_int, "".to_string())
+        } else {
+            // Case 2.2, somewhere around the decimal point
+            // Just split it in two
+            let after = abs_int.split_off(location as usize);
+            (abs_int, after)
+        }
+    };
+
+    // Alter precision after the decimal point
+    let after = if let Some(precision) = f.precision() {
+        let len = after.len();
+        if len < precision {
+            after + "0".repeat(precision - len).as_str()
+        } else {
+            // TODO: Should we round?
+            after[0..precision].to_string()
+        }
+    } else {
+        after
+    };
+
+    // Concatenate everything
+    let complete_without_sign = if !after.is_empty() {
+        before + "." + after.as_str()
+    } else {
+        before
+    };
+
+    let non_negative = matches!(this.int_val.sign(), Sign::Plus | Sign::NoSign);
+    //pad_integral does the right thing although we have a decimal
+    f.pad_integral(non_negative, "", &complete_without_sign)
+}
+
+
+fn format_exponential(
+    this: &BigDecimal,
+    f: &mut fmt::Formatter,
+    mut abs_int: String,
+) -> fmt::Result {
+    // Steps:
+    //  1. Truncate integer based on precision
+    //  2. calculate exponent from the scale and the length of the internal integer
+    //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
+    //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
+
+    if abs_int.len() > 1 {
+        // only modify for precision if there is more than 1 decimal digit
+        if let Some(precision) = f.precision() {
+            // add 1 precision to consider first digit
+            // TODO: Should we round?
+            abs_int.truncate(precision + 1);
+        }
+    }
+
+    // Determine the exponent value based on the scale
+    //
+    // # First case: the integer representation falls completely behind the
+    //   decimal point.
+    //
+    //   Example of this.scale > abs_int.len():
+    //   0.000001234509876
+    //   abs_int.len() = 10
+    //   scale = 15
+    //   target is 1.234509876
+    //   exponent = -6
+    //
+    //   Example of this.scale == abs_int.len():
+    //   0.333333333333333314829616256247390992939472198486328125
+    //   abs_int.len() = 54
+    //   scale = 54
+    //   target is 3.33333333333333314829616256247390992939472198486328125
+    //   exponent = -1
+    //
+    // # Second case: the integer representation falls around, or before the
+    //   decimal point
+    //
+    //   ## Case 2.1, entirely before the decimal point.
+    //     Example of (abs_int.len() - this.scale) > abs_int.len():
+    //     123450987600000
+    //     abs_int.len() = 10
+    //     scale = -5
+    //     location = 15
+    //     target is 1.234509876
+    //     exponent = 14
+    //
+    //   ## Case 2.2, somewhere around the decimal point.
+    //     Example of (abs_int.len() - this.scale) < abs_int.len():
+    //     12.339999999999999857891452847979962825775146484375
+    //     abs_int.len() = 50
+    //     scale = 48
+    //     target is 1.2339999999999999857891452847979962825775146484375
+    //     exponent = 1
+    //
+    //     For the (abs_int.len() - this.scale) == abs_int.len() I couldn't
+    //     come up with an example
+    let exponent = abs_int.len() as i64 - this.scale - 1;
+
+    if abs_int.len() > 1 {
+        // only add decimal point if there is more than 1 decimal digit
+        abs_int.insert(1, '.');
+    }
+
+    if exponent != 0 {
+        abs_int += "E";
+        abs_int += &exponent.to_string();
+    }
+
+    let non_negative = matches!(this.int_val.sign(), Sign::Plus | Sign::NoSign);
+    //pad_integral does the right thing although we have a decimal
+    f.pad_integral(non_negative, "", &abs_int)
 }
 
 
@@ -189,48 +283,34 @@ mod test {
         let vals = vec![
             // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
             // Numbers with large scales
-            (1, 10_000, (
-                String::from("0.") + &"0".repeat(9_999) + "1",
-                String::from("0.0"),
-                String::from("0.0000"),
-                String::from(" 0.0"),
-                String::from("+00.0"),
-                String::from("0.0 ")
-            )),
-            (1, -10_000, (
-                String::from("1") + &"0".repeat(10_000),
-                String::from("1") + &"0".repeat(10_000) + ".0",
-                String::from("1") + &"0".repeat(10_000) + ".0000",
-                String::from("1") + &"0".repeat(10_000) + ".0",
-                String::from("+1") + &"0".repeat(10_000) + ".0",
-                String::from("1") + &"0".repeat(10_000) + ".0"
-            )),
+            (1, 10_000, ("1E-10000", "1E-10000", "1E-10000", "1E-10000", "+1E-10000", "1E-10000")),
+            (1, -10_000, ("1E10000", "1E10000", "1E10000", "1E10000", "+1E10000", "1E10000")),
             // Numbers with many digits
             (1234506789, 5, (
-                "12345.06789".into(),
-                "12345.0".into(),
-                "12345.0678".into(),
-                "12345.0".into(),
-                "+12345.0".into(),
-                "12345.0".into()
+                "12345.06789",
+                "12345.0",
+                "12345.0678",
+                "12345.0",
+                "+12345.0",
+                "12345.0"
             )),
             (1234506789, -5, (
-                "123450678900000".into(),
-                "123450678900000.0".into(),
-                "123450678900000.0000".into(),
-                "123450678900000.0".into(),
-                "+123450678900000.0".into(),
-                "123450678900000.0".into()
+                "123450678900000",
+                "123450678900000.0",
+                "123450678900000.0000",
+                "123450678900000.0",
+                "+123450678900000.0",
+                "123450678900000.0"
             )),
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
-            assert_eq!(format!("{}", x), results.0);
-            assert_eq!(format!("{:.1}", x), results.1);
-            assert_eq!(format!("{:.4}", x), results.2);
-            assert_eq!(format!("{:4.1}", x), results.3);
-            assert_eq!(format!("{:+05.1}", x), results.4);
-            assert_eq!(format!("{:<4.1}", x), results.5);
+            assert_eq!(format!("{}", x), results.0, "digits={i} scale={scale}");
+            assert_eq!(format!("{:.1}", x), results.1, "digits={i} scale={scale}");
+            assert_eq!(format!("{:.4}", x), results.2, "digits={i} scale={scale}");
+            assert_eq!(format!("{:4.1}", x), results.3, "digits={i} scale={scale}");
+            assert_eq!(format!("{:+05.1}", x), results.4, "digits={i} scale={scale}");
+            assert_eq!(format!("{:<4.1}", x), results.5, "digits={i} scale={scale}");
         }
     }
 
