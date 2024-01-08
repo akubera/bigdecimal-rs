@@ -184,6 +184,56 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_fmt_with_large_values() {
+        let vals = vec![
+            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
+            // Numbers with large scales
+            (1, 10_000, (
+                String::from("0.") + &"0".repeat(9_999) + "1",
+                String::from("0.0"),
+                String::from("0.0000"),
+                String::from(" 0.0"),
+                String::from("+00.0"),
+                String::from("0.0 ")
+            )),
+            (1, -10_000, (
+                String::from("1") + &"0".repeat(10_000),
+                String::from("1") + &"0".repeat(10_000) + ".0",
+                String::from("1") + &"0".repeat(10_000) + ".0000",
+                String::from("1") + &"0".repeat(10_000) + ".0",
+                String::from("+1") + &"0".repeat(10_000) + ".0",
+                String::from("1") + &"0".repeat(10_000) + ".0"
+            )),
+            // Numbers with many digits
+            (1234506789, 5, (
+                "12345.06789".into(),
+                "12345.0".into(),
+                "12345.0678".into(),
+                "12345.0".into(),
+                "+12345.0".into(),
+                "12345.0".into()
+            )),
+            (1234506789, -5, (
+                "123450678900000".into(),
+                "123450678900000.0".into(),
+                "123450678900000.0000".into(),
+                "123450678900000.0".into(),
+                "+123450678900000.0".into(),
+                "123450678900000.0".into()
+            )),
+        ];
+        for (i, scale, results) in vals {
+            let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
+            assert_eq!(format!("{}", x), results.0);
+            assert_eq!(format!("{:.1}", x), results.1);
+            assert_eq!(format!("{:.4}", x), results.2);
+            assert_eq!(format!("{:4.1}", x), results.3);
+            assert_eq!(format!("{:+05.1}", x), results.4);
+            assert_eq!(format!("{:<4.1}", x), results.5);
+        }
+    }
+
     mod fmt_debug {
         use super::*;
 
@@ -250,4 +300,54 @@ mod test {
         impl_case!(case_413e99999999999997 : "413e99999999999997" => "4.13e99999999999999");
         // impl_case!(case_413e99999999999997 : "413e99999999999997" => "4.13e99999999999999");
     }
+}
+
+
+#[cfg(all(test, property_tests))]
+mod proptests {
+    use super::*;
+    use paste::paste;
+    use proptest::*;
+
+    macro_rules! impl_parsing_test {
+        ($t:ty) => {
+            paste! { proptest! {
+                #[test]
+                fn [< roudtrip_to_str_and_back_ $t >](n: $t) {
+                    let original = BigDecimal::from(n);
+                    let display = format!("{}", original);
+                    let parsed = display.parse::<BigDecimal>().unwrap();
+
+                    prop_assert_eq!(&original, &parsed);
+                }
+            } }
+        };
+        (from-float $t:ty) => {
+            paste! { proptest! {
+                #[test]
+                fn [< roudtrip_to_str_and_back_ $t >](n: $t) {
+                    let original = BigDecimal::try_from(n).unwrap();
+                    let display = format!("{}", original);
+                    let parsed = display.parse::<BigDecimal>().unwrap();
+
+                    prop_assert_eq!(&original, &parsed);
+                }
+            } }
+        };
+    }
+
+    impl_parsing_test!(u8);
+    impl_parsing_test!(u16);
+    impl_parsing_test!(u32);
+    impl_parsing_test!(u64);
+    impl_parsing_test!(u128);
+
+    impl_parsing_test!(i8);
+    impl_parsing_test!(i16);
+    impl_parsing_test!(i32);
+    impl_parsing_test!(i64);
+    impl_parsing_test!(i128);
+
+    impl_parsing_test!(from-float f32);
+    impl_parsing_test!(from-float f64);
 }
