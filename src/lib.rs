@@ -97,6 +97,7 @@ mod arithmetic;
 
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+mod impl_trait_from_str;
 
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
@@ -915,15 +916,6 @@ impl From<ParseIntError> for ParseBigDecimalError {
 impl From<ParseBigIntError> for ParseBigDecimalError {
     fn from(err: ParseBigIntError) -> ParseBigDecimalError {
         ParseBigDecimalError::ParseBigInt(err)
-    }
-}
-
-impl FromStr for BigDecimal {
-    type Err = ParseBigDecimalError;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
-        BigDecimal::from_str_radix(s, 10)
     }
 }
 
@@ -2159,36 +2151,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_from_str() {
-        let vals = vec![
-            ("1331.107", 1331107, 3),
-            ("1.0", 10, 1),
-            ("2e1", 2, -1),
-            ("0.00123", 123, 5),
-            ("-123", -123, 0),
-            ("-1230", -1230, 0),
-            ("12.3", 123, 1),
-            ("123e-1", 123, 1),
-            ("1.23e+1", 123, 1),
-            ("1.23E+3", 123, -1),
-            ("1.23E-8", 123, 10),
-            ("-1.23E-10", -123, 12),
-            ("123_", 123, 0),
-            ("31_862_140.830_686_979", 31862140830686979, 9),
-            ("-1_1.2_2", -1122, 2),
-            ("999.521_939", 999521939, 6),
-            ("679.35_84_03E-2", 679358403, 8),
-            ("271576662.__E4", 271576662, -4),
-        ];
-
-        for &(source, val, scale) in vals.iter() {
-            let x = BigDecimal::from_str(source).unwrap();
-            assert_eq!(x.int_val.to_i64().unwrap(), val);
-            assert_eq!(x.scale, scale);
-        }
-    }
-
-    #[test]
     fn test_fmt() {
         let vals = vec![
             // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
@@ -2264,47 +2226,6 @@ mod bigdecimal_tests {
             assert_eq!(not_normalized.normalized().to_string(), string);
             assert_eq!(normalized.to_string(), string);
         }
-    }
-
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan() {
-        BigDecimal::from_str("hello").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty() {
-        BigDecimal::from_str("").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_invalid_char() {
-        BigDecimal::from_str("12z3.12").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan_exponent() {
-        BigDecimal::from_str("123.123eg").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty_exponent() {
-        BigDecimal::from_str("123.123E").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_multiple_decimal_points() {
-        BigDecimal::from_str("123.12.45").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal() {
-        BigDecimal::from_str(".").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal_and_exponent() {
-        BigDecimal::from_str(".e4").unwrap();
     }
 
     #[test]
