@@ -6,6 +6,7 @@ impl FromStr for BigDecimal {
 
     #[inline]
     fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
+        // implemented in impl_num.rs
         BigDecimal::from_str_radix(s, 10)
     }
 }
