@@ -97,6 +97,7 @@ mod arithmetic;
 
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+mod impl_trait_from_str;
 
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
@@ -915,15 +916,6 @@ impl From<ParseIntError> for ParseBigDecimalError {
 impl From<ParseBigIntError> for ParseBigDecimalError {
     fn from(err: ParseBigIntError) -> ParseBigDecimalError {
         ParseBigDecimalError::ParseBigInt(err)
-    }
-}
-
-impl FromStr for BigDecimal {
-    type Err = ParseBigDecimalError;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
-        BigDecimal::from_str_radix(s, 10)
     }
 }
 
