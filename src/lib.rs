@@ -2229,47 +2229,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan() {
-        BigDecimal::from_str("hello").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty() {
-        BigDecimal::from_str("").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_invalid_char() {
-        BigDecimal::from_str("12z3.12").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan_exponent() {
-        BigDecimal::from_str("123.123eg").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty_exponent() {
-        BigDecimal::from_str("123.123E").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_multiple_decimal_points() {
-        BigDecimal::from_str("123.12.45").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal() {
-        BigDecimal::from_str(".").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal_and_exponent() {
-        BigDecimal::from_str(".e4").unwrap();
-    }
-
-    #[test]
     fn test_from_i128() {
         let value = BigDecimal::from_i128(-368934881474191032320).unwrap();
         let expected = BigDecimal::from_str("-368934881474191032320").unwrap();

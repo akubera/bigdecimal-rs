@@ -44,4 +44,36 @@ mod tests {
     impl_case!(case_999d521_939: "999.521_939" => 999521939 E -6);
     impl_case!(case_679d35_84_03en2: "679.35_84_03E-2" => 679358403 E -8);
     impl_case!(case_271576662d_e4: "271576662.__E4" => 271576662 E 4);
+
+    impl_case!(case_1_d_2: "1_._2" => 12 E -1);
+}
+
+
+#[cfg(test)]
+mod test_invalid {
+    use super::*;
+
+    macro_rules! impl_case {
+        ($name:ident: $input:literal => $exp:literal) => {
+            #[test]
+            #[should_panic(expected = $exp)]
+            fn $name() {
+                BigDecimal::from_str($input).unwrap();
+            }
+        };
+    }
+
+    impl_case!(case_bad_string_empty : "" => "Empty");
+    impl_case!(case_bad_string_empty_exponent : "123.123E" => "Empty");
+    impl_case!(case_bad_string_only_decimal_point : "." => "Empty");
+    impl_case!(test_bad_string_only_decimal_and_exponent : ".e4" => "Empty");
+
+    impl_case!(test_bad_string_only_decimal_and_underscore : "_._" => "InvalidDigit");
+
+    impl_case!(case_bad_string_hello : "hello" => "InvalidDigit");
+    impl_case!(case_bad_string_nan : "nan" => "InvalidDigit");
+    impl_case!(case_bad_string_invalid_char : "12z3.12" => "InvalidDigit");
+    impl_case!(case_bad_string_nan_exponent : "123.123eg" => "InvalidDigit");
+    impl_case!(case_bad_string_multiple_decimal_points : "123.12.45" => "InvalidDigit");
+    impl_case!(case_bad_string_hex : "0xCafeBeef" => "InvalidDigit");
 }
