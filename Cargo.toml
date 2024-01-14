@@ -25,10 +25,14 @@ num-bigint = { version = "0.4", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 serde = { version = "1.0", optional = true, default-features = false }
+# `arbitrary-precision` is specifically an interaction with the similarly named feature in `serde_json`. We need it when we want to support it.
+#
+# The version is set to the minimum needed for the `arbitrary_precision` feature
+serde_json = { version = "1.0.108", optional = true, default-features = false, features = ["arbitrary_precision", "std"] }
 
 [dev-dependencies]
 paste = "1"
-serde_json = "<1.0.101"
+serde_json = { version = "1" }
 siphasher = { version = "0.3.10", default-features = false }
 # The following dev-dependencies are only required for benchmarking
 #   (use the `benchmark-bigdecimal` script to uncomment these and run benchmarks)
@@ -44,6 +48,7 @@ autocfg = "1"
 
 [features]
 default = ["std"]
+arbitrary-precision = ["serde", "serde_json", "std"]
 string-only = []
 std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
 
