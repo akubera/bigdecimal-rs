@@ -4,8 +4,6 @@
 use crate::*;
 use serde::{de, ser};
 
-#[allow(unused_imports)]
-use num_traits::FromPrimitive;
 
 impl ser::Serialize for BigDecimal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -16,6 +14,7 @@ impl ser::Serialize for BigDecimal {
     }
 }
 
+/// Used by SerDe to construct a BigDecimal
 struct BigDecimalVisitor;
 
 impl<'de> de::Visitor<'de> for BigDecimalVisitor {
@@ -77,88 +76,117 @@ impl<'de> de::Deserialize<'de> for BigDecimal {
 #[cfg(test)]
 mod test {
     use super::*;
+    use paste::paste;
 
-    #[test]
-    fn test_serde_serialize() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = format!("\"{}\"", v);
-            let value = serde_json::to_string(&BigDecimal::from_str(s).unwrap()).unwrap();
-            assert_eq!(expected, value);
+    mod serde_serialize {
+        use super::*;
+
+        macro_rules! impl_case {
+            ($name:ident : $input:literal => $output:literal) => {
+                #[test]
+                fn $name() {
+                    let expected = format!("\"{}\"", $output);
+                    let decimal: BigDecimal = $input.parse().unwrap();
+                    let value = serde_json::to_string(&decimal).unwrap();
+                    assert_eq!(expected, value);
+                }
+            }
         }
+
+        impl_case!(case_1d0: "1.0" => "1.0");
+        impl_case!(case_0d5: "0.5" => "0.5");
+        impl_case!(case_50: "50" => "50");
+        impl_case!(case_50000: "50000" => "50000");
+        impl_case!(case_1en3: "1e-3" => "0.001");
+        impl_case!(case_1e12: "1e12" => "1000000000000");
+        impl_case!(case_d25: ".25" => "0.25");
+        impl_case!(case_12d34e1: "12.34e1" => "123.4");
+        impl_case!(case_40d0010: "40.0010" => "40.0010");
     }
 
-    #[test]
-    fn test_serde_deserialize_str() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = BigDecimal::from_str(v).unwrap();
-            let value: BigDecimal = serde_json::from_str(&format!("\"{}\"", s)).unwrap();
-            assert_eq!(expected, value);
+    mod serde_deserialize_str {
+        use super::*;
+
+        macro_rules! impl_case {
+            ($name:ident : $input:literal => $output:literal) => {
+                #[test]
+                fn $name() {
+                    let expected: BigDecimal = $output.parse().unwrap();
+
+                    let s = $input;
+                    let value: BigDecimal = serde_json::from_str(&format!("\"{}\"", s)).unwrap();
+                    assert_eq!(expected, value);
+                }
+            }
         }
+
+        impl_case!(case_1d0: "1.0" => "1.0");
+        impl_case!(case_0d5: "0.5" => "0.5");
+        impl_case!(case_50: "50" => "50");
+        impl_case!(case_50000: "50000" => "50000");
+        impl_case!(case_1en3: "1e-3" => "0.001");
+        impl_case!(case_1e12: "1e12" => "1000000000000");
+        impl_case!(case_d25: ".25" => "0.25");
+        impl_case!(case_12d34e1: "12.34e1" => "123.4");
+        impl_case!(case_40d0010: "40.0010" => "40.0010");
     }
 
-    #[test]
+
     #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_int() {
-        let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
-        for n in vals {
-            let expected = BigDecimal::from_i64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
+    mod serde_deserialize_int {
+        use super::*;
+
+        macro_rules! impl_case {
+            (-$input:literal) => {
+                paste! { impl_case!([< case_n $input >] : -$input); }
+            };
+            ($input:literal) => {
+                paste! { impl_case!([< case_ $input >] : $input); }
+            };
+            ($name:ident : $input:literal) => {
+                #[test]
+                fn $name() {
+                    let n = $input;
+                    let expected = BigDecimal::from_i64(n).unwrap();
+                    let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+                    assert_eq!(expected, value);
+                }
+            }
         }
+
+        impl_case!(0);
+        impl_case!(1);
+        impl_case!(81516161);
+        impl_case!(-370);
+        impl_case!(-8);
+        impl_case!(-99999999999);
     }
 
-    #[test]
+
     #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_f64() {
-        let vals = vec![
-            1.0,
-            0.5,
-            0.25,
-            50.0,
-            50000.,
-            0.001,
-            12.34,
-            5.0 * 0.03125,
-            stdlib::f64::consts::PI,
-            stdlib::f64::consts::PI * 10000.0,
-            stdlib::f64::consts::PI * 30000.0,
-        ];
-        for n in vals {
-            let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
+    mod serde_deserialize_f64 {
+        use super::*;
+        use stdlib::f64::consts;
+
+        macro_rules! impl_case {
+            ($name:ident : $input:expr) => {
+                #[test]
+                fn $name() {
+                    let n = $input;
+                    let expected = BigDecimal::from_f64(n).unwrap();
+                    let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
+                    assert_eq!(expected, value);
+                }
+            }
         }
+
+        impl_case!(case_1d0: 1.0);
+        impl_case!(case_0d1: 0.1);
+        impl_case!(case_0d5: 0.5);
+        impl_case!(case_50d0: 50.0);
+        impl_case!(case_pi: consts::PI);
+        impl_case!(case_pi_times_100: consts::PI * 100.0);
+        impl_case!(case_pi_times_30000: consts::PI * 30000.0);
     }
+
 }
