@@ -139,8 +139,8 @@ workflows:
         rust-features: "--all-targets --features='serde'"
 
     - build-and-test:
-        name: build-and-test:latest:arbitrary-precision-serde
-        rust-features: "--all-targets --features='serde_json,arbitrary-precision'"
+        name: build-and-test:latest:serde-with-arbitrary-precision
+        rust-features: "--all-targets --features='serde-with-arbitrary-precision'"
 
     - build-and-test:
         name: build-and-test:no_std
