@@ -356,6 +356,7 @@ macro_rules! impl_div_for_primitive {
         impl Div<$t> for BigDecimal {
             type Output = BigDecimal;
 
+            #[allow(clippy::float_cmp)]
             fn div(self, denom: $t) -> BigDecimal {
                 if !denom.is_normal() {
                     BigDecimal::zero()

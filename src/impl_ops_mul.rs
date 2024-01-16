@@ -30,15 +30,15 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
         if self.is_one() {
             self.scale = rhs.scale;
             self.int_val.set_zero();
-            self.int_val.add_assign(&rhs.int_val);
-            self
-        } else if rhs.is_one() {
-            self
-        } else {
+            self.int_val += &rhs.int_val;
+        } else if rhs.is_zero() {
+            self.scale = 0;
+            self.int_val.set_zero();
+        } else if !self.is_zero() && !rhs.is_one() {
             self.scale += rhs.scale;
-            MulAssign::mul_assign(&mut self.int_val, &rhs.int_val);
-            self
+            self.int_val *= &rhs.int_val;
         }
+        self
     }
 }
 
