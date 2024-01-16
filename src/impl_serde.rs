@@ -4,10 +4,12 @@
 use crate::*;
 use serde::{de, ser};
 
-/// Serialize/deserialize [`BigDecimal`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
+/// Serialize/deserialize [`BigDecimal`] as arbitrary precision numbers
+/// in JSON using the `arbitrary_precision` feature within `serde_json`.
 ///
-// The following example is ignored as it requires derives which we don't import and aren't compatible
-// with our locked versions of rust due to proc_macro2.
+// The following example is ignored as it requires derives which we
+// don't import and aren't compatible with our locked versions of
+// rust due to proc_macro2.
 /// ```ignore
 /// # extern crate serde;
 /// # use serde::{Serialize, Deserialize};
@@ -35,8 +37,10 @@ pub mod arbitrary_precision {
     where
         D: serde::de::Deserializer<'de>,
     {
-        serde_json::Number::deserialize(deserializer)?.to_string().parse().map_err(serde::de::Error::custom)
-
+        serde_json::Number::deserialize(deserializer)?
+                           .to_string()
+                           .parse()
+                           .map_err(serde::de::Error::custom)
     }
 
     pub fn serialize<S>(value: &BigDecimal, serializer: S) -> Result<S::Ok, S::Error>
@@ -44,15 +48,17 @@ pub mod arbitrary_precision {
         S: serde::Serializer,
     {
         serde_json::Number::from_str(&value.to_string())
-            .map_err(serde::ser::Error::custom)?
-            .serialize(serializer)
+                           .map_err(serde::ser::Error::custom)?
+                           .serialize(serializer)
     }
 }
 
-/// Serialize/deserialize [`Option<BigDecimal>`] as arbitrary precision numbers in JSON using the `arbitrary_precision` feature within `serde_json`.
+/// Serialize/deserialize [`Option<BigDecimal>`] as arbitrary precision numbers
+/// in JSON using the `arbitrary_precision` feature within `serde_json`.
 ///
-// The following example is ignored as it requires derives which we don't import and aren't compatible
-// with our locked versions of rust due to proc_macro2.
+// The following example is ignored as it requires derives which we don't
+// import and aren't compatible with our locked versions of rust due to
+// proc_macro2.
 /// ```ignore
 /// # extern crate serde;
 /// # use serde::{Serialize, Deserialize};
@@ -86,8 +92,9 @@ pub mod arbitrary_precision_option {
     where
         D: serde::de::Deserializer<'de>,
     {
-        Option::<serde_json::Number>::deserialize(deserializer)?.map(|num| num.to_string().parse().map_err(serde::de::Error::custom)).transpose()
-
+        Option::<serde_json::Number>::deserialize(deserializer)?
+                                     .map(|num| num.to_string().parse().map_err(serde::de::Error::custom))
+                                     .transpose()
     }
 
     pub fn serialize<S>(value: &Option<BigDecimal>, serializer: S) -> Result<S::Ok, S::Error>
@@ -96,8 +103,8 @@ pub mod arbitrary_precision_option {
     {
         match *value {
             Some(ref decimal) => serde_json::Number::from_str(&decimal.to_string())
-                .map_err(serde::ser::Error::custom)?
-                .serialize(serializer),
+                                                    .map_err(serde::ser::Error::custom)?
+                                                    .serialize(serializer),
             None => serializer.serialize_none(),
         }
     }
@@ -310,7 +317,8 @@ mod test {
 
         let json = r#"0.1"#;
         let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
-        let deser = arbitrary_precision::deserialize(&mut serde_json::Deserializer::from_str(json)).expect("should parse JSON");
+        let deser = arbitrary_precision::deserialize(&mut serde_json::Deserializer::from_str(json))
+                                        .expect("should parse JSON");
 
         assert_eq!(expected, deser);
     }
