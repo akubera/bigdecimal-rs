@@ -41,11 +41,14 @@
 //! ```
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::style)]
+#![allow(clippy::excessive_precision)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
+#![allow(clippy::approx_constant)]
+#![cfg_attr(test, allow(clippy::useless_vec))]
 #![allow(unused_imports)]
 
 
