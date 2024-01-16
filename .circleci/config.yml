@@ -76,7 +76,7 @@ jobs:
           command: cargo generate-lockfile
       - rust/build:
           with_cache: false
-      # - rust/format
+      - rust/format
       - rust/clippy
       - rust/test
       - run:
