@@ -59,6 +59,9 @@ extern crate paste;
 #[cfg(feature = "serde")]
 extern crate serde;
 
+#[cfg(all(test, feature = "serde"))]
+extern crate serde_test;
+
 #[cfg(feature = "std")]
 include!("./with_std.rs");
 
