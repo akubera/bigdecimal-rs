@@ -5,18 +5,18 @@ use crate::*;
 use stdlib::fmt::Write;
 
 
+// const EXPONENTIAL_FORMAT_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 25;
+include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
+
+
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
-
         dynamically_format_decimal(self.into(), f, EXPONENTIAL_FORMAT_THRESHOLD)
     }
 }
 
 impl fmt::Display for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
-
         dynamically_format_decimal(*self, f, EXPONENTIAL_FORMAT_THRESHOLD)
     }
 }
