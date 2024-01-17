@@ -14,6 +14,10 @@
 
 Arbitary-precision decimal numbers implemented in pure Rust.
 
+##  Community
+
+Join the conversation on Zulip: https://bigdecimal-rs.zulipchat.com
+
 ## Usage
 
 Add bigdecimal as a dependency to your `Cargo.toml` file:
@@ -41,6 +45,19 @@ sqrt(2) = 1.41421356237309504880168872420969807856967187537694807317667973799073
 ```
 
 
+### Compile-Time Configuration
+
+You can set a few default parameters at compile-time via environment variables.
+
++-------------------------------------------------+------------+
+|  Environment Variable                           | Default    |
++-------------------------------------------------+------------+
+|  `RUST_BIGDECIMAL_DEFAULT_PRECISION`            |  100       |
+|  `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`        | `HalfEven` |
+|  `RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD` |  5         |
++-------------------------------------------------+------------+
+
+
 #### Default precision
 
 Default precision may be set at compile time with the environment variable `RUST_BIGDECIMAL_DEFAULT_PRECISION`.
@@ -55,6 +72,65 @@ The user will have to manually trim the number of digits after calculations to r
 
 A new set of methods with explicit precision and rounding modes is being worked on, but even after those
 are introduced the default precision will have to be used as the implicit value.
+
+
+#### Rounding mode
+
+The default Context uses this value for rounding.
+Valid values are the variants of the [RoundingMode] enum.
+
+Defaults to `HalfEven`.
+
+[RoundingMode]: https://docs.rs/bigdecimal/latest/bigdecimal/rounding/enum.RoundingMode.html
+
+
+#### Exponential Format Threshold
+
+The maximum number of leading zeros after the decimal place before
+the formatter uses exponential form (i.e. scientific notation).
+
+There is currently no mechanism to change this during runtime.
+If you know of a good solution for number formatting in Rust, please let me know!
+
+
+#### Example Compile time configuration
+
+Given the program:
+
+```rust
+fn main() {
+    let n = BigDecimal::from(700);
+    println!("1/{n} = {}", n.inverse());
+}
+```
+
+Compiling with different environment variables prints different results
+
+```
+$ export BIG_DECIMAL_DEFAULT_PRECISION=8
+$ cargo run
+1/700 = 0.0014285714
+
+$ export RUST_BIGDECIMAL_DEFAULT_PRECISION=5
+$ cargo run
+1/700 = 0.0014286
+
+$ export RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE=Down
+$ cargo run
+1/700 = 0.0014285
+
+$ export RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD=2
+$ cargo run
+1/700 = 1.4285E-3
+```
+
+> [!NOTE]
+> These are **compile time** environment variables, and the BigDecimal
+> library is not configurable at **runtime** via environment variable, or
+> any kind of global variables, by default.
+>
+> This is for flexibility and performance.
+
 
 ## Improvements
 
@@ -82,8 +158,3 @@ Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the
 Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
-
-
-##  Community
-
-Join the conversation on Zulip: https://bigdecimal-rs.zulipchat.com
