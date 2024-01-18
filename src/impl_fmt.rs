@@ -9,14 +9,7 @@ impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
 
-        // Acquire the absolute integer as a decimal string
-        let abs_int = self.int_val.magnitude().to_str_radix(10);
-
-        if (abs_int.len() as i64 - self.scale - 1).abs() > EXPONENTIAL_FORMAT_THRESHOLD {
-            format_exponential(self, f, abs_int)
-        } else {
-            format_full_scale(self, f, abs_int)
-        }
+        dynamically_format_decimal(self, f, EXPONENTIAL_FORMAT_THRESHOLD)
     }
 }
 
@@ -28,6 +21,21 @@ impl fmt::Debug for BigDecimal {
         } else {
             write!(f, "BigDecimal(\"{:?}e{}\")", self.int_val, -self.scale)
         }
+    }
+}
+
+fn dynamically_format_decimal(
+    this: &BigDecimal,
+    f: &mut fmt::Formatter,
+    threshold: i64,
+) -> fmt::Result {
+    // Acquire the absolute integer as a decimal string
+    let abs_int = this.int_val.abs().to_str_radix(10);
+
+    if (abs_int.len() as i64 - this.scale - 1).abs() > threshold {
+        format_exponential(this, f, abs_int)
+    } else {
+        format_full_scale(this, f, abs_int)
     }
 }
 
