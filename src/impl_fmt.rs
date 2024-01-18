@@ -9,7 +9,15 @@ impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
 
-        dynamically_format_decimal(self, f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(self.into(), f, EXPONENTIAL_FORMAT_THRESHOLD)
+    }
+}
+
+impl fmt::Display for BigDecimalRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        const EXPONENTIAL_FORMAT_THRESHOLD: i64 = 25;
+
+        dynamically_format_decimal(*self, f, EXPONENTIAL_FORMAT_THRESHOLD)
     }
 }
 
@@ -24,13 +32,14 @@ impl fmt::Debug for BigDecimal {
     }
 }
 
+
 fn dynamically_format_decimal(
-    this: &BigDecimal,
+    this: BigDecimalRef,
     f: &mut fmt::Formatter,
     threshold: i64,
 ) -> fmt::Result {
     // Acquire the absolute integer as a decimal string
-    let abs_int = this.int_val.abs().to_str_radix(10);
+    let abs_int = this.digits.to_str_radix(10);
 
     if (abs_int.len() as i64 - this.scale - 1).abs() > threshold {
         format_exponential(this, f, abs_int)
@@ -41,7 +50,7 @@ fn dynamically_format_decimal(
 
 
 fn format_full_scale(
-    this: &BigDecimal,
+    this: BigDecimalRef,
     f: &mut fmt::Formatter,
     mut abs_int: String,
 ) -> fmt::Result {
@@ -90,14 +99,14 @@ fn format_full_scale(
         before
     };
 
-    let non_negative = matches!(this.int_val.sign(), Sign::Plus | Sign::NoSign);
+    let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &complete_without_sign)
 }
 
 
 fn format_exponential(
-    this: &BigDecimal,
+    this: BigDecimalRef,
     f: &mut fmt::Formatter,
     mut abs_int: String,
 ) -> fmt::Result {
@@ -169,7 +178,7 @@ fn format_exponential(
         abs_int += &exponent.to_string();
     }
 
-    let non_negative = matches!(this.int_val.sign(), Sign::Plus | Sign::NoSign);
+    let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &abs_int)
 }
