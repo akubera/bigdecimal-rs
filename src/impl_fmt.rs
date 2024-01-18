@@ -41,7 +41,7 @@ fn dynamically_format_decimal(
     // Acquire the absolute integer as a decimal string
     let abs_int = this.digits.to_str_radix(10);
 
-    if (abs_int.len() as i64 - this.scale - 1).abs() > threshold {
+    if this.scale < 0 || (this.scale > abs_int.len() as i64 + threshold) {
         format_exponential(this, f, abs_int)
     } else {
         format_full_scale(this, f, abs_int)
@@ -271,6 +271,48 @@ mod test {
         };
     }
 
+    /// "Mock" Formatter
+    ///
+    /// Given callable, forwards formatter to callable.
+    /// Required work-around due to lack of constructor in fmt::Formatter
+    ///
+    struct Fmt<F>(F)
+        where F: Fn(&mut fmt::Formatter) -> fmt::Result;
+
+    impl<F> fmt::Display for Fmt<F>
+        where F: Fn(&mut fmt::Formatter) -> fmt::Result
+    {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            // call closure with given formatter
+            (self.0)(f)
+        }
+    }
+
+    impl<F> fmt::Debug for Fmt<F>
+        where F: Fn(&mut fmt::Formatter) -> fmt::Result
+    {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            (self.0)(f)
+        }
+    }
+
+    mod dynamic_fmt {
+        use super::*;
+
+        macro_rules! test_fmt_function {
+            ($n:ident) => {{
+                format!("{}", Fmt(|f| dynamically_format_decimal($n.to_ref(), f, 2)))
+            }};
+        }
+
+        impl_case!(case_0d123: "0.123" => "0.123");
+        impl_case!(case_0d0123: "0.0123" => "0.0123");
+        impl_case!(case_0d00123: "0.00123" => "0.00123");
+        impl_case!(case_0d000123: "0.000123" => "1.23E-4");
+
+        impl_case!(case_123d: "123." => "123");
+        impl_case!(case_123de1: "123.e1" => "1.23E3");
+    }
 
     #[test]
     fn test_fmt() {
