@@ -322,12 +322,12 @@ mod test {
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
-            assert_eq!(format!("{}", x), results.0, "digits={i} scale={scale}");
-            assert_eq!(format!("{:.1}", x), results.1, "digits={i} scale={scale}");
-            assert_eq!(format!("{:.4}", x), results.2, "digits={i} scale={scale}");
-            assert_eq!(format!("{:4.1}", x), results.3, "digits={i} scale={scale}");
-            assert_eq!(format!("{:+05.1}", x), results.4, "digits={i} scale={scale}");
-            assert_eq!(format!("{:<4.1}", x), results.5, "digits={i} scale={scale}");
+            assert_eq!(format!("{}", x), results.0, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:.1}", x), results.1, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:.4}", x), results.2, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:4.1}", x), results.3, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:+05.1}", x), results.4, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:<4.1}", x), results.5, "digits={} scale={}", i, scale);
         }
     }
 
