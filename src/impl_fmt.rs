@@ -53,7 +53,7 @@ impl fmt::UpperExp for BigDecimalRef<'_> {
 impl fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if f.alternate() {
-            write!(f, "BigDecimal(\"{}e{:+}\")", self.int_val, -self.scale)
+            write!(f, "BigDecimal(\"{}e{:}\")", self.int_val, -self.scale)
         } else {
             write!(f,
                 "BigDecimal(sign={:?}, scale={}, digits={:?})",
@@ -98,9 +98,8 @@ fn format_full_scale(
 
     match f.precision() {
         // precision limits the number of digits - we have to round
-        Some(prec) if prec < digits.len() => {
-            debug_assert_ne!(prec, 0);
-            _apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
+        Some(prec) if prec < digits.len() && 1 < digits.len() => {
+            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
             debug_assert_eq!(digits.len(), prec);
         },
         _ => {
@@ -169,7 +168,7 @@ fn format_full_scale(
 fn format_exponential(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
-    mut abs_int: String,
+    abs_int: String,
     e_symbol: &str,
 ) -> fmt::Result {
     // Steps:
@@ -178,14 +177,17 @@ fn format_exponential(
     //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
     //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
 
-    if abs_int.len() > 1 {
+    let mut exp = -this.scale;
+    let mut digits = abs_int.into_bytes();
+
+    if digits.len() > 1 {
         // only modify for precision if there is more than 1 decimal digit
-        if let Some(precision) = f.precision() {
-            // add 1 precision to consider first digit
-            // TODO: Should we round?
-            abs_int.truncate(precision + 1);
+        if let Some(prec) = f.precision() {
+            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
         }
     }
+
+    let mut abs_int = String::from_utf8(digits).unwrap();
 
     // Determine the exponent value based on the scale
     //
@@ -228,7 +230,7 @@ fn format_exponential(
     //
     //     For the (abs_int.len() - this.scale) == abs_int.len() I couldn't
     //     come up with an example
-    let exponent = abs_int.len() as i64 - this.scale - 1;
+    let exponent = abs_int.len() as i64 + exp - 1;
 
     if abs_int.len() > 1 {
         // only add decimal point if there is more than 1 decimal digit
@@ -315,63 +317,65 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
 
 
 /// Round big-endian digits in ascii
-fn _apply_rounding_to_ascii_digits(ascii_digits: &mut Vec<u8>, exp: &mut i64, prec: usize, sign: Sign) {
-    let digit_count_to_remove = ascii_digits.len() - prec;
-    *exp += digit_count_to_remove as i64;
+fn apply_rounding_to_ascii_digits(ascii_digits: &mut Vec<u8>, exp: &mut i64, prec: usize, sign: Sign) {
+    if ascii_digits.len() < prec {
+        return;
+    }
+
+    // shift exp to align with new length of digits
+    *exp += (ascii_digits.len() - prec) as i64;
 
     // true if all ascii_digits after precision are zeros
     let trailing_zeros = ascii_digits[prec + 1..].iter().all(|&d| d == b'0');
 
-    let sig_ascii = ascii_digits[prec - 1];
-    let s = sig_ascii - b'0';
-    let i = ascii_digits[prec] - b'0';
-    let r = Context::default().round_pair(sign, s, i, trailing_zeros);
+    let sig_digit = ascii_digits[prec - 1] - b'0';
+    let insig_digit = ascii_digits[prec] - b'0';
+    let rounded_digit = Context::default().round_pair(sign, sig_digit, insig_digit, trailing_zeros);
 
     // remove insignificant digits
     ascii_digits.truncate(prec - 1);
 
     // push rounded value
-    if r < 10 {
-        ascii_digits.push(r + b'0');
+    if rounded_digit < 10 {
+        ascii_digits.push(rounded_digit + b'0');
         return
     }
 
-    debug_assert_eq!(r, 10);
+    debug_assert_eq!(rounded_digit, 10);
 
     // push zero and carry-the-one
     ascii_digits.push(b'0');
 
-    // loop through digits in reverse order
-    let mut digit_it = ascii_digits.iter_mut().rev().peekable();
-    debug_assert_eq!(**digit_it.peek().unwrap(), sig_ascii);
-
-    loop {
-        match digit_it.next() {
-            // carried one to 9 and continue
-            Some(d) if *d == b'9' => {
-                *d = b'0';
-                continue;
-            },
-            // add the carried one and return
-            Some(d) => {
-                *d += 1;
-                break;
-            },
-            // case where all values were nines
-            None => {
-                // 'trim' the last zero
-                ascii_digits[0] = b'1';
-                *exp += 1;
-                break;
-            }
+    // loop through digits in reverse order (skip the 0 we just pushed)
+    let digits = ascii_digits.iter_mut().rev().skip(1);
+    for digit in digits {
+        if *digit < b'9' {
+            // we've carried the one as far as it will go
+            *digit += 1;
+            return;
         }
+
+        debug_assert_eq!(*digit, b'9');
+
+        // digit was a 9, set to zero and carry the one
+        // to the next digit
+        *digit = b'0';
     }
+
+    // at this point all digits have become zero
+    // just set significant digit to 1 and increase exponent
+    //
+    // eg: 9999e2 ~> 0000e2 ~> 1000e3
+    //
+    ascii_digits[0] = b'1';
+    *exp += 1;
 }
 
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use paste::*;
 
     /// test case builder for mapping decimal-string to formatted-string
     /// define test_fmt_function! macro to test your function
@@ -492,20 +496,64 @@ mod test {
     mod fmt_debug {
         use super::*;
 
-        macro_rules! test_fmt_function {
-            ($n:expr) => { format!("{:?}", $n) };
+        macro_rules! impl_case {
+            ($name:ident: $input:literal => $expected:literal => $expected_alt:literal) => {
+                paste! {
+                    #[test]
+                    fn $name() {
+                        let x: BigDecimal = $input.parse().unwrap();
+                        let y = format!("{:?}", x);
+                        assert_eq!(y, $expected);
+                    }
+
+                    #[test]
+                    fn [< $name _alt >]() {
+                        let x: BigDecimal = $input.parse().unwrap();
+                        let y = format!("{:#?}", x);
+                        assert_eq!(y, $expected_alt);
+                    }
+                }
+            }
         }
 
-        impl_case!(case_0: "0" => r#"BigDecimal("0")"#);
-        impl_case!(case_1: "1" => r#"BigDecimal("1")"#);
-        impl_case!(case_123_400: "123.400" => r#"BigDecimal("123.400")"#);
-        impl_case!(case_123_456: "123.456" => r#"BigDecimal("123.456")"#);
-        impl_case!(case_01_20: "01.20" => r#"BigDecimal("1.20")"#);
-        impl_case!(case_1_20: "1.20" => r#"BigDecimal("1.20")"#);
-        impl_case!(case_01_2e3: "01.2E3" => r#"BigDecimal("1200")"#);
-        impl_case!(case_avagadro: "6.02214076e1023" => r#"BigDecimal("602214076e1015")"#);
+        impl_case!(case_0: "0" => r#"BigDecimal(sign=NoSign, scale=0, digits=[])"#
+                               => r#"BigDecimal("0e0")"#);
 
-        impl_case!(case_1e99999999999999 : "1e99999999999999" => r#"BigDecimal("1e99999999999999")"#);
+        impl_case!(case_n0: "-0" => r#"BigDecimal(sign=NoSign, scale=0, digits=[])"#
+                               => r#"BigDecimal("0e0")"#);
+
+        impl_case!(case_1: "1" => r#"BigDecimal(sign=Plus, scale=0, digits=[1])"#
+                               => r#"BigDecimal("1e0")"#);
+
+        impl_case!(case_123_400: "123.400" => r#"BigDecimal(sign=Plus, scale=3, digits=[123400])"#
+                                           => r#"BigDecimal("123400e-3")"#);
+
+        impl_case!(case_123_4en2: "123.4e-2" => r#"BigDecimal(sign=Plus, scale=3, digits=[1234])"#
+                                             => r#"BigDecimal("1234e-3")"#);
+
+        impl_case!(case_123_456:   "123.456" => r#"BigDecimal(sign=Plus, scale=3, digits=[123456])"#
+                                             => r#"BigDecimal("123456e-3")"#);
+
+        impl_case!(case_01_20:       "01.20" => r#"BigDecimal(sign=Plus, scale=2, digits=[120])"#
+                                             => r#"BigDecimal("120e-2")"#);
+
+        impl_case!(case_1_20:         "1.20" => r#"BigDecimal(sign=Plus, scale=2, digits=[120])"#
+                                             => r#"BigDecimal("120e-2")"#);
+        impl_case!(case_01_2e3:     "01.2E3" => r#"BigDecimal(sign=Plus, scale=-2, digits=[12])"#
+                                             => r#"BigDecimal("12e2")"#);
+
+        impl_case!(case_avagadro: "6.02214076e1023" => r#"BigDecimal(sign=Plus, scale=-1015, digits=[602214076])"#
+                                                    => r#"BigDecimal("602214076e1015")"#);
+
+        impl_case!(case_1e99999999999999 : "1e99999999999999" => r#"BigDecimal(sign=Plus, scale=-99999999999999, digits=[1])"#
+                                                              => r#"BigDecimal("1e99999999999999")"#);
+
+        impl_case!(case_n144d3308279 : "-144.3308279" => r#"BigDecimal(sign=Minus, scale=7, digits=[1443308279])"#
+                                                      => r#"BigDecimal("-1443308279e-7")"#);
+
+        impl_case!(case_n349983058835858339619e2 : "-349983058835858339619e2"
+                                                      => r#"BigDecimal(sign=Minus, scale=-2, digits=[17941665509086410531, 18])"#
+                                                      => r#"BigDecimal("-349983058835858339619e2")"#);
     }
 
     mod write_scientific_notation {
