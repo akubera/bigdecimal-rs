@@ -11,7 +11,7 @@ include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        dynamically_format_decimal(self.into(), f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(self.to_ref(), f, EXPONENTIAL_FORMAT_THRESHOLD)
     }
 }
 
@@ -22,12 +22,43 @@ impl fmt::Display for BigDecimalRef<'_> {
 }
 
 
+impl fmt::LowerExp for BigDecimal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::LowerExp::fmt(&self.to_ref(), f)
+    }
+}
+
+impl fmt::LowerExp for BigDecimalRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let abs_int = self.digits.to_str_radix(10);
+        format_exponential(*self, f, abs_int, "e")
+    }
+}
+
+
+impl fmt::UpperExp for BigDecimal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::UpperExp::fmt(&self.to_ref(), f)
+    }
+}
+
+impl fmt::UpperExp for BigDecimalRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let abs_int = self.digits.to_str_radix(10);
+        format_exponential(*self, f, abs_int, "E")
+    }
+}
+
+
 impl fmt::Debug for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.scale.abs() < 40 {
-            write!(f, "BigDecimal(\"{}\")", self)
+        if f.alternate() {
+            write!(f, "BigDecimal(\"{}e{:+}\")", self.int_val, -self.scale)
         } else {
-            write!(f, "BigDecimal(\"{:?}e{}\")", self.int_val, -self.scale)
+            write!(f,
+                "BigDecimal(sign={:?}, scale={}, digits={:?})",
+                self.sign(), self.scale, self.int_val.magnitude().to_u64_digits()
+            )
         }
     }
 }
@@ -45,7 +76,7 @@ fn dynamically_format_decimal(
     // "threshold" is max number of leading zeros before being considered
     // "outside" the number
     if this.scale < 0 || (this.scale > abs_int.len() as i64 + threshold) {
-        format_exponential(this, f, abs_int)
+        format_exponential(this, f, abs_int, "E")
     } else {
         format_full_scale(this, f, abs_int)
     }
@@ -139,6 +170,7 @@ fn format_exponential(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
     mut abs_int: String,
+    e_symbol: &str,
 ) -> fmt::Result {
     // Steps:
     //  1. Truncate integer based on precision
@@ -204,8 +236,7 @@ fn format_exponential(
     }
 
     if exponent != 0 {
-        abs_int += "E";
-        abs_int += &exponent.to_string();
+        write!(abs_int, "{}{:+}", e_symbol, exponent)?;
     }
 
     let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
