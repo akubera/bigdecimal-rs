@@ -50,7 +50,7 @@ fn write_default_rounding_mode(outdir: &Path) {
 
 /// Create write_default_rounding_mode.rs, containing definition of constant EXPONENTIAL_FORMAT_THRESHOLD loaded in src/impl_fmt.rs
 fn write_exponential_format_threshold_file(outdir: &Path) {
-    let env_var = env::var("RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD").unwrap_or_else(|_| "25".to_owned());
+    let env_var = env::var("RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD").unwrap_or_else(|_| "5".to_owned());
     println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD");
 
     let rust_file_path = outdir.join("exponential_format_threshold.rs");
