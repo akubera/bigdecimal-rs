@@ -41,6 +41,9 @@ fn dynamically_format_decimal(
     // Acquire the absolute integer as a decimal string
     let abs_int = this.digits.to_str_radix(10);
 
+    // use exponential form if decimal point is not "within" the number.
+    // "threshold" is max number of leading zeros before being considered
+    // "outside" the number
     if this.scale < 0 || (this.scale > abs_int.len() as i64 + threshold) {
         format_exponential(this, f, abs_int)
     } else {
@@ -52,56 +55,83 @@ fn dynamically_format_decimal(
 fn format_full_scale(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
-    mut abs_int: String,
+    abs_int: String,
 ) -> fmt::Result {
-    // Split the representation at the decimal point
-    let (before, after) = if this.scale >= abs_int.len() as i64 {
-        // First case: the integer representation falls
-        // completely behind the decimal point
-        let scale = this.scale as usize;
-        let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
-        ("0".to_string(), after)
-    } else {
-        // Second case: the integer representation falls
-        // around, or before the decimal point
-        let location = abs_int.len() as i64 - this.scale;
-        if location > abs_int.len() as i64 {
-            // Case 2.1, entirely before the decimal point
-            // We should prepend zeros
-            let zeros = location as usize - abs_int.len();
-            let abs_int = abs_int + "0".repeat(zeros).as_str();
-            (abs_int, "".to_string())
-        } else {
-            // Case 2.2, somewhere around the decimal point
-            // Just split it in two
-            let after = abs_int.split_off(location as usize);
-            (abs_int, after)
+    use stdlib::cmp::Ordering::*;
+
+    let mut digits = abs_int.into_bytes();
+    let mut exp = -this.scale;
+    let non_negative = matches!(this.sign, Sign::Plus | Sign::NoSign);
+
+    debug_assert_ne!(digits.len(), 0);
+
+    match f.precision() {
+        // precision limits the number of digits - we have to round
+        Some(prec) if prec < digits.len() => {
+            debug_assert_ne!(prec, 0);
+            _apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
+            debug_assert_eq!(digits.len(), prec);
+        },
+        _ => {
+            // not limited by precision
         }
     };
 
-    // Alter precision after the decimal point
-    let after = if let Some(precision) = f.precision() {
-        let len = after.len();
-        if len < precision {
-            after + "0".repeat(precision - len).as_str()
-        } else {
-            // TODO: Should we round?
-            after[0..precision].to_string()
+    // add the decimal point to 'digits' buffer
+    match exp.cmp(&0) {
+        // do not add decimal point for "full" integer
+        Equal => {
         }
-    } else {
-        after
-    };
 
-    // Concatenate everything
-    let complete_without_sign = if !after.is_empty() {
-        before + "." + after.as_str()
-    } else {
-        before
-    };
+        // never decimal point if only one digit long
+        Greater if digits.len() == 1 => {
+        }
 
-    let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
-    //pad_integral does the right thing although we have a decimal
-    f.pad_integral(non_negative, "", &complete_without_sign)
+        // we format with scientific notation if exponent is positive
+        Greater => {
+            debug_assert!(digits.len() > 1);
+
+            // increase exp by len(digits)-1 (eg [ddddd]E+{exp} => [d.dddd]E+{exp+4})
+            exp += digits.len() as i64 - 1;
+
+            // push decimal point and rotate it to index '1'
+            digits.push(b'.');
+            digits[1..].rotate_right(1);
+        }
+
+        // decimal point is within the digits   (ddd.ddddddd)
+        Less if (-exp as usize) < digits.len() => {
+            let digits_to_shift = digits.len() - exp.abs() as usize;
+            digits.push(b'.');
+            digits[digits_to_shift..].rotate_right(1);
+
+            // exp = 0 means exponential-part will be ignored in output
+            exp = 0;
+        }
+
+        // decimal point is to the left of digits (0.0000dddddddd)
+        Less => {
+            let digits_to_shift = exp.abs() as usize - digits.len();
+
+            digits.push(b'0');
+            digits.push(b'.');
+            digits.extend(stdlib::iter::repeat(b'0').take(digits_to_shift));
+            digits.rotate_right(digits_to_shift + 2);
+
+            exp = 0;
+        }
+    }
+
+    // move digits back into String form
+    let mut buf = String::from_utf8(digits).unwrap();
+
+    // add exp part to buffer (if not zero)
+    if exp != 0 {
+        write!(buf, "E{:+}", exp)?;
+    }
+
+    // write buffer to formatter
+    f.pad_integral(non_negative, "", &buf)
 }
 
 
@@ -250,6 +280,61 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
     }
 
     return write!(out, "e{}", exp);
+}
+
+
+/// Round big-endian digits in ascii
+fn _apply_rounding_to_ascii_digits(ascii_digits: &mut Vec<u8>, exp: &mut i64, prec: usize, sign: Sign) {
+    let digit_count_to_remove = ascii_digits.len() - prec;
+    *exp += digit_count_to_remove as i64;
+
+    // true if all ascii_digits after precision are zeros
+    let trailing_zeros = ascii_digits[prec + 1..].iter().all(|&d| d == b'0');
+
+    let sig_ascii = ascii_digits[prec - 1];
+    let s = sig_ascii - b'0';
+    let i = ascii_digits[prec] - b'0';
+    let r = Context::default().round_pair(sign, s, i, trailing_zeros);
+
+    // remove insignificant digits
+    ascii_digits.truncate(prec - 1);
+
+    // push rounded value
+    if r < 10 {
+        ascii_digits.push(r + b'0');
+        return
+    }
+
+    debug_assert_eq!(r, 10);
+
+    // push zero and carry-the-one
+    ascii_digits.push(b'0');
+
+    // loop through digits in reverse order
+    let mut digit_it = ascii_digits.iter_mut().rev().peekable();
+    debug_assert_eq!(**digit_it.peek().unwrap(), sig_ascii);
+
+    loop {
+        match digit_it.next() {
+            // carried one to 9 and continue
+            Some(d) if *d == b'9' => {
+                *d = b'0';
+                continue;
+            },
+            // add the carried one and return
+            Some(d) => {
+                *d += 1;
+                break;
+            },
+            // case where all values were nines
+            None => {
+                // 'trim' the last zero
+                ascii_digits[0] = b'1';
+                *exp += 1;
+                break;
+            }
+        }
+    }
 }
 
 
