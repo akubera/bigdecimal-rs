@@ -689,7 +689,7 @@ mod test {
 mod proptests {
     use super::*;
     use paste::paste;
-    use proptest::*;
+    use proptest::prelude::*;
 
     macro_rules! impl_parsing_test {
         ($t:ty) => {
@@ -732,4 +732,26 @@ mod proptests {
 
     impl_parsing_test!(from-float f32);
     impl_parsing_test!(from-float f64);
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+
+        #[test]
+        fn scientific_notation_roundtrip(f: f64) {
+            prop_assume!(!f.is_nan() && !f.is_infinite());
+            let n = BigDecimal::from_f64(f).unwrap();
+            let s = n.to_scientific_notation();
+            let m: BigDecimal = s.parse().unwrap();
+            prop_assert_eq!(n, m);
+        }
+
+        #[test]
+        fn engineering_notation_roundtrip(f: f64) {
+            prop_assume!(!f.is_nan() && !f.is_infinite());
+            let n = BigDecimal::from_f64(f).unwrap();
+            let s = n.to_engineering_notation();
+            let m: BigDecimal = s.parse().unwrap();
+            prop_assert_eq!(n, m);
+        }
+    }
 }
