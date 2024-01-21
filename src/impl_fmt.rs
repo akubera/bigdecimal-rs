@@ -431,20 +431,113 @@ mod test {
         impl_case!(case_0d000123: "0.000123" => "1.23E-4");
 
         impl_case!(case_123d: "123." => "123");
-        impl_case!(case_123de1: "123.e1" => "1.23E3");
+        impl_case!(case_123de1: "123.e1" => "1.23E+3");
+    }
+
+    mod fmt_options {
+        use super::*;
+
+        macro_rules! impl_case {
+            ($name:ident: $fmt:literal => $expected:literal) => {
+                #[test]
+                fn $name() {
+                    let x = test_input();
+                    let y = format!($fmt, x);
+                    assert_eq!(y, $expected);
+                }
+            };
+        }
+
+        mod dec_1 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "1");
+            impl_case!(fmt_d1:        "{:.1}" => "1");
+            impl_case!(fmt_d4:        "{:.4}" => "1");
+            impl_case!(fmt_4d1:      "{:4.1}" => "   1");
+            impl_case!(fmt_r4d1:    "{:>4.1}" => "   1");
+            impl_case!(fmt_l4d1:    "{:<4.1}" => "1   ");
+            impl_case!(fmt_p05d1:  "{:+05.1}" => "+0001");
+        }
+
+        mod dec_123456 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "123456".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "123456");
+            impl_case!(fmt_p05d1:  "{:+05.1}" => "+1E+5");
+            impl_case!(fmt_d1:        "{:.1}" => "1E+5");
+            impl_case!(fmt_d4:        "{:.4}" => "1.235E+5");
+            impl_case!(fmt_4d1:      "{:4.1}" => "1E+5");
+            impl_case!(fmt_r4d3:    "{:>4.3}" => "1.23E+5");
+            impl_case!(fmt_r4d4:    "{:>4.4}" => "1.235E+5");
+            impl_case!(fmt_l4d1:    "{:<4.1}" => "1E+5");
+        }
+
+        mod dec_9999999 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "9999999".parse().unwrap()
+            }
+
+            impl_case!(fmt_d4:  "{:.4}" => "1.000E+7");
+            impl_case!(fmt_d8:  "{:.8}" => "9999999");
+        }
+
+        mod dec_19073d97235939614856 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "19073.97235939614856".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "19073.97235939614856");
+            impl_case!(fmt_p05d7:  "{:+05.7}" => "+19073.97");
+            impl_case!(fmt_d3:        "{:.3}" => "1.91E+4");
+            impl_case!(fmt_0d4:      "{:0.4}" => "1.907E+4");
+            impl_case!(fmt_4d1:      "{:4.1}" => "2E+4");
+            impl_case!(fmt_r8d3:    "{:>8.3}" => " 1.91E+4");
+            impl_case!(fmt_r8d4:    "{:>8.4}" => "1.907E+4");
+            impl_case!(fmt_l8d1:    "{:<8.1}" => "2E+4    ");
+        }
+
+        mod dec_491326en12 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "491326e-12".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "4.91326E-7");
+            impl_case!(fmt_p015d7:  "{:+015.7}" => "+00004.91326E-7");
+            impl_case!(fmt_d3:          "{:.3}" => "4.91E-7");
+            impl_case!(fmt_0d4:        "{:0.4}" => "4.913E-7");
+            impl_case!(fmt_4d1:        "{:4.1}" => "5E-7");
+            impl_case!(fmt_r8d3:      "{:>8.3}" => " 4.91E-7");
+            impl_case!(fmt_r8d4:      "{:>8.4}" => "4.913E-7");
+            impl_case!(fmt_l8d1:      "{:<8.1}" => "5E-7    ");
+        }
     }
 
     #[test]
     fn test_fmt() {
         let vals = vec![
-            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
-            (1, 0,  (  "1",     "1.0",    "1.0000",  " 1.0",  "+01.0",   "1.0 " )),
-            (1, 1,  (  "0.1",   "0.1",    "0.1000",  " 0.1",  "+00.1",   "0.1 " )),
-            (1, 2,  (  "0.01",  "0.0",    "0.0100",  " 0.0",  "+00.0",   "0.0 " )),
-            (1, -2, ("100",   "100.0",  "100.0000", "100.0", "+100.0", "100.0" )),
-            (-1, 0, ( "-1",    "-1.0",   "-1.0000",  "-1.0",  "-01.0",  "-1.0" )),
-            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000",  "-0.1",  "-00.1",  "-0.1" )),
-            (-1, 2, ( "-0.01", "-0.0",   "-0.0100",  "-0.0",  "-00.0",  "-0.0" )),
+            // b  s   (   {}     {:.1}     {:.4}    {:4.1}   {:+05.7}     {:<6.4}
+            (1, 0,  (    "1",      "1",      "1",   "   1",   "+0001",   "1     " )),
+            (1, 1,  (  "0.1",    "0.1",    "0.1",   " 0.1",   "+00.1",   "0.1   " )),
+            (1, 2,  ( "0.01",   "0.01",   "0.01",   "0.01",   "+0.01",   "0.01  " )),
+            (1, -2, ( "1E+2",   "1E+2",   "1E+2",   "1E+2",   "+1E+2",   "1E+2  " )),
+            (-1, 0, (   "-1",     "-1",     "-1",   "  -1",   "-0001",   "-1    " )),
+            (-1, 1, ( "-0.1",   "-0.1",   "-0.1",   "-0.1",   "-00.1",   "-0.1  " )),
+            (-1, 2, ("-0.01",  "-0.01",  "-0.01",  "-0.01",   "-0.01",   "-0.01 " )),
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
@@ -452,44 +545,30 @@ mod test {
             assert_eq!(format!("{:.1}", x), results.1);
             assert_eq!(format!("{:.4}", x), results.2);
             assert_eq!(format!("{:4.1}", x), results.3);
-            assert_eq!(format!("{:+05.1}", x), results.4);
-            assert_eq!(format!("{:<4.1}", x), results.5);
+            assert_eq!(format!("{:+05.7}", x), results.4);
+            assert_eq!(format!("{:<6.4}", x), results.5);
         }
     }
 
     #[test]
     fn test_fmt_with_large_values() {
         let vals = vec![
-            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
+            // b  s          (                {}         {:.1}          {:2.4}      {:4.2}           {:+05.7}         {:<13.4}
             // Numbers with large scales
-            (1, 10_000, ("1E-10000", "1E-10000", "1E-10000", "1E-10000", "+1E-10000", "1E-10000")),
-            (1, -10_000, ("1E10000", "1E10000", "1E10000", "1E10000", "+1E10000", "1E10000")),
-            // Numbers with many digits
-            (1234506789, 5, (
-                "12345.06789",
-                "12345.0",
-                "12345.0678",
-                "12345.0",
-                "+12345.0",
-                "12345.0"
-            )),
-            (1234506789, -5, (
-                "123450678900000",
-                "123450678900000.0",
-                "123450678900000.0000",
-                "123450678900000.0",
-                "+123450678900000.0",
-                "123450678900000.0"
-            )),
+            (1,      10_000, (        "1E-10000",   "1E-10000",     "1E-10000",   "1E-10000",     "+1E-10000", "1E-10000     ")),
+            (1,     -10_000, (        "1E+10000",   "1E+10000",     "1E+10000",   "1E+10000",     "+1E+10000", "1E+10000     ")),
+            // // Numbers with many digits
+            (1234506789,  5, (     "12345.06789",       "1E+4",     "1.235E+4",     "1.2E+4",     "+12345.07", "1.235E+4     ")),
+            (1234506789, -5, ( "1.234506789E+14",      "1E+14",    "1.235E+14",    "1.2E+14", "+1.234507E+14", "1.235E+14    ")),
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
             assert_eq!(format!("{}", x), results.0, "digits={} scale={}", i, scale);
             assert_eq!(format!("{:.1}", x), results.1, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:.4}", x), results.2, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:4.1}", x), results.3, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:+05.1}", x), results.4, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:<4.1}", x), results.5, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:2.4}", x), results.2, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:4.2}", x), results.3, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:+05.7}", x), results.4, "digits={} scale={}", i, scale);
+            assert_eq!(format!("{:<13.4}", x), results.5, "digits={} scale={}", i, scale);
         }
     }
 
