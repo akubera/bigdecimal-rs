@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Run Criterion Benchmarks
 #
@@ -14,7 +14,7 @@ mv Cargo.toml.bak Cargo.toml
 
 
 # store extra things for the benchmarking report
-if [ ! -z "$BENCHMARK_EXTRAS" ]; then
+if [ -n "$BENCHMARK_EXTRAS" ]; then
 cat <<EOF > index.html
 <!doctype html>
 <head>
@@ -36,12 +36,12 @@ EOF
 # Add svg plots to index html
 find target/criterion -name 'pdf.svg' -type f -print0 |
 sort -z |
-while read -d $'\0' svg_file
+while read -r -d $'\0' svg_file
 do
-  name=$(echo $svg_file | cut -d '/' -f 3)
+  name=$(echo "$svg_file" | cut -d '/' -f 3)
 
   sample_datafile=target/criterion/$name/new/sample.json
-  if [ -f $sample_datafile ]; then
+  if [ -f "$sample_datafile" ]; then
     echo "<p><a href='${sample_datafile}' class='sample-json'>$name</a>" >> index.html
   else
     echo "<p>$name</p>" >> index.html

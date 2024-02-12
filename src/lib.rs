@@ -41,19 +41,29 @@
 //! ```
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::style)]
+#![allow(clippy::excessive_precision)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
+#![allow(clippy::approx_constant)]
+#![cfg_attr(test, allow(clippy::useless_vec))]
+#![allow(unused_imports)]
 
 
 pub extern crate num_bigint;
 pub extern crate num_traits;
 extern crate num_integer;
 
+#[cfg(test)]
+extern crate paste;
+
 #[cfg(feature = "serde")]
 extern crate serde;
+
+#[cfg(all(test, feature = "serde"))]
+extern crate serde_test;
 
 #[cfg(feature = "std")]
 include!("./with_std.rs");
@@ -67,18 +77,19 @@ use self::stdlib::convert::TryFrom;
 use self::stdlib::default::Default;
 use self::stdlib::hash::{Hash, Hasher};
 use self::stdlib::num::{ParseFloatError, ParseIntError};
-use self::stdlib::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
-use self::stdlib::iter::{self, Sum};
+use self::stdlib::ops::{
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign, Rem, RemAssign,
+};
+use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 
-use num_bigint::{BigInt, ParseBigIntError, Sign};
+use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
 
-#[allow(clippy::approx_constant)] // requires Rust 1.43.0
-const LOG2_10: f64 = 3.321928094887362_f64;
+use stdlib::f64::consts::LOG2_10;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
@@ -87,80 +98,51 @@ include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
 #[macro_use]
 mod macros;
 
-#[cfg(test)]
-extern crate paste;
+// "low level" functions
+mod arithmetic;
 
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+mod impl_trait_from_str;
+
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
+mod impl_ops_add;
+mod impl_ops_sub;
+mod impl_ops_mul;
+mod impl_ops_div;
+mod impl_ops_rem;
+
+// PartialEq
+mod impl_cmp;
 
 // Implementations of num_traits
 mod impl_num;
 
+// Implementations of std::fmt traits and stringificaiton routines
+mod impl_fmt;
+
+// Implementations for deserializations and serializations
+#[cfg(feature = "serde")]
+pub mod impl_serde;
+
+// construct BigDecimals from strings and floats
 mod parsing;
+
+// Routines for rounding
 pub mod rounding;
 pub use rounding::RoundingMode;
 
-/// Return 10^pow
-///
-/// Try to calculate this with fewest number of allocations
-///
-fn ten_to_the(pow: u64) -> BigInt {
-    if pow < 20 {
-        return BigInt::from(10u64.pow(pow as u32));
-    }
+// Mathematical context
+mod context;
+pub use context::Context;
 
-    // linear case of 10^pow = 10^(19 * count + rem)
-    if pow < 590 {
-        let ten_to_nineteen = 10u64.pow(19);
-
-        // count factors of 19
-        let (count, rem) = pow.div_rem(&19);
-
-        let mut res = BigInt::from(ten_to_nineteen);
-        for _ in 1..count {
-            res *= ten_to_nineteen;
-        }
-        if rem != 0 {
-            res *= 10u64.pow(rem as u32);
-        }
-
-        return res;
-    }
-
-    // use recursive algorithm where linear case might be too slow
-    let (quotient, rem) = pow.div_rem(&16);
-    let x = ten_to_the(quotient);
-
-    let x2 = &x * &x;
-    let x4 = &x2 * &x2;
-    let x8 = &x4 * &x4;
-    let res = &x8 * &x8;
-
-    if rem == 0 {
-        res
-    } else {
-        res * 10u64.pow(rem as u32)
-    }
-}
-
-
-#[inline(always)]
-fn count_decimal_digits(int: &BigInt) -> u64 {
-    if int.is_zero() {
-        return 1;
-    }
-    let uint = int.magnitude();
-    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
-    // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
-    while *uint >= num {
-        num *= 10u8;
-        digits += 1;
-    }
-    digits
-}
+use arithmetic::{
+    ten_to_the,
+    ten_to_the_uint,
+    count_decimal_digits,
+    count_decimal_digits_uint,
+};
 
 /// Internal function used for rounding
 ///
@@ -225,6 +207,37 @@ impl BigDecimal {
             int_val: digits,
             scale: scale,
         }
+    }
+
+    /// Make a BigDecimalRef of this value
+    pub fn to_ref(&self) -> BigDecimalRef<'_> {
+        // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
+        self.into()
+    }
+
+    /// Returns the scale of the BigDecimal, the total number of
+    /// digits to the right of the decimal point (including insignificant
+    /// leading zeros)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use bigdecimal::BigDecimal;
+    /// use std::str::FromStr;
+    ///
+    /// let a = BigDecimal::from(12345);  // No fractional part
+    /// let b = BigDecimal::from_str("123.45").unwrap();  // Fractional part
+    /// let c = BigDecimal::from_str("0.0000012345").unwrap();  // Completely fractional part
+    /// let d = BigDecimal::from_str("5e9").unwrap();  // Negative-fractional part
+    ///
+    /// assert_eq!(a.fractional_digit_count(), 0);
+    /// assert_eq!(b.fractional_digit_count(), 2);
+    /// assert_eq!(c.fractional_digit_count(), 10);
+    /// assert_eq!(d.fractional_digit_count(), -9);
+    /// ```
+    #[inline]
+    pub fn fractional_digit_count(&self) -> i64 {
+        self.scale
     }
 
     /// Creates and initializes a `BigDecimal`.
@@ -382,6 +395,21 @@ impl BigDecimal {
         }
     }
 
+    /// Take and return bigdecimal with the given sign
+    ///
+    /// The Sign value `NoSign` is ignored: only use Plus & Minus
+    ///
+    pub(crate) fn take_with_sign(self, sign: Sign) -> BigDecimal {
+        let BigDecimal { scale, mut int_val } = self;
+        if int_val.sign() != sign && sign != Sign::NoSign {
+            int_val = int_val.neg();
+        }
+        BigDecimal {
+            int_val: int_val,
+            scale: scale,
+        }
+    }
+
     /// Return a new BigDecimal object with precision set to new value
     ///
     /// ```
@@ -425,6 +453,32 @@ impl BigDecimal {
             }
             Ordering::Equal => self.clone(),
         }
+    }
+
+    /// Return this BigDecimal with the given precision, rounding if needed
+    #[cfg(rustc_1_46)]  // Option::zip
+    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+        let digit_count = self.digits();
+        let new_prec = prec.get().to_i64();
+        let new_scale = new_prec
+                        .zip(digit_count.to_i64())
+                        .and_then(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
+                        .and_then(|prec_diff| self.scale.checked_add(prec_diff))
+                        .expect("precision overflow");
+
+        self.with_scale_round(new_scale, round)
+    }
+
+    #[cfg(not(rustc_1_46))]
+    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+        let new_scale = self.digits().to_i64().and_then(
+                            |old_prec| {
+                                prec.get().to_i64().and_then(
+                                    |new_prec| { new_prec.checked_sub(old_prec) })})
+                            .and_then(|prec_diff| self.scale.checked_add(prec_diff))
+                            .expect("precision overflow");
+
+        self.with_scale_round(new_scale, round)
     }
 
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
@@ -621,6 +675,12 @@ impl BigDecimal {
     /// ```
     #[inline]
     pub fn sqrt(&self) -> Option<BigDecimal> {
+        self.sqrt_with_context(&Context::default())
+    }
+
+    /// Take the square root of the number, using context for precision and rounding
+    ///
+    pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
         if self.is_zero() || self.is_one() {
             return Some(self.clone());
         }
@@ -628,194 +688,49 @@ impl BigDecimal {
             return None;
         }
 
-        // make guess
-        let guess = {
-            let magic_guess_scale = 1.1951678538495576_f64;
-            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 2.0;
-            let res = magic_guess_scale * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::sqrt::impl_sqrt(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (self.int_val.bits() as f64 / -LOG2_10 + self.scale as f64).round() as i64;
-                BigDecimal::new(BigInt::from(1), scale / 2)
-            }
-        };
-
-        // // wikipedia example - use for testing the algorithm
-        // if self == &BigDecimal::from_str("125348").unwrap() {
-        //     running_result = BigDecimal::from(600)
-        // }
-
-        // TODO: Use context variable to set precision
-        let max_precision = DEFAULT_PRECISION;
-
-        let next_iteration = move |r: BigDecimal| {
-            // division needs to be precise to (at least) one extra digit
-            let tmp = impl_division(
-                self.int_val.clone(),
-                &r.int_val,
-                self.scale - r.scale,
-                max_precision + 1,
-            );
-
-            // half will increase precision on each iteration
-            (tmp + r).half()
-        };
-
-        // calculate first iteration
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            // calculate next iteration
-            running_result = next_iteration(running_result);
-
-            // 'result' has clipped precision, 'running_result' has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return Some(result);
+        Some(result)
     }
 
-    /// Take the cube root of the number
+    /// Take the cube root of the number, using default context
     ///
     #[inline]
     pub fn cbrt(&self) -> BigDecimal {
+        self.cbrt_with_context(&Context::default())
+    }
+
+    /// Take cube root of self, using properties of context
+    pub fn cbrt_with_context(&self, ctx: &Context) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             return self.clone();
         }
-        if self.is_negative() {
-            return -self.abs().cbrt();
-        }
 
-        // make guess
-        let guess = {
-            let magic_guess_scale = 1.124960491619939_f64;
-            let initial_guess = (self.int_val.bits() as f64 - self.scale as f64 * LOG2_10) / 3.0;
-            let res = magic_guess_scale * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::cbrt::impl_cbrt_uint_scale(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (self.int_val.bits() as f64 / LOG2_10 - self.scale as f64).round() as i64;
-                BigDecimal::new(BigInt::from(1), -scale / 3)
-            }
-        };
-
-        // TODO: Use context variable to set precision
-        let max_precision = DEFAULT_PRECISION;
-
-        let three = BigDecimal::from(3);
-
-        let next_iteration = move |r: BigDecimal| {
-            let sqrd = r.square();
-            let tmp = impl_division(
-                self.int_val.clone(),
-                &sqrd.int_val,
-                self.scale - sqrd.scale,
-                max_precision + 1,
-            );
-            let tmp = tmp + r.double();
-            impl_division(tmp.int_val, &three.int_val, tmp.scale - three.scale, max_precision + 1)
-        };
-
-        // result initial
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            running_result = next_iteration(running_result);
-
-            // result has clipped precision, running_result has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return result;
+        // always copy sign
+        result.take_with_sign(self.sign())
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
     #[inline]
     pub fn inverse(&self) -> BigDecimal {
+        self.inverse_with_context(&Context::default())
+    }
+
+    /// Return inverse of self, rounding with ctx
+    pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             return self.clone();
         }
-        if self.is_negative() {
-            return self.abs().inverse().neg();
-        }
-        let guess = {
-            let bits = self.int_val.bits() as f64;
-            let scale = self.scale as f64;
 
-            let magic_factor = 0.721507597259061_f64;
-            let initial_guess = scale * LOG2_10 - bits;
-            let res = magic_factor * exp2(initial_guess);
+        let uint = self.int_val.magnitude();
+        let result = arithmetic::inverse::impl_inverse_uint_scale(uint, self.scale, ctx);
 
-            if res.is_normal() {
-                BigDecimal::try_from(res).unwrap()
-            } else {
-                // can't guess with float - just guess magnitude
-                let scale = (bits / LOG2_10 + scale).round() as i64;
-                BigDecimal::new(BigInt::from(1), -scale)
-            }
-        };
-
-        let max_precision = DEFAULT_PRECISION;
-        let next_iteration = move |r: BigDecimal| {
-            let two = BigDecimal::from(2);
-            let tmp = two - self * &r;
-
-            r * tmp
-        };
-
-        // calculate first iteration
-        let mut running_result = next_iteration(guess);
-
-        let mut prev_result = BigDecimal::one();
-        let mut result = BigDecimal::zero();
-
-        // TODO: Prove that we don't need to arbitrarily limit iterations
-        // and that convergence can be calculated
-        while prev_result != result {
-            // store current result to test for convergence
-            prev_result = result;
-
-            // calculate next iteration
-            running_result = next_iteration(running_result).with_prec(max_precision);
-
-            // 'result' has clipped precision, 'running_result' has full precision
-            result = if running_result.digits() > max_precision {
-                running_result.with_prec(max_precision)
-            } else {
-                running_result.clone()
-            };
-        }
-
-        return result;
+        // always copy sign
+        result.take_with_sign(self.sign())
     }
 
     /// Return number rounded to round_digits precision after the decimal point
@@ -1017,15 +932,6 @@ impl From<ParseBigIntError> for ParseBigDecimalError {
     }
 }
 
-impl FromStr for BigDecimal {
-    type Err = ParseBigDecimalError;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
-        BigDecimal::from_str_radix(s, 10)
-    }
-}
-
 #[allow(deprecated)] // trim_right_match -> trim_end_match
 impl Hash for BigDecimal {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -1095,55 +1001,6 @@ impl Ord for BigDecimal {
     }
 }
 
-impl PartialEq for BigDecimal {
-    #[inline]
-    fn eq(&self, rhs: &BigDecimal) -> bool {
-        match (self.sign(), rhs.sign()) {
-            // both zero
-            (Sign::NoSign, Sign::NoSign) => return true,
-            // signs are different
-            (a, b) if a != b => return false,
-            // signs are same, do nothing
-            _ => {}
-        }
-
-        let unscaled_int;
-        let scaled_int;
-        let trailing_zero_count;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                unscaled_int = &self.int_val;
-                scaled_int = &rhs.int_val;
-                trailing_zero_count = (self.scale - rhs.scale) as usize;
-            }
-            Ordering::Less => {
-                unscaled_int = &rhs.int_val;
-                scaled_int = &self.int_val;
-                trailing_zero_count = (rhs.scale - self.scale) as usize;
-            }
-            Ordering::Equal => return self.int_val == rhs.int_val,
-        }
-
-        if trailing_zero_count < 20 {
-            let scaled_int = scaled_int * ten_to_the(trailing_zero_count as u64);
-            return &scaled_int == unscaled_int;
-        }
-
-        let (_, unscaled_digits) = unscaled_int.to_radix_le(10);
-        let (_, scaled_digits) = scaled_int.to_radix_le(10);
-
-        // different lengths with trailing zeros
-        if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
-            return false;
-        }
-
-        // add leading zero digits to digits that need scaled
-        let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
-
-        // return true if all digits are the same
-        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| { digit_a == digit_b })
-    }
-}
 
 impl Default for BigDecimal {
     #[inline]
@@ -1172,542 +1029,6 @@ impl One for BigDecimal {
 }
 
 
-impl Add<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val += rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.take_and_scale(lhs.scale) + lhs,
-        }
-    }
-}
-
-impl<'a> Add<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &'a BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val += &rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
-        }
-    }
-}
-
-impl<'a> Add<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: BigDecimal) -> BigDecimal {
-        rhs + self
-    }
-}
-
-impl<'a, 'b> Add<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &BigDecimal) -> BigDecimal {
-        let lhs = self;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Less => lhs.with_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.with_scale(lhs.scale) + lhs,
-            Ordering::Equal => BigDecimal::new(lhs.int_val.clone() + &rhs.int_val, lhs.scale),
-        }
-    }
-}
-
-impl Add<BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val += rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) + rhs,
-        }
-    }
-}
-
-impl<'a> Add<&'a BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val += rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val += rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) + rhs,
-        }
-    }
-}
-
-impl<'a> Add<BigInt> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: BigInt) -> BigDecimal {
-        BigDecimal::new(rhs, 0) + self
-    }
-}
-
-impl<'a, 'b> Add<&'a BigInt> for &'b BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn add(self, rhs: &BigInt) -> BigDecimal {
-        self.with_scale(0) + rhs
-    }
-}
-
-forward_val_assignop!(impl AddAssign for BigDecimal, add_assign);
-
-impl<'a> AddAssign<&'a BigDecimal> for BigDecimal {
-    #[inline]
-    fn add_assign(&mut self, rhs: &BigDecimal) {
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Less => {
-                let scaled = self.with_scale(rhs.scale);
-                self.int_val = scaled.int_val + &rhs.int_val;
-                self.scale = rhs.scale;
-            }
-            Ordering::Greater => {
-                let scaled = rhs.with_scale(self.scale);
-                self.int_val += scaled.int_val;
-            }
-            Ordering::Equal => {
-                self.int_val += &rhs.int_val;
-            }
-        }
-    }
-}
-
-impl AddAssign<BigInt> for BigDecimal {
-    #[inline]
-    fn add_assign(&mut self, rhs: BigInt) {
-        *self += BigDecimal::new(rhs, 0)
-    }
-}
-
-impl<'a> AddAssign<&'a BigInt> for BigDecimal {
-    #[inline]
-    fn add_assign(&mut self, rhs: &BigInt) {
-        match self.scale.cmp(&0) {
-            Ordering::Equal => self.int_val += rhs,
-            Ordering::Greater => self.int_val += rhs * ten_to_the(self.scale as u64),
-            Ordering::Less => {
-                // *self += BigDecimal::new(rhs, 0)
-                self.int_val *= ten_to_the((-self.scale) as u64);
-                self.int_val += rhs;
-                self.scale = 0;
-            }
-        }
-    }
-}
-
-impl Sub<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-        let scale = cmp::max(lhs.scale, rhs.scale);
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(scale) - rhs,
-            Ordering::Greater => lhs - rhs.take_and_scale(scale),
-        }
-    }
-}
-
-impl<'a> Sub<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        let mut lhs = self;
-        let scale = cmp::max(lhs.scale, rhs.scale);
-
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val -= &rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) - rhs,
-            Ordering::Greater => lhs - rhs.with_scale(scale),
-        }
-    }
-}
-
-impl<'a> Sub<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: BigDecimal) -> BigDecimal {
-        -(rhs - self)
-    }
-}
-
-impl<'a, 'b> Sub<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigDecimal) -> BigDecimal {
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                let rhs = rhs.with_scale(self.scale);
-                self - rhs
-            }
-            Ordering::Less => self.with_scale(rhs.scale) - rhs,
-            Ordering::Equal => BigDecimal::new(&self.int_val - &rhs.int_val, self.scale),
-        }
-    }
-}
-
-impl Sub<BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) - rhs,
-        }
-    }
-}
-
-impl<'a> Sub<&'a BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigInt) -> BigDecimal {
-        let mut lhs = self;
-
-        match lhs.scale.cmp(&0) {
-            Ordering::Equal => {
-                lhs.int_val -= rhs;
-                lhs
-            }
-            Ordering::Greater => {
-                lhs.int_val -= rhs * ten_to_the(lhs.scale as u64);
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(0) - rhs,
-        }
-    }
-}
-
-impl<'a> Sub<BigInt> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: BigInt) -> BigDecimal {
-        BigDecimal::new(rhs, 0) - self
-    }
-}
-
-impl<'a, 'b> Sub<&'a BigInt> for &'b BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn sub(self, rhs: &BigInt) -> BigDecimal {
-        self.with_scale(0) - rhs
-    }
-}
-
-forward_val_assignop!(impl SubAssign for BigDecimal, sub_assign);
-
-impl<'a> SubAssign<&'a BigDecimal> for BigDecimal {
-    #[inline]
-    fn sub_assign(&mut self, rhs: &BigDecimal) {
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Less => {
-                let lhs = self.with_scale(rhs.scale);
-                self.int_val = lhs.int_val - &rhs.int_val;
-                self.scale = rhs.scale;
-            }
-            Ordering::Greater => {
-                self.int_val -= rhs.with_scale(self.scale).int_val;
-            }
-            Ordering::Equal => {
-                self.int_val = &self.int_val - &rhs.int_val;
-            }
-        }
-    }
-}
-
-impl SubAssign<BigInt> for BigDecimal {
-    #[inline(always)]
-    fn sub_assign(&mut self, rhs: BigInt) {
-        *self -= BigDecimal::new(rhs, 0)
-    }
-}
-
-impl<'a> SubAssign<&'a BigInt> for BigDecimal {
-    #[inline(always)]
-    fn sub_assign(&mut self, rhs: &BigInt) {
-        match self.scale.cmp(&0) {
-            Ordering::Equal => SubAssign::sub_assign(&mut self.int_val, rhs),
-            Ordering::Greater => SubAssign::sub_assign(&mut self.int_val, rhs * ten_to_the(self.scale as u64)),
-            Ordering::Less => {
-                self.int_val *= ten_to_the((-self.scale) as u64);
-                SubAssign::sub_assign(&mut self.int_val, rhs);
-                self.scale = 0;
-            }
-        }
-    }
-}
-
-impl Mul<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs
-        } else if rhs.is_one() {
-            self
-        } else {
-            self.scale += rhs.scale;
-            self.int_val *= rhs.int_val;
-            self
-        }
-    }
-}
-
-impl<'a> Mul<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            self.scale = rhs.scale;
-            self.int_val.set_zero();
-            self.int_val.add_assign(&rhs.int_val);
-            self
-        } else if rhs.is_one() {
-            self
-        } else {
-            self.scale += rhs.scale;
-            MulAssign::mul_assign(&mut self.int_val, &rhs.int_val);
-            self
-        }
-    }
-}
-
-impl<'a> Mul<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: BigDecimal) -> BigDecimal {
-        rhs * self
-    }
-}
-
-impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one() {
-            self.normalized()
-        } else {
-            let scale = self.scale + rhs.scale;
-            BigDecimal::new(&self.int_val * &rhs.int_val, scale)
-        }
-    }
-}
-
-impl Mul<BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: BigInt) -> BigDecimal {
-        self.int_val *= rhs;
-        self
-    }
-}
-
-impl<'a> Mul<&'a BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigInt) -> BigDecimal {
-        self.int_val *= rhs;
-        self
-    }
-}
-
-impl<'a> Mul<BigInt> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, mut rhs: BigInt) -> BigDecimal {
-        rhs *= &self.int_val;
-        BigDecimal::new(rhs, self.scale)
-    }
-}
-
-impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigInt) -> BigDecimal {
-        if rhs.is_one() {
-            self.normalized()
-        } else if self.is_one() {
-            BigDecimal::new(rhs.clone(), 0)
-        } else {
-            let value = &self.int_val * rhs;
-            BigDecimal::new(value, self.scale)
-        }
-    }
-}
-
-impl Mul<BigDecimal> for BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
-        if rhs.is_one() {
-            rhs.scale = 0;
-            stdlib::mem::swap(&mut rhs.int_val, &mut self);
-        } else if !self.is_one() {
-            rhs.int_val *= self;
-        }
-        rhs
-    }
-}
-
-impl<'a> Mul<BigDecimal> for &'a BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one() {
-            rhs.int_val.set_zero();
-            rhs.int_val += self;
-            rhs.scale = 0;
-            rhs
-        } else {
-            rhs.int_val *= self;
-            rhs
-        }
-    }
-}
-
-impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one() {
-            BigDecimal::new(self.clone(), 0)
-        } else {
-            let value = &rhs.int_val * self;
-            BigDecimal::new(value, rhs.scale)
-        }
-    }
-}
-
-impl<'a> Mul<&'a BigDecimal> for BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one() {
-            BigDecimal::new(self, 0)
-        } else {
-            self *= &rhs.int_val;
-            BigDecimal::new(self, rhs.scale)
-        }
-    }
-}
-
-forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
-
-impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: &BigDecimal) {
-        if rhs.is_one() {
-            return;
-        }
-        self.scale += rhs.scale;
-        self.int_val = &self.int_val * &rhs.int_val;
-    }
-}
-
-impl<'a> MulAssign<&'a BigInt> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: &BigInt) {
-        if rhs.is_one() {
-            return;
-        }
-        self.int_val *= rhs;
-    }
-}
-
-impl MulAssign<BigInt> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: BigInt) {
-        *self *= &rhs
-    }
-}
-
-
-#[inline(always)]
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
     // quick zero check
     if num.is_zero() {
@@ -1763,184 +1084,7 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
     return result;
 }
 
-impl Div<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-    #[inline]
-    fn div(self, other: BigDecimal) -> BigDecimal {
-        if other.is_zero() {
-            panic!("Division by zero");
-        }
-        if self.is_zero() || other.is_one() {
-            return self;
-        }
 
-        let scale = self.scale - other.scale;
-
-        if self.int_val == other.int_val {
-            return BigDecimal {
-                int_val: 1.into(),
-                scale: scale,
-            };
-        }
-
-        let max_precision = DEFAULT_PRECISION;
-
-        return impl_division(self.int_val, &other.int_val, scale, max_precision);
-    }
-}
-
-impl<'a> Div<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-    #[inline]
-    fn div(self, other: &'a BigDecimal) -> BigDecimal {
-        if other.is_zero() {
-            panic!("Division by zero");
-        }
-        if self.is_zero() || other.is_one() {
-            return self;
-        }
-
-        let scale = self.scale - other.scale;
-
-        if self.int_val == other.int_val {
-            return BigDecimal {
-                int_val: 1.into(),
-                scale: scale,
-            };
-        }
-
-        let max_precision = DEFAULT_PRECISION;
-
-        return impl_division(self.int_val, &other.int_val, scale, max_precision);
-    }
-}
-
-forward_ref_val_binop!(impl Div for BigDecimal, div);
-
-impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn div(self, other: &BigDecimal) -> BigDecimal {
-        if other.is_zero() {
-            panic!("Division by zero");
-        }
-        // TODO: Fix setting scale
-        if self.is_zero() || other.is_one() {
-            return self.clone();
-        }
-
-        let scale = self.scale - other.scale;
-
-        let num_int = &self.int_val;
-        let den_int = &other.int_val;
-
-        if num_int == den_int {
-            return BigDecimal {
-                int_val: 1.into(),
-                scale: scale,
-            };
-        }
-
-        let max_precision = DEFAULT_PRECISION;
-
-        return impl_division(num_int.clone(), den_int, scale, max_precision);
-    }
-}
-
-impl Rem<BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn rem(self, other: BigDecimal) -> BigDecimal {
-        let scale = cmp::max(self.scale, other.scale);
-
-        let num = self.take_and_scale(scale).int_val;
-        let den = other.take_and_scale(scale).int_val;
-
-        BigDecimal::new(num % den, scale)
-    }
-}
-
-impl<'a> Rem<&'a BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn rem(self, other: &BigDecimal) -> BigDecimal {
-        let scale = cmp::max(self.scale, other.scale);
-        let num = self.take_and_scale(scale).int_val;
-        let den = &other.int_val;
-
-        let result = if scale == other.scale {
-            num % den
-        } else {
-            num % (den * ten_to_the((scale - other.scale) as u64))
-        };
-        BigDecimal::new(result, scale)
-    }
-}
-impl<'a> Rem<BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn rem(self, other: BigDecimal) -> BigDecimal {
-        let scale = cmp::max(self.scale, other.scale);
-        let num = &self.int_val;
-        let den = other.take_and_scale(scale).int_val;
-
-        let result = if scale == self.scale {
-            num % den
-        } else {
-            let scaled_num = num * ten_to_the((scale - self.scale) as u64);
-            scaled_num % den
-        };
-
-        BigDecimal::new(result, scale)
-    }
-}
-
-impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn rem(self, other: &BigDecimal) -> BigDecimal {
-        let scale = cmp::max(self.scale, other.scale);
-        let num = &self.int_val;
-        let den = &other.int_val;
-
-        let result = match self.scale.cmp(&other.scale) {
-            Ordering::Equal => num % den,
-            Ordering::Less => {
-                let scaled_num = num * ten_to_the((scale - self.scale) as u64);
-                scaled_num % den
-            }
-            Ordering::Greater => {
-                let scaled_den = den * ten_to_the((scale - other.scale) as u64);
-                num % scaled_den
-            }
-        };
-        BigDecimal::new(result, scale)
-    }
-}
-
-impl Neg for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(mut self) -> BigDecimal {
-        self.int_val = -self.int_val;
-        self
-    }
-}
-
-impl<'a> Neg for &'a BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn neg(self) -> BigDecimal {
-        -self.clone()
-    }
-}
 
 impl Signed for BigDecimal {
     #[inline]
@@ -1994,229 +1138,159 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl fmt::Display for BigDecimal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Acquire the absolute integer as a decimal string
-        let mut abs_int = self.int_val.abs().to_str_radix(10);
 
-        // Split the representation at the decimal point
-        let (before, after) = if self.scale >= abs_int.len() as i64 {
-            // First case: the integer representation falls
-            // completely behind the decimal point
-            let scale = self.scale as usize;
-            let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
-            ("0".to_string(), after)
-        } else {
-            // Second case: the integer representation falls
-            // around, or before the decimal point
-            let location = abs_int.len() as i64 - self.scale;
-            if location > abs_int.len() as i64 {
-                // Case 2.1, entirely before the decimal point
-                // We should prepend zeros
-                let zeros = location as usize - abs_int.len();
-                let abs_int = abs_int + "0".repeat(zeros).as_str();
-                (abs_int, "".to_string())
-            } else {
-                // Case 2.2, somewhere around the decimal point
-                // Just split it in two
-                let after = abs_int.split_off(location as usize);
-                (abs_int, after)
-            }
+/// Immutable big-decimal, referencing a borrowed buffer of digits
+///
+/// The non-digit information like `scale` and `sign` may be changed
+/// on these objects, which otherwise would require cloning the full
+/// digit buffer in the BigDecimal.
+///
+/// Built from full `BigDecimal` object using the `to_ref()` method.
+/// `BigDecimal` not implement `AsRef`, so we will reserve the method
+/// `as_ref()` for a later time.
+///
+/// May be transformed into full BigDecimal object using the `to_owned()`
+/// method.
+/// This clones the bigdecimal digits.
+///
+/// BigDecimalRef (or `Into<BigDecimalRef>`) should be preferred over
+/// using `&BigDecimal` for library functions that need an immutable
+/// reference to a bigdecimal, as it may be much more efficient.
+///
+/// NOTE: Using `&BigDecimalRef` is redundant, and not recommended.
+///
+/// ## Examples
+///
+/// ```
+/// # use bigdecimal::*; use std::ops::Neg;
+/// fn add_one<'a, N: Into<BigDecimalRef<'a>>>(n: N) -> BigDecimal {
+///     n.into() + 1
+/// }
+///
+/// let n: BigDecimal = "123.456".parse().unwrap();
+///
+/// // call via "standard" reference (implements Into)
+/// let m = add_one(&n);
+/// assert_eq!(m, "124.456".parse().unwrap());
+///
+/// // call by negating the reference (fast: no-digit cloning involved)
+/// let m = add_one(n.to_ref().neg());
+/// assert_eq!(m, "-122.456".parse().unwrap());
+/// ```
+///
+#[derive(Clone, Copy, Debug)]
+pub struct BigDecimalRef<'a> {
+    sign: Sign,
+    digits: &'a BigUint,
+    scale: i64,
+}
+
+impl BigDecimalRef<'_> {
+    /// Clone digits to make this reference a full BigDecimal object
+    pub fn to_owned(&self) -> BigDecimal {
+        BigDecimal {
+            scale: self.scale,
+            int_val: BigInt::from_biguint(self.sign, self.digits.clone()),
+        }
+    }
+
+    /// Clone digits, returning BigDecimal with given scale
+    ///
+    /// ```
+    /// # use bigdecimal::*;
+    ///
+    /// let n: BigDecimal = "123.45678".parse().unwrap();
+    /// let r = n.to_ref();
+    /// assert_eq!(r.to_owned_with_scale(5), n.clone());
+    /// assert_eq!(r.to_owned_with_scale(0), "123".parse().unwrap());
+    /// assert_eq!(r.to_owned_with_scale(-1), "12e1".parse().unwrap());
+    ///
+    /// let x = r.to_owned_with_scale(8);
+    /// assert_eq!(&x, &n);
+    /// assert_eq!(x.fractional_digit_count(), 8);
+    /// ```
+    pub fn to_owned_with_scale(&self, scale: i64) -> BigDecimal {
+        use stdlib::cmp::Ordering::*;
+
+        let digits = match scale.cmp(&self.scale) {
+            Equal => self.digits.clone(),
+            Greater => self.digits * ten_to_the_uint((scale - self.scale) as u64),
+            Less => self.digits / ten_to_the_uint((self.scale - scale) as u64)
         };
 
-        // Alter precision after the decimal point
-        let after = if let Some(precision) = f.precision() {
-            let len = after.len();
-            if len < precision {
-                after + "0".repeat(precision - len).as_str()
-            } else {
-                // TODO: Should we round?
-                after[0..precision].to_string()
-            }
-        } else {
-            after
-        };
+        BigDecimal {
+            scale: scale,
+            int_val: BigInt::from_biguint(self.sign, digits),
+        }
+    }
 
-        // Concatenate everything
-        let complete_without_sign = if !after.is_empty() {
-            before + "." + after.as_str()
-        } else {
-            before
-        };
+    /// Sign of decimal
+    pub fn sign(&self) -> Sign {
+        self.sign
+    }
 
-        let non_negative = matches!(self.int_val.sign(), Sign::Plus | Sign::NoSign);
-        //pad_integral does the right thing although we have a decimal
-        f.pad_integral(non_negative, "", &complete_without_sign)
+    /// Return number of digits 'right' of the decimal point
+    /// (including leading zeros)
+    pub fn fractional_digit_count(&self) -> i64 {
+        self.scale
+    }
+
+    /// Count total number of decimal digits
+    pub fn count_digits(&self) -> u64 {
+        count_decimal_digits_uint(self.digits)
+    }
+
+    /// Split into components
+    pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
+        (self.sign, self.scale, self.digits)
+    }
+
+    /// Take absolute value of the decimal (non-negative sign)
+    pub fn abs(&self) -> Self {
+        Self {
+            sign: self.sign * self.sign,
+            digits: self.digits,
+            scale: self.scale,
+        }
+    }
+
+    /// Take square root of this number
+    pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
+        use Sign::*;
+
+        let (sign, scale, uint) = self.as_parts();
+
+        match sign {
+            Minus => None,
+            NoSign => Some(Zero::zero()),
+            Plus => Some(arithmetic::sqrt::impl_sqrt(uint, scale, ctx)),
+        }
+    }
+
+    /// Return if the referenced decimal is zero
+    pub fn is_zero(&self) -> bool {
+        self.digits.is_zero()
     }
 }
 
-impl fmt::Debug for BigDecimal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BigDecimal(\"{}\")", self)
+impl<'a> From<&'a BigDecimal> for BigDecimalRef<'a> {
+    fn from(n: &'a BigDecimal) -> Self {
+        let sign = n.int_val.sign();
+        let mag = n.int_val.magnitude();
+        Self {
+            sign: sign,
+            digits: mag,
+            scale: n.scale,
+        }
     }
 }
 
-
-/// Tools to help serializing/deserializing `BigDecimal`s
-#[cfg(feature = "serde")]
-mod bigdecimal_serde {
-    use super::*;
-    use serde::{de, ser};
-
-    #[allow(unused_imports)]
-    use num_traits::FromPrimitive;
-
-    impl ser::Serialize for BigDecimal {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: ser::Serializer,
-        {
-            serializer.collect_str(&self)
-        }
-    }
-
-    struct BigDecimalVisitor;
-
-    impl<'de> de::Visitor<'de> for BigDecimalVisitor {
-        type Value = BigDecimal;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            write!(formatter, "a number or formatted decimal string")
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
-        }
-
-        fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            Ok(BigDecimal::from(value))
-        }
-
-        fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            Ok(BigDecimal::from(value))
-        }
-
-        fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
-        }
-    }
-
-    #[cfg(not(feature = "string-only"))]
-    impl<'de> de::Deserialize<'de> for BigDecimal {
-        fn deserialize<D>(d: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
-        {
-            d.deserialize_any(BigDecimalVisitor)
-        }
-    }
-
-    #[cfg(feature = "string-only")]
-    impl<'de> de::Deserialize<'de> for BigDecimal {
-        fn deserialize<D>(d: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
-        {
-            d.deserialize_str(BigDecimalVisitor)
-        }
-    }
-
-    #[cfg(test)]
-    extern crate serde_json;
-
-    #[test]
-    fn test_serde_serialize() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = format!("\"{}\"", v);
-            let value = serde_json::to_string(&BigDecimal::from_str(s).unwrap()).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    fn test_serde_deserialize_str() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = BigDecimal::from_str(v).unwrap();
-            let value: BigDecimal = serde_json::from_str(&format!("\"{}\"", s)).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_int() {
-        let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
-        for n in vals {
-            let expected = BigDecimal::from_i64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_f64() {
-        let vals = vec![
-            1.0,
-            0.5,
-            0.25,
-            50.0,
-            50000.,
-            0.001,
-            12.34,
-            5.0 * 0.03125,
-            stdlib::f64::consts::PI,
-            stdlib::f64::consts::PI * 10000.0,
-            stdlib::f64::consts::PI * 30000.0,
-        ];
-        for n in vals {
-            let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
+impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
+    fn from(n: &'a BigInt) -> Self {
+        Self {
+            sign: n.sign(),
+            digits: n.magnitude(),
+            scale: 0,
         }
     }
 }
@@ -2229,6 +1303,29 @@ mod bigdecimal_tests {
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
+
+    #[test]
+    fn test_fractional_digit_count() {
+        // Zero value
+        let vals = BigDecimal::from(0);
+        assert_eq!(vals.fractional_digit_count(), 0);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 0);
+
+        // Fractional part with trailing zeros
+        let vals = BigDecimal::from_str("1.0").unwrap();
+        assert_eq!(vals.fractional_digit_count(), 1);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 1);
+
+        // Fractional part
+        let vals = BigDecimal::from_str("1.23").unwrap();
+        assert_eq!(vals.fractional_digit_count(), 2);
+        assert_eq!(vals.to_ref().fractional_digit_count(), 2);
+
+        // shifted to 'left' has negative scale
+        let vals = BigDecimal::from_str("123e5").unwrap();
+        assert_eq!(vals.fractional_digit_count(), -5);
+        assert_eq!(vals.to_ref().fractional_digit_count(), -5);
+    }
 
     #[test]
     fn test_sum() {
@@ -2395,234 +1492,6 @@ mod bigdecimal_tests {
     fn test_nan_float() {
         assert!(BigDecimal::try_from(f32::NAN).is_err());
         assert!(BigDecimal::try_from(f64::NAN).is_err());
-    }
-
-    #[test]
-    fn test_add() {
-        let vals = vec![
-            ("12.34", "1.234", "13.574"),
-            ("12.34", "-1.234", "11.106"),
-            ("1234e6", "1234e-6", "1234000000.001234"),
-            ("1234e-6", "1234e6", "1234000000.001234"),
-            ("18446744073709551616.0", "1", "18446744073709551617"),
-            ("184467440737e3380", "0", "184467440737e3380"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() + b.clone(), c);
-
-            assert_eq!(a.clone() + &b, c);
-            assert_eq!(&a + b.clone(), c);
-            assert_eq!(&a + &b, c);
-
-            a += b;
-            assert_eq!(a, c);
-        }
-    }
-
-    #[test]
-    fn test_sub() {
-        let vals = vec![
-            ("12.34", "1.234", "11.106"),
-            ("12.34", "-1.234", "13.574"),
-            ("1234e6", "1234e-6", "1233999999.998766"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() - b.clone(), c);
-
-            assert_eq!(a.clone() - &b, c);
-            assert_eq!(&a - b.clone(), c);
-            assert_eq!(&a - &b, c);
-
-            a -= b;
-            assert_eq!(a, c);
-        }
-    }
-
-    /// Test multiplication of two bigdecimals
-    #[test]
-    fn test_mul() {
-
-        let vals = vec![
-            ("2", "1", "2"),
-            ("12.34", "1.234", "15.22756"),
-            ("2e1", "1", "20"),
-            ("3", ".333333", "0.999999"),
-            ("2389472934723", "209481029831", "500549251119075878721813"),
-            ("1e-450", "1e500", ".1e51"),
-            ("-995052931372975485719.533153137", "4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("995052931372975485719.533153137", "-4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("-8.37664968", "-1.9086963714056968482094712882596748", "15.988480848752691653730876239769592670324064"),
-            ("-8.37664968", "0", "0"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&a * &b, c);
-
-            a *= b;
-            assert_eq!(a, c);
-        }
-    }
-
-    /// Test multiplication between big decimal and big integer
-    #[test]
-    fn test_mul_bigint() {
-        let vals = vec![
-            ("2", "1", "2"),
-            ("8.561", "10", "85.61"),
-            ("1.0000", "638655273892892437", "638655273892892437"),
-            ("10000", "638655273892892437", "6386552738928924370000"),
-            (".0005", "368408638655273892892437473", "184204319327636946446218.7365"),
-            ("9e-1", "368408638655273892892437473", "331567774789746503603193725.7"),
-            ("-1.175470587012343730098", "577575785", "-678923347.038065234601180476930"),
-            ("-1.175470587012343730098", "-76527768352678", "89956140788267.069799533723307502444"),
-            ("-1.175470587012343730098", "0", "0"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = num_bigint::BigInt::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(b.clone() * a.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(b.clone() * &a, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&b * a.clone(), c);
-            assert_eq!(&a * &b, c);
-            assert_eq!(&b * &a, c);
-        }
-    }
-
-    #[test]
-    fn test_div() {
-        let vals = vec![
-            ("0", "1", "0"),
-            ("0", "10", "0"),
-            ("2", "1", "2"),
-            ("2e1", "1", "2e1"),
-            ("10", "10", "1"),
-            ("100", "10.0", "1e1"),
-            ("20.0", "200", ".1"),
-            ("4", "2", "2.0"),
-            ("15", "3", "5.0"),
-            ("1", "2", "0.5"),
-            ("1", "2e-2", "5e1"),
-            ("1", "0.2", "5"),
-            ("1.0", "0.02", "50"),
-            ("1", "0.020", "5e1"),
-            ("5.0", "4.00", "1.25"),
-            ("5.0", "4.000", "1.25"),
-            ("5", "4.000", "1.25"),
-            ("5", "4", "125e-2"),
-            ("100", "5", "20"),
-            ("-50", "5", "-10"),
-            ("200", "-5", "-40."),
-            ("1", "3", ".3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"),
-            ("-2", "-3", ".6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"),
-            ("-12.34", "1.233", "-10.00811030008110300081103000811030008110300081103000811030008110300081103000811030008110300081103001"),
-            ("125348", "352.2283", "355.8714617763535752237966114591019517738921035021887792661748076460636467881768727839301952739175132"),
-        ];
-
-        for &(x, y, z) in vals.iter() {
-
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            assert_eq!(a.clone() / b.clone(), c);
-            assert_eq!(a.clone() / &b, c);
-            assert_eq!(&a / b.clone(), c);
-            assert_eq!(&a / &b, c);
-            // assert_eq!(q.scale, c.scale);
-
-            // let mut q = a;
-            // q /= b;
-            // assert_eq!(q, c);
-        }
-    }
-
-    #[test]
-    #[should_panic(expected = "Division by zero")]
-    fn test_division_by_zero_panics() {
-        let x = BigDecimal::from_str("3.14").unwrap();
-        let _r = x / 0;
-    }
-
-    #[test]
-    #[should_panic(expected = "Division by zero")]
-    fn test_division_by_zero_panics_v2() {
-        let x = BigDecimal::from_str("3.14").unwrap();
-        let _r = x / BigDecimal::zero();
-    }
-
-    #[test]
-    fn test_rem() {
-        let vals = vec![
-            ("100", "5", "0"),
-            ("2e1", "1", "0"),
-            ("2", "1", "0"),
-            ("1", "3", "1"),
-            ("1", "0.5", "0"),
-            ("1.5", "1", "0.5"),
-            ("1", "3e-2", "1e-2"),
-            ("10", "0.003", "0.001"),
-            ("3", "2", "1"),
-            ("-3", "2", "-1"),
-            ("3", "-2", "1"),
-            ("-3", "-2", "-1"),
-            ("12.34", "1.233", "0.01"),
-        ];
-        for &(x, y, z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
-
-            let rem = &a % &b;
-            assert_eq!(rem, c, "{} [&{} % &{}] == {}", rem, a, b, c);
-
-            let rem = a.clone() % &b;
-            assert_eq!(rem, c, "{} [{} % &{}] == {}", rem, a, b, c);
-
-            let rem = &a % b.clone();
-            assert_eq!(rem, c, "{} [&{} % {}] == {}", rem, a, b, c);
-
-            let rem = a.clone() % b.clone();
-            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
-        }
-        let vals = vec![
-            (("100", -2), ("50", -1), "0"),
-            (("100", 0), ("50", -1), "0"),
-            (("100", -2), ("30", 0), "10"),
-            (("100", 0), ("30", -1), "10"),
-        ];
-        for &((x, xs), (y, ys), z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().with_scale(xs);
-            let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
-            let c = BigDecimal::from_str(z).unwrap();
-            let rem = &a % &b;
-            assert_eq!(rem, c, "{} [{} % {}] == {}", rem, a, b, c);
-        }
     }
 
     #[test]
@@ -2993,76 +1862,6 @@ mod bigdecimal_tests {
         }
     }
 
-    #[test]
-    fn test_sqrt() {
-        let vals = vec![
-            ("1e-232", "1e-116"),
-            ("1.00", "1"),
-            ("1.001", "1.000499875062460964823258287700109753027590031219780479551442971840836093890879944856933288426795152"),
-            ("100", "10"),
-            ("49", "7"),
-            (".25", ".5"),
-            ("0.0152399025", ".12345"),
-            ("152399025", "12345"),
-            (".00400", "0.06324555320336758663997787088865437067439110278650433653715009705585188877278476442688496216758600590"),
-            (".1", "0.3162277660168379331998893544432718533719555139325216826857504852792594438639238221344248108379300295"),
-            ("2", "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573"),
-            ("125348", "354.0451948551201563108487193176101314241016013304294520812832530590100407318465590778759640828114535"),
-            ("18446744073709551616.1099511", "4294967296.000000000012799992691725492477397918722952224079252026972356303360555051219312462698703293"),
-            ("3.141592653589793115997963468544185161590576171875", "1.772453850905515992751519103139248439290428205003682302442979619028063165921408635567477284443197875"),
-            (".000000000089793115997963468544185161590576171875", "0.000009475922962855041517561783740144225422359796851494316346796373337470068631250135521161989831460407155"),
-            ("0.7177700109762963922745342343167413624881759290454997218753321040760896053150388903350654937434826216803814031987652326749140535150336357405672040727695124057298138872112244784753994931999476811850580200000000000000000000000000000000", "0.8472130847527653667042980517799020703921106560594525833177762276594388966885185567535692987624493813"),
-            ("0.01234567901234567901234567901234567901234567901234567901234567901234567901234567901234567901234567901", "0.1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"),
-            ("0.1108890000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000444", "0.3330000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000667"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().sqrt().unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
-        }
-    }
-
-    #[test]
-    fn test_big_sqrt() {
-        use num_bigint::BigInt;
-        let vals = vec![
-            (("2", -70), "141421356237309504880168872420969807.8569671875376948073176679737990732478462107038850387534327641573"),
-            (("3", -170), "17320508075688772935274463415058723669428052538103806280558069794519330169088000370811.46186757248576"),
-            (("9", -199), "9486832980505137995996680633298155601158665417975650480572514558377783315917714664032744325137900886"),
-            (("7", -200), "26457513110645905905016157536392604257102591830824501803683344592010688232302836277603928864745436110"),
-            (("777", -204), "2.787471972953270789531596912111625325974789615194854615319795902911796043681078997362635440358922503E+103"),
-            (("7", -600), "2.645751311064590590501615753639260425710259183082450180368334459201068823230283627760392886474543611E+300"),
-            (("2", -900), "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573E+450"),
-            (("7", -999), "8.366600265340755479781720257851874893928153692986721998111915430804187725943170098308147119649515362E+499"),
-            (("74908163946345982392040522594123773796", -999), "2.736935584670307552030924971360722787091742391079630976117950955395149091570790266754718322365663909E+518"),
-            (("20", -1024), "4.472135954999579392818347337462552470881236719223051448541794490821041851275609798828828816757564550E512"),
-            (("3", 1025), "5.477225575051661134569697828008021339527446949979832542268944497324932771227227338008584361638706258E-513"),
-        ];
-        for &((s, scale), e) in vals.iter() {
-            let expected = BigDecimal::from_str(e).unwrap();
-
-            let sqrt = BigDecimal::new(BigInt::from_str(s).unwrap(), scale).sqrt().unwrap();
-            assert_eq!(sqrt, expected);
-        }
-    }
-
-    #[test]
-    fn test_cbrt() {
-        let vals = vec![
-            ("0.00", "0"),
-            ("1.00", "1"),
-            ("1.001", "1.000333222283909495175449559955220102010284758197360454054345461242739715702641939155238095670636841"),
-            ("10", "2.154434690031883721759293566519350495259344942192108582489235506346411106648340800185441503543243276"),
-            ("-59283293e25", "-84006090355.84281237113712383191213626687332139035750444925827809487776780721673264524620270275301685"),
-            ("94213372931e-127", "2.112049945275324414051072540210070583697242797173805198575907094646677475250362108901530353886613160E-39"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().cbrt();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
-        }
-    }
-
     mod double {
         use super::*;
 
@@ -3138,75 +1937,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_from_str() {
-        let vals = vec![
-            ("1331.107", 1331107, 3),
-            ("1.0", 10, 1),
-            ("2e1", 2, -1),
-            ("0.00123", 123, 5),
-            ("-123", -123, 0),
-            ("-1230", -1230, 0),
-            ("12.3", 123, 1),
-            ("123e-1", 123, 1),
-            ("1.23e+1", 123, 1),
-            ("1.23E+3", 123, -1),
-            ("1.23E-8", 123, 10),
-            ("-1.23E-10", -123, 12),
-            ("123_", 123, 0),
-            ("31_862_140.830_686_979", 31862140830686979, 9),
-            ("-1_1.2_2", -1122, 2),
-            ("999.521_939", 999521939, 6),
-            ("679.35_84_03E-2", 679358403, 8),
-            ("271576662.__E4", 271576662, -4),
-        ];
-
-        for &(source, val, scale) in vals.iter() {
-            let x = BigDecimal::from_str(source).unwrap();
-            assert_eq!(x.int_val.to_i64().unwrap(), val);
-            assert_eq!(x.scale, scale);
-        }
-    }
-
-    #[test]
-    fn test_fmt() {
-        let vals = vec![
-            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
-            (1, 0,  (  "1",     "1.0",    "1.0000",  " 1.0",  "+01.0",   "1.0 " )),
-            (1, 1,  (  "0.1",   "0.1",    "0.1000",  " 0.1",  "+00.1",   "0.1 " )),
-            (1, 2,  (  "0.01",  "0.0",    "0.0100",  " 0.0",  "+00.0",   "0.0 " )),
-            (1, -2, ("100",   "100.0",  "100.0000", "100.0", "+100.0", "100.0" )),
-            (-1, 0, ( "-1",    "-1.0",   "-1.0000",  "-1.0",  "-01.0",  "-1.0" )),
-            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000",  "-0.1",  "-00.1",  "-0.1" )),
-            (-1, 2, ( "-0.01", "-0.0",   "-0.0100",  "-0.0",  "-00.0",  "-0.0" )),
-        ];
-        for (i, scale, results) in vals {
-            let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
-            assert_eq!(format!("{}", x), results.0);
-            assert_eq!(format!("{:.1}", x), results.1);
-            assert_eq!(format!("{:.4}", x), results.2);
-            assert_eq!(format!("{:4.1}", x), results.3);
-            assert_eq!(format!("{:+05.1}", x), results.4);
-            assert_eq!(format!("{:<4.1}", x), results.5);
-        }
-    }
-
-    #[test]
-    fn test_debug() {
-        let vals = vec![
-            ("BigDecimal(\"123.456\")", "123.456"),
-            ("BigDecimal(\"123.400\")", "123.400"),
-            ("BigDecimal(\"1.20\")", "01.20"),
-            // ("BigDecimal(\"1.2E3\")", "01.2E3"), <- ambiguous precision
-            ("BigDecimal(\"1200\")", "01.2E3"),
-        ];
-
-        for (expected, source) in vals {
-            let var = BigDecimal::from_str(source).unwrap();
-            assert_eq!(format!("{:?}", var), expected);
-        }
-    }
-
-    #[test]
     fn test_signed() {
         assert!(!BigDecimal::zero().is_positive());
         assert!(!BigDecimal::one().is_negative());
@@ -3246,47 +1976,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan() {
-        BigDecimal::from_str("hello").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty() {
-        BigDecimal::from_str("").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_invalid_char() {
-        BigDecimal::from_str("12z3.12").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan_exponent() {
-        BigDecimal::from_str("123.123eg").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty_exponent() {
-        BigDecimal::from_str("123.123E").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_multiple_decimal_points() {
-        BigDecimal::from_str("123.12.45").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal() {
-        BigDecimal::from_str(".").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal_and_exponent() {
-        BigDecimal::from_str(".e4").unwrap();
-    }
-
-    #[test]
     fn test_from_i128() {
         let value = BigDecimal::from_i128(-368934881474191032320).unwrap();
         let expected = BigDecimal::from_str("-368934881474191032320").unwrap();
@@ -3311,8 +2000,15 @@ mod test_with_scale_round {
     include!("lib.tests.with_scale_round.rs");
 }
 
-// enable these tests with scripts/bigdecimal-property-tests
-// ::PROPERTY-TESTS:: #[cfg(test)] #[macro_use] extern crate proptest;
-// ::PROPERTY-TESTS:: #[cfg(test)] mod property_tests {
-// ::PROPERTY-TESTS::       use super::*; use paste::paste;
-// ::PROPERTY-TESTS::       include!("lib.tests.property-tests.rs"); }
+
+#[cfg(all(test, property_tests))]
+extern crate proptest;
+
+#[cfg(all(test, property_tests))]
+mod proptests {
+    use super::*;
+    use paste::paste;
+    use proptest::*;
+
+    include!("lib.tests.property-tests.rs");
+}

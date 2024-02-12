@@ -33,6 +33,7 @@ mod stdlib {
     #[cfg(test)]
     pub use siphasher::sip::SipHasher as DefaultHasher;
 
+    pub use alloc::borrow;
     pub use alloc::string;
     pub use alloc::vec::Vec;
 }
