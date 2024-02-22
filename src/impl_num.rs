@@ -44,16 +44,8 @@ impl Num for BigDecimal {
             // split and parse exponent field
             Some(loc) => {
                 // slice up to `loc` and 1 after to skip the 'e' char
-                let (base, exp) = (&s[..loc], &s[loc + 1..]);
-
-                // special consideration for rust 1.0.0 which would not
-                // parse a leading '+'
-                let exp = match exp.chars().next() {
-                    Some('+') => &exp[1..],
-                    _ => exp,
-                };
-
-                (base, i64::from_str(exp)?)
+                let (base, e_exp) = s.split_at(loc);
+                (base, i128::from_str(&e_exp[1..])?)
             }
         };
 
@@ -81,18 +73,21 @@ impl Num for BigDecimal {
                 // count number of trailing digits
                 let trail_digits = trail.chars().filter(|c| *c != '_').count();
 
-                (digits, trail_digits as i64)
+                (digits, trail_digits as i128)
             }
         };
 
-        let scale = match decimal_offset.checked_sub(exponent_value) {
-            Some(scale) => scale,
-            None => {
-                return Err(ParseBigDecimalError::Other(
-                    format!("Exponent overflow when parsing '{}'", s)
-                ))
-            }
-        };
+        // Calculate scale by subtracing the parsed exponential
+        // value from the number of decimal digits.
+        // Return error if anything overflows outside i64 boundary.
+        let scale = decimal_offset
+                    .checked_sub(exponent_value)
+                    .map(|scale| scale.to_i64())
+                    .flatten()
+                    .ok_or_else(||
+                        ParseBigDecimalError::Other(
+                            format!("Exponent overflow when parsing '{}'", s))
+                    )?;
 
         let big_int = BigInt::from_str_radix(&digits, radix)?;
 
