@@ -532,6 +532,45 @@ mod test {
         }
     }
 
+    mod fmt_boundaries {
+        use super::*;
+
+        macro_rules! impl_case {
+            ( $name:ident: $src:expr => $expected:literal ) => {
+                #[test]
+                fn $name() {
+                    let src = $src;
+                    let bd: BigDecimal = src.parse().unwrap();
+                    let result = bd.to_string();
+                    assert_eq!(result, $expected);
+
+                    bd.to_scientific_notation();
+                    bd.to_engineering_notation();
+
+                    let round_trip = BigDecimal::from_str(&result).unwrap();
+                    assert_eq!(round_trip, bd);
+                }
+            };
+            ( (panics) $name:ident: $src:expr ) => {
+                #[test]
+                #[should_panic]
+                fn $name() {
+                    let src = $src;
+                    let _bd: BigDecimal = src.parse().unwrap();
+                }
+            };
+        }
+
+        impl_case!(test_max: format!("1E{}", i64::MAX) => "1E+9223372036854775807");
+        impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "3.14156E+9223372036854775812");
+        impl_case!(test_min_scale: "1E9223372036854775808" => "1E+9223372036854775808");
+        impl_case!(test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
+        impl_case!(test_min_multiple_digits: format!("271828182E-{}", i64::MAX) => "2.71828182E-9223372036854775799");
+
+        impl_case!((panics) test_max_exp_overflow: "1E9223372036854775809");
+        impl_case!((panics) test_min_exp_overflow: "1E-9223372036854775808");
+    }
+
     #[test]
     fn test_fmt() {
         let vals = vec![
