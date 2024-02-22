@@ -54,26 +54,33 @@ impl Num for BigDecimal {
             return Err(ParseBigDecimalError::Empty);
         }
 
-        // split decimal into a digit string and decimal-point offset
-        let (digits, decimal_offset): (String, _) = match base_part.find('.') {
-            // No dot! pass directly to BigInt
-            None => (base_part.to_string(), 0),
+        let mut digit_buffer = String::new();
 
+        let last_digit_loc = base_part.len() - 1;
+
+        // split decimal into a digit string and decimal-point offset
+        let (digits, decimal_offset) = match base_part.find('.') {
+            // No dot! pass directly to BigInt
+            None => (base_part, 0),
+            // dot at last digit, pass all preceding digits to BigInt
+            Some(loc) if loc == last_digit_loc => {
+                (&base_part[..last_digit_loc], 0)
+            }
             // decimal point found - necessary copy into new string buffer
             Some(loc) => {
                 // split into leading and trailing digits
                 let (lead, trail) = (&base_part[..loc], &base_part[loc + 1..]);
 
+                digit_buffer.reserve(lead.len() + trail.len());
                 // copy all leading characters into 'digits' string
-                let mut digits = String::from(lead);
-
+                digit_buffer.push_str(lead);
                 // copy all trailing characters after '.' into the digits string
-                digits.push_str(trail);
+                digit_buffer.push_str(trail);
 
                 // count number of trailing digits
                 let trail_digits = trail.chars().filter(|c| *c != '_').count();
 
-                (digits, trail_digits as i128)
+                (digit_buffer.as_str(), trail_digits as i128)
             }
         };
 
@@ -89,7 +96,7 @@ impl Num for BigDecimal {
                             format!("Exponent overflow when parsing '{}'", s))
                     )?;
 
-        let big_int = BigInt::from_str_radix(&digits, radix)?;
+        let big_int = BigInt::from_str_radix(digits, radix)?;
 
         Ok(BigDecimal::new(big_int, scale))
     }
