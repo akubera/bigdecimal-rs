@@ -91,7 +91,7 @@ fn format_full_scale(
     use stdlib::cmp::Ordering::*;
 
     let mut digits = abs_int.into_bytes();
-    let mut exp = -this.scale;
+    let mut exp = (this.scale as i128).neg();
     let non_negative = matches!(this.sign, Sign::Plus | Sign::NoSign);
 
     debug_assert_ne!(digits.len(), 0);
@@ -122,7 +122,7 @@ fn format_full_scale(
             debug_assert!(digits.len() > 1);
 
             // increase exp by len(digits)-1 (eg [ddddd]E+{exp} => [d.dddd]E+{exp+4})
-            exp += digits.len() as i64 - 1;
+            exp += digits.len() as i128 - 1;
 
             // push decimal point and rotate it to index '1'
             digits.push(b'.');
@@ -177,7 +177,7 @@ fn format_exponential(
     //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
     //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
 
-    let mut exp = -this.scale;
+    let mut exp = (this.scale as i128).neg();
     let mut digits = abs_int.into_bytes();
 
     if digits.len() > 1 {
@@ -266,7 +266,7 @@ pub(crate) fn write_scientific_notation<W: Write>(n: &BigDecimal, w: &mut W) -> 
         w.write_str(".")?;
         w.write_str(remaining_digits)?;
     }
-    write!(w, "e{}", remaining_digits.len() as i64 - n.scale)
+    write!(w, "e{}", remaining_digits.len() as i128 - n.scale as i128)
 }
 
 
@@ -317,13 +317,18 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
 
 
 /// Round big-endian digits in ascii
-fn apply_rounding_to_ascii_digits(ascii_digits: &mut Vec<u8>, exp: &mut i64, prec: usize, sign: Sign) {
+fn apply_rounding_to_ascii_digits(
+    ascii_digits: &mut Vec<u8>,
+    exp: &mut i128,
+    prec: usize,
+    sign: Sign
+) {
     if ascii_digits.len() < prec {
         return;
     }
 
     // shift exp to align with new length of digits
-    *exp += (ascii_digits.len() - prec) as i64;
+    *exp += (ascii_digits.len() - prec) as i128;
 
     // true if all ascii_digits after precision are zeros
     let trailing_zeros = ascii_digits[prec + 1..].iter().all(|&d| d == b'0');
