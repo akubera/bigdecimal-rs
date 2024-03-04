@@ -16,6 +16,7 @@ fn main() {
     let outdir: PathBuf = std::env::var_os("OUT_DIR").unwrap().into();
     write_default_precision_file(&outdir);
     write_default_rounding_mode(&outdir);
+    write_exponential_format_threshold_file(&outdir);
 }
 
 
@@ -43,6 +44,23 @@ fn write_default_rounding_mode(outdir: &Path) {
 
     let rust_file_path = outdir.join("default_rounding_mode.rs");
     let rust_file_contents = format!("const DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::{};", rounding_mode_name);
+
+    std::fs::write(rust_file_path, rust_file_contents).unwrap();
+}
+
+/// Create write_default_rounding_mode.rs, containing definition of constant EXPONENTIAL_FORMAT_THRESHOLD loaded in src/impl_fmt.rs
+fn write_exponential_format_threshold_file(outdir: &Path) {
+    let env_var = env::var("RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD").unwrap_or_else(|_| "5".to_owned());
+    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD");
+
+    let rust_file_path = outdir.join("exponential_format_threshold.rs");
+
+    let value: u32 = env_var
+        .parse::<std::num::NonZeroU32>()
+        .expect("$RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD must be an integer > 0")
+        .into();
+
+    let rust_file_contents = format!("const EXPONENTIAL_FORMAT_THRESHOLD: i64 = {};", value);
 
     std::fs::write(rust_file_path, rust_file_contents).unwrap();
 }

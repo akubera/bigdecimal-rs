@@ -15,6 +15,9 @@ jobs:
       rust-features:
         type: string
         default: "--all-targets"
+      proptest-enable:
+        type: boolean
+        default: false
     docker:
       - image: rust:<< parameters.rust-version >>-<< parameters.debian-version >>
     environment:
@@ -25,9 +28,18 @@ jobs:
       - run:
           name: Rust Version
           command: rustc --version; cargo --version
+      - when:
+          condition: << parameters.proptest-enable >>
+          steps:
+          - run:
+              name: Enable Running Property Tests
+              command: scripts/bigdecimal-property-tests enable
+      - run:
+          name: Generate cargo.lock
+          command: cargo generate-lockfile
       - restore_cache:
           keys:
-            - bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
+            - bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.lock" }}
             - bigdecimal-cargo-
       - run:
           name: Check
@@ -35,7 +47,7 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo
-          key: bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.toml" }}
+          key: bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.lock" }}
       - run:
           name: Build
           command: cargo build << parameters.rust-features >>
@@ -137,6 +149,7 @@ workflows:
     - build-and-test:
         name: build-and-test:latest:serde
         rust-features: "--all-targets --features='serde'"
+        proptest-enable: true
 
     - build-and-test:
         name: build-and-test:no_std

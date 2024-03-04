@@ -84,6 +84,7 @@ use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
+use self::stdlib::Vec;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
@@ -882,6 +883,50 @@ impl BigDecimal {
         let scale = self.scale - trailing_count as i64;
         BigDecimal::new(int_val, scale)
     }
+
+    //////////////////////////
+    // Formatting methods
+
+    /// Create string of this bigdecimal in scientific notation
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_scientific_notation(), "1.2345678e7");
+    /// ```
+    pub fn to_scientific_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_scientific_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in scientific notation to writer `w`
+    pub fn write_scientific_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_scientific_notation(self, w)
+    }
+
+    /// Create string of this bigdecimal in engineering notation
+    ///
+    /// Engineering notation is scientific notation with the exponent
+    /// coerced to a multiple of three
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_engineering_notation(), "12.345678e6");
+    /// ```
+    ///
+    pub fn to_engineering_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_engineering_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in engineering notation to writer `w`
+    pub fn write_engineering_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_engineering_notation(self, w)
+    }
+
 }
 
 #[derive(Debug, PartialEq)]
@@ -1956,10 +2001,10 @@ mod bigdecimal_tests {
             "0.1"),
             (BigDecimal::new(BigInt::from(132400), -4),
             BigDecimal::new(BigInt::from(1324), -6),
-            "1324000000"),
+            "1.324E+9"),
             (BigDecimal::new(BigInt::from(1_900_000), 3),
             BigDecimal::new(BigInt::from(19), -2),
-            "1900"),
+            "1.9E+3"),
             (BigDecimal::new(BigInt::from(0), -3),
             BigDecimal::zero(),
             "0"),
@@ -1987,6 +2032,53 @@ mod bigdecimal_tests {
         let value = BigDecimal::from_u128(668934881474191032320).unwrap();
         let expected = BigDecimal::from_str("668934881474191032320").unwrap();
         assert_eq!(value, expected);
+    }
+
+    #[test]
+    fn test_parse_roundtrip() {
+        let vals = vec![
+            "1.0",
+            "0.5",
+            "50",
+            "50000",
+            "0.001000000000000000020816681711721685132943093776702880859375",
+            "0.25",
+            "12.339999999999999857891452847979962825775146484375",
+            "0.15625",
+            "0.333333333333333314829616256247390992939472198486328125",
+            "3.141592653589793115997963468544185161590576171875",
+            "31415.926535897931898944079875946044921875",
+            "94247.779607693795696832239627838134765625",
+            "1331.107",
+            "1.0",
+            "2e1",
+            "0.00123",
+            "-123",
+            "-1230",
+            "12.3",
+            "123e-1",
+            "1.23e+1",
+            "1.23E+3",
+            "1.23E-8",
+            "-1.23E-10",
+            "123_",
+            "31_862_140.830_686_979",
+            "-1_1.2_2",
+            "999.521_939",
+            "679.35_84_03E-2",
+            "271576662.__E4",
+            // Large decimals with small text representations
+            "1E10000",
+            "1E-10000",
+            "1.129387461293874682630000000487984723987459E10000",
+            "11293874612938746826340000000087984723987459E10000",
+        ];
+        for s in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let display = format!("{}", expected);
+            let parsed = BigDecimal::from_str(&display).unwrap();
+            assert_eq!(expected, parsed, "[{}] didn't round trip through [{}]", s, display);
+        }
     }
 }
 
