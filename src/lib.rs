@@ -141,9 +141,13 @@ pub use context::Context;
 use arithmetic::{
     ten_to_the,
     ten_to_the_uint,
+    ten_to_the_u64,
+    diff,
+    diff_usize,
     count_decimal_digits,
     count_decimal_digits_uint,
 };
+
 
 /// Internal function used for rounding
 ///
@@ -380,20 +384,31 @@ impl BigDecimal {
     ///
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
         if self.int_val.is_zero() {
-            return BigDecimal::new(BigInt::zero(), new_scale);
+            self.scale = new_scale;
+            return self;
         }
 
-        match new_scale.cmp(&self.scale) {
-            Ordering::Greater => {
-                self.int_val *= ten_to_the((new_scale - self.scale) as u64);
-                BigDecimal::new(self.int_val, new_scale)
+        match diff(new_scale, self.scale) {
+            (Ordering::Greater, scale_diff) => {
+                self.scale = new_scale;
+                if scale_diff < 20 {
+                    self.int_val *= ten_to_the_u64(scale_diff as u8);
+                } else {
+                    self.int_val *= ten_to_the(scale_diff);
+                }
             }
-            Ordering::Less => {
-                self.int_val /= ten_to_the((self.scale - new_scale) as u64);
-                BigDecimal::new(self.int_val, new_scale)
+            (Ordering::Less, scale_diff) => {
+                self.scale = new_scale;
+                if scale_diff < 20 {
+                    self.int_val /= ten_to_the_u64(scale_diff as u8);
+                } else {
+                    self.int_val /= ten_to_the(scale_diff);
+                }
             }
-            Ordering::Equal => self,
+            (Ordering::Equal, _) => {},
         }
+
+        self
     }
 
     /// Take and return bigdecimal with the given sign
