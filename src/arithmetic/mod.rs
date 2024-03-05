@@ -15,6 +15,12 @@ pub(crate) fn ten_to_the(pow: u64) -> BigInt {
     ten_to_the_uint(pow).into()
 }
 
+/// Return 10^{pow} as u64
+pub(crate) fn ten_to_the_u64(pow: u8) -> u64 {
+    debug_assert!(pow < 20);
+    10u64.pow(pow as u32)
+}
+
 /// Return 10^pow
 pub(crate) fn ten_to_the_uint(pow: u64) -> BigUint {
     if pow < 20 {
