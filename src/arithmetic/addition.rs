@@ -9,21 +9,44 @@ pub(crate) fn add_bigdecimals(
     mut b: BigDecimal,
 ) -> BigDecimal {
     if b.is_zero() {
+        if a.scale < b.scale {
+            a.int_val *= ten_to_the((b.scale - a.scale) as u64);
+            a.scale = b.scale;
+        }
         return a;
     }
+
     if a.is_zero() {
+        if b.scale < a.scale {
+            b.int_val *= ten_to_the((a.scale - b.scale) as u64);
+            b.scale = a.scale;
+        }
         return b;
     }
 
-    match a.scale.cmp(&b.scale) {
-        Ordering::Equal => {
-            a.int_val += b.int_val;
-            a
-        }
-        Ordering::Less => a.take_and_scale(b.scale) + b,
-        Ordering::Greater => b.take_and_scale(a.scale) + a,
+    let (a, b) = match a.scale.cmp(&b.scale) {
+        Ordering::Equal => (a, b),
+        Ordering::Less => (a.take_and_scale(b.scale), b),
+        Ordering::Greater => (b.take_and_scale(a.scale), a),
+    };
+
+    add_aligned_bigdecimals(a, b)
+}
+
+fn add_aligned_bigdecimals(
+    mut a: BigDecimal,
+    mut b: BigDecimal,
+) -> BigDecimal {
+    debug_assert_eq!(a.scale, b.scale);
+    if a.int_val.bits() >= b.int_val.bits() {
+        a.int_val += b.int_val;
+        a
+    } else {
+        b.int_val += a.int_val;
+        b
     }
 }
+
 
 pub(crate) fn add_bigdecimal_refs<'a, 'b, Lhs, Rhs>(
     lhs: Lhs,
