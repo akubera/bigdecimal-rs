@@ -2,6 +2,7 @@
 
 use crate::*;
 
+pub(crate) mod addition;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
@@ -12,6 +13,12 @@ pub(crate) mod inverse;
 ///
 pub(crate) fn ten_to_the(pow: u64) -> BigInt {
     ten_to_the_uint(pow).into()
+}
+
+/// Return 10^{pow} as u64
+pub(crate) fn ten_to_the_u64(pow: u8) -> u64 {
+    debug_assert!(pow < 20);
+    10u64.pow(pow as u32)
 }
 
 /// Return 10^pow
@@ -73,4 +80,31 @@ pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
         digits += 1;
     }
     digits
+}
+
+
+/// Return difference of two numbers, returning diff as u64
+pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)
+where
+    T: ToPrimitive + stdlib::ops::Sub<Output=T> + stdlib::cmp::Ord
+{
+    use stdlib::cmp::Ordering::*;
+
+    match a.cmp(&b) {
+        Less => (Less, (b - a).to_u64().unwrap()),
+        Greater => (Greater, (a - b).to_u64().unwrap()),
+        Equal => (Equal, 0),
+    }
+}
+
+/// Return difference of two numbers, returning diff as usize
+#[allow(dead_code)]
+pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
+    use stdlib::cmp::Ordering::*;
+
+    match a.cmp(&b) {
+        Less => (Less, b - a),
+        Greater => (Greater, a - b),
+        Equal => (Equal, 0),
+    }
 }

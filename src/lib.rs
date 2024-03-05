@@ -41,11 +41,14 @@
 //! ```
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::style)]
+#![allow(clippy::excessive_precision)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
+#![allow(clippy::approx_constant)]
+#![cfg_attr(test, allow(clippy::useless_vec))]
 #![allow(unused_imports)]
 
 
@@ -58,6 +61,9 @@ extern crate paste;
 
 #[cfg(feature = "serde")]
 extern crate serde;
+
+#[cfg(all(test, feature = "serde"))]
+extern crate serde_test;
 
 #[cfg(feature = "std")]
 include!("./with_std.rs");
@@ -78,6 +84,7 @@ use self::stdlib::iter::Sum;
 use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
+use self::stdlib::Vec;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
@@ -97,6 +104,7 @@ mod arithmetic;
 
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
+mod impl_trait_from_str;
 
 // Add<T>, Sub<T>, etc...
 mod impl_ops;
@@ -112,6 +120,13 @@ mod impl_cmp;
 // Implementations of num_traits
 mod impl_num;
 
+// Implementations of std::fmt traits and stringificaiton routines
+mod impl_fmt;
+
+// Implementations for deserializations and serializations
+#[cfg(feature = "serde")]
+pub mod impl_serde;
+
 // construct BigDecimals from strings and floats
 mod parsing;
 
@@ -126,9 +141,13 @@ pub use context::Context;
 use arithmetic::{
     ten_to_the,
     ten_to_the_uint,
+    ten_to_the_u64,
+    diff,
+    diff_usize,
     count_decimal_digits,
     count_decimal_digits_uint,
 };
+
 
 /// Internal function used for rounding
 ///
@@ -365,20 +384,31 @@ impl BigDecimal {
     ///
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
         if self.int_val.is_zero() {
-            return BigDecimal::new(BigInt::zero(), new_scale);
+            self.scale = new_scale;
+            return self;
         }
 
-        match new_scale.cmp(&self.scale) {
-            Ordering::Greater => {
-                self.int_val *= ten_to_the((new_scale - self.scale) as u64);
-                BigDecimal::new(self.int_val, new_scale)
+        match diff(new_scale, self.scale) {
+            (Ordering::Greater, scale_diff) => {
+                self.scale = new_scale;
+                if scale_diff < 20 {
+                    self.int_val *= ten_to_the_u64(scale_diff as u8);
+                } else {
+                    self.int_val *= ten_to_the(scale_diff);
+                }
             }
-            Ordering::Less => {
-                self.int_val /= ten_to_the((self.scale - new_scale) as u64);
-                BigDecimal::new(self.int_val, new_scale)
+            (Ordering::Less, scale_diff) => {
+                self.scale = new_scale;
+                if scale_diff < 20 {
+                    self.int_val /= ten_to_the_u64(scale_diff as u8);
+                } else {
+                    self.int_val /= ten_to_the(scale_diff);
+                }
             }
-            Ordering::Equal => self,
+            (Ordering::Equal, _) => {},
         }
+
+        self
     }
 
     /// Take and return bigdecimal with the given sign
@@ -868,9 +898,53 @@ impl BigDecimal {
         let scale = self.scale - trailing_count as i64;
         BigDecimal::new(int_val, scale)
     }
+
+    //////////////////////////
+    // Formatting methods
+
+    /// Create string of this bigdecimal in scientific notation
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_scientific_notation(), "1.2345678e7");
+    /// ```
+    pub fn to_scientific_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_scientific_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in scientific notation to writer `w`
+    pub fn write_scientific_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_scientific_notation(self, w)
+    }
+
+    /// Create string of this bigdecimal in engineering notation
+    ///
+    /// Engineering notation is scientific notation with the exponent
+    /// coerced to a multiple of three
+    ///
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n = BigDecimal::from(12345678);
+    /// assert_eq!(&n.to_engineering_notation(), "12.345678e6");
+    /// ```
+    ///
+    pub fn to_engineering_notation(&self) -> String {
+        let mut output = String::new();
+        self.write_engineering_notation(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write bigdecimal in engineering notation to writer `w`
+    pub fn write_engineering_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
+        impl_fmt::write_engineering_notation(self, w)
+    }
+
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParseBigDecimalError {
     ParseDecimal(ParseFloatError),
     ParseInt(ParseIntError),
@@ -915,15 +989,6 @@ impl From<ParseIntError> for ParseBigDecimalError {
 impl From<ParseBigIntError> for ParseBigDecimalError {
     fn from(err: ParseBigIntError) -> ParseBigDecimalError {
         ParseBigDecimalError::ParseBigInt(err)
-    }
-}
-
-impl FromStr for BigDecimal {
-    type Err = ParseBigDecimalError;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<BigDecimal, ParseBigDecimalError> {
-        BigDecimal::from_str_radix(s, 10)
     }
 }
 
@@ -1133,68 +1198,6 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl fmt::Display for BigDecimal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Acquire the absolute integer as a decimal string
-        let mut abs_int = self.int_val.abs().to_str_radix(10);
-
-        // Split the representation at the decimal point
-        let (before, after) = if self.scale >= abs_int.len() as i64 {
-            // First case: the integer representation falls
-            // completely behind the decimal point
-            let scale = self.scale as usize;
-            let after = "0".repeat(scale - abs_int.len()) + abs_int.as_str();
-            ("0".to_string(), after)
-        } else {
-            // Second case: the integer representation falls
-            // around, or before the decimal point
-            let location = abs_int.len() as i64 - self.scale;
-            if location > abs_int.len() as i64 {
-                // Case 2.1, entirely before the decimal point
-                // We should prepend zeros
-                let zeros = location as usize - abs_int.len();
-                let abs_int = abs_int + "0".repeat(zeros).as_str();
-                (abs_int, "".to_string())
-            } else {
-                // Case 2.2, somewhere around the decimal point
-                // Just split it in two
-                let after = abs_int.split_off(location as usize);
-                (abs_int, after)
-            }
-        };
-
-        // Alter precision after the decimal point
-        let after = if let Some(precision) = f.precision() {
-            let len = after.len();
-            if len < precision {
-                after + "0".repeat(precision - len).as_str()
-            } else {
-                // TODO: Should we round?
-                after[0..precision].to_string()
-            }
-        } else {
-            after
-        };
-
-        // Concatenate everything
-        let complete_without_sign = if !after.is_empty() {
-            before + "." + after.as_str()
-        } else {
-            before
-        };
-
-        let non_negative = matches!(self.int_val.sign(), Sign::Plus | Sign::NoSign);
-        //pad_integral does the right thing although we have a decimal
-        f.pad_integral(non_negative, "", &complete_without_sign)
-    }
-}
-
-impl fmt::Debug for BigDecimal {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BigDecimal(\"{}\")", self)
-    }
-}
-
 
 /// Immutable big-decimal, referencing a borrowed buffer of digits
 ///
@@ -1348,171 +1351,6 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
             sign: n.sign(),
             digits: n.magnitude(),
             scale: 0,
-        }
-    }
-}
-
-
-/// Tools to help serializing/deserializing `BigDecimal`s
-#[cfg(feature = "serde")]
-mod bigdecimal_serde {
-    use super::*;
-    use serde::{de, ser};
-
-    #[allow(unused_imports)]
-    use num_traits::FromPrimitive;
-
-    impl ser::Serialize for BigDecimal {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: ser::Serializer,
-        {
-            serializer.collect_str(&self)
-        }
-    }
-
-    struct BigDecimalVisitor;
-
-    impl<'de> de::Visitor<'de> for BigDecimalVisitor {
-        type Value = BigDecimal;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            write!(formatter, "a number or formatted decimal string")
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            BigDecimal::from_str(value).map_err(|err| E::custom(format!("{}", err)))
-        }
-
-        fn visit_u64<E>(self, value: u64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            Ok(BigDecimal::from(value))
-        }
-
-        fn visit_i64<E>(self, value: i64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            Ok(BigDecimal::from(value))
-        }
-
-        fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
-        where
-            E: de::Error,
-        {
-            BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
-        }
-    }
-
-    #[cfg(not(feature = "string-only"))]
-    impl<'de> de::Deserialize<'de> for BigDecimal {
-        fn deserialize<D>(d: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
-        {
-            d.deserialize_any(BigDecimalVisitor)
-        }
-    }
-
-    #[cfg(feature = "string-only")]
-    impl<'de> de::Deserialize<'de> for BigDecimal {
-        fn deserialize<D>(d: D) -> Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
-        {
-            d.deserialize_str(BigDecimalVisitor)
-        }
-    }
-
-    #[cfg(test)]
-    extern crate serde_json;
-
-    #[test]
-    fn test_serde_serialize() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = format!("\"{}\"", v);
-            let value = serde_json::to_string(&BigDecimal::from_str(s).unwrap()).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    fn test_serde_deserialize_str() {
-        let vals = vec![
-            ("1.0", "1.0"),
-            ("0.5", "0.5"),
-            ("50", "50"),
-            ("50000", "50000"),
-            ("1e-3", "0.001"),
-            ("1e12", "1000000000000"),
-            ("0.25", "0.25"),
-            ("12.34", "12.34"),
-            ("0.15625", "0.15625"),
-            ("0.3333333333333333", "0.3333333333333333"),
-            ("3.141592653589793", "3.141592653589793"),
-            ("94247.77960769380", "94247.77960769380"),
-            ("10.99", "10.99"),
-            ("12.0010", "12.0010"),
-        ];
-        for (s, v) in vals {
-            let expected = BigDecimal::from_str(v).unwrap();
-            let value: BigDecimal = serde_json::from_str(&format!("\"{}\"", s)).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_int() {
-        let vals = vec![0, 1, 81516161, -370, -8, -99999999999];
-        for n in vals {
-            let expected = BigDecimal::from_i64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
-        }
-    }
-
-    #[test]
-    #[cfg(not(feature = "string-only"))]
-    fn test_serde_deserialize_f64() {
-        let vals = vec![
-            1.0,
-            0.5,
-            0.25,
-            50.0,
-            50000.,
-            0.001,
-            12.34,
-            5.0 * 0.03125,
-            stdlib::f64::consts::PI,
-            stdlib::f64::consts::PI * 10000.0,
-            stdlib::f64::consts::PI * 30000.0,
-        ];
-        for n in vals {
-            let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
         }
     }
 }
@@ -2159,75 +1997,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_from_str() {
-        let vals = vec![
-            ("1331.107", 1331107, 3),
-            ("1.0", 10, 1),
-            ("2e1", 2, -1),
-            ("0.00123", 123, 5),
-            ("-123", -123, 0),
-            ("-1230", -1230, 0),
-            ("12.3", 123, 1),
-            ("123e-1", 123, 1),
-            ("1.23e+1", 123, 1),
-            ("1.23E+3", 123, -1),
-            ("1.23E-8", 123, 10),
-            ("-1.23E-10", -123, 12),
-            ("123_", 123, 0),
-            ("31_862_140.830_686_979", 31862140830686979, 9),
-            ("-1_1.2_2", -1122, 2),
-            ("999.521_939", 999521939, 6),
-            ("679.35_84_03E-2", 679358403, 8),
-            ("271576662.__E4", 271576662, -4),
-        ];
-
-        for &(source, val, scale) in vals.iter() {
-            let x = BigDecimal::from_str(source).unwrap();
-            assert_eq!(x.int_val.to_i64().unwrap(), val);
-            assert_eq!(x.scale, scale);
-        }
-    }
-
-    #[test]
-    fn test_fmt() {
-        let vals = vec![
-            // b  s   ( {}        {:.1}     {:.4}      {:4.1}  {:+05.1}  {:<4.1}
-            (1, 0,  (  "1",     "1.0",    "1.0000",  " 1.0",  "+01.0",   "1.0 " )),
-            (1, 1,  (  "0.1",   "0.1",    "0.1000",  " 0.1",  "+00.1",   "0.1 " )),
-            (1, 2,  (  "0.01",  "0.0",    "0.0100",  " 0.0",  "+00.0",   "0.0 " )),
-            (1, -2, ("100",   "100.0",  "100.0000", "100.0", "+100.0", "100.0" )),
-            (-1, 0, ( "-1",    "-1.0",   "-1.0000",  "-1.0",  "-01.0",  "-1.0" )),
-            (-1, 1, ( "-0.1",  "-0.1",   "-0.1000",  "-0.1",  "-00.1",  "-0.1" )),
-            (-1, 2, ( "-0.01", "-0.0",   "-0.0100",  "-0.0",  "-00.0",  "-0.0" )),
-        ];
-        for (i, scale, results) in vals {
-            let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
-            assert_eq!(format!("{}", x), results.0);
-            assert_eq!(format!("{:.1}", x), results.1);
-            assert_eq!(format!("{:.4}", x), results.2);
-            assert_eq!(format!("{:4.1}", x), results.3);
-            assert_eq!(format!("{:+05.1}", x), results.4);
-            assert_eq!(format!("{:<4.1}", x), results.5);
-        }
-    }
-
-    #[test]
-    fn test_debug() {
-        let vals = vec![
-            ("BigDecimal(\"123.456\")", "123.456"),
-            ("BigDecimal(\"123.400\")", "123.400"),
-            ("BigDecimal(\"1.20\")", "01.20"),
-            // ("BigDecimal(\"1.2E3\")", "01.2E3"), <- ambiguous precision
-            ("BigDecimal(\"1200\")", "01.2E3"),
-        ];
-
-        for (expected, source) in vals {
-            let var = BigDecimal::from_str(source).unwrap();
-            assert_eq!(format!("{:?}", var), expected);
-        }
-    }
-
-    #[test]
     fn test_signed() {
         assert!(!BigDecimal::zero().is_positive());
         assert!(!BigDecimal::one().is_negative());
@@ -2247,10 +2016,10 @@ mod bigdecimal_tests {
             "0.1"),
             (BigDecimal::new(BigInt::from(132400), -4),
             BigDecimal::new(BigInt::from(1324), -6),
-            "1324000000"),
+            "1.324E+9"),
             (BigDecimal::new(BigInt::from(1_900_000), 3),
             BigDecimal::new(BigInt::from(19), -2),
-            "1900"),
+            "1.9E+3"),
             (BigDecimal::new(BigInt::from(0), -3),
             BigDecimal::zero(),
             "0"),
@@ -2267,47 +2036,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan() {
-        BigDecimal::from_str("hello").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty() {
-        BigDecimal::from_str("").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_invalid_char() {
-        BigDecimal::from_str("12z3.12").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_nan_exponent() {
-        BigDecimal::from_str("123.123eg").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_empty_exponent() {
-        BigDecimal::from_str("123.123E").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "InvalidDigit")]
-    fn test_bad_string_multiple_decimal_points() {
-        BigDecimal::from_str("123.12.45").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal() {
-        BigDecimal::from_str(".").unwrap();
-    }
-    #[test]
-    #[should_panic(expected = "Empty")]
-    fn test_bad_string_only_decimal_and_exponent() {
-        BigDecimal::from_str(".e4").unwrap();
-    }
-
-    #[test]
     fn test_from_i128() {
         let value = BigDecimal::from_i128(-368934881474191032320).unwrap();
         let expected = BigDecimal::from_str("-368934881474191032320").unwrap();
@@ -2319,6 +2047,53 @@ mod bigdecimal_tests {
         let value = BigDecimal::from_u128(668934881474191032320).unwrap();
         let expected = BigDecimal::from_str("668934881474191032320").unwrap();
         assert_eq!(value, expected);
+    }
+
+    #[test]
+    fn test_parse_roundtrip() {
+        let vals = vec![
+            "1.0",
+            "0.5",
+            "50",
+            "50000",
+            "0.001000000000000000020816681711721685132943093776702880859375",
+            "0.25",
+            "12.339999999999999857891452847979962825775146484375",
+            "0.15625",
+            "0.333333333333333314829616256247390992939472198486328125",
+            "3.141592653589793115997963468544185161590576171875",
+            "31415.926535897931898944079875946044921875",
+            "94247.779607693795696832239627838134765625",
+            "1331.107",
+            "1.0",
+            "2e1",
+            "0.00123",
+            "-123",
+            "-1230",
+            "12.3",
+            "123e-1",
+            "1.23e+1",
+            "1.23E+3",
+            "1.23E-8",
+            "-1.23E-10",
+            "123_",
+            "31_862_140.830_686_979",
+            "-1_1.2_2",
+            "999.521_939",
+            "679.35_84_03E-2",
+            "271576662.__E4",
+            // Large decimals with small text representations
+            "1E10000",
+            "1E-10000",
+            "1.129387461293874682630000000487984723987459E10000",
+            "11293874612938746826340000000087984723987459E10000",
+        ];
+        for s in vals {
+            let expected = BigDecimal::from_str(s).unwrap();
+            let display = format!("{}", expected);
+            let parsed = BigDecimal::from_str(&display).unwrap();
+            assert_eq!(expected, parsed, "[{}] didn't round trip through [{}]", s, display);
+        }
     }
 }
 

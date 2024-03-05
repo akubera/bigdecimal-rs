@@ -21,8 +21,8 @@ sum mut: 48.00000000000000
 fn main() {
     println!("Hello, Big Decimals!");
     let input = "0.8";
-    let dec = BigDecimal::from_str(&input).unwrap();
-    let float = f32::from_str(&input).unwrap();
+    let dec = BigDecimal::from_str(input).unwrap();
+    let float = f32::from_str(input).unwrap();
     println!("Input ({}) with 10 decimals: {} vs {})", input, dec, float);
 
     let bd_square = dec.square();

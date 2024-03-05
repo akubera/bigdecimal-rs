@@ -10,22 +10,7 @@ impl Add<BigDecimal> for BigDecimal {
 
     #[inline]
     fn add(self, rhs: BigDecimal) -> BigDecimal {
-        if rhs.is_zero() {
-            return self;
-        }
-        if self.is_zero() {
-            return rhs;
-        }
-
-        let mut lhs = self;
-        match lhs.scale.cmp(&rhs.scale) {
-            Ordering::Equal => {
-                lhs.int_val += rhs.int_val;
-                lhs
-            }
-            Ordering::Less => lhs.take_and_scale(rhs.scale) + rhs,
-            Ordering::Greater => rhs.take_and_scale(lhs.scale) + lhs,
-        }
+        arithmetic::addition::add_bigdecimals(self, rhs)
     }
 }
 
@@ -61,18 +46,7 @@ impl Add<BigDecimal> for &'_ BigDecimal {
 impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for &'_ BigDecimal {
     type Output = BigDecimal;
     fn add(self, rhs: T) -> BigDecimal {
-        let rhs = rhs.into();
-        if rhs.is_zero() {
-            return self.clone();
-        }
-        if self.is_zero() {
-            return rhs.to_owned();
-        }
-        if self.scale >= rhs.scale {
-            self.to_owned() + rhs
-        } else {
-            rhs.to_owned() + self
-        }
+        arithmetic::addition::add_bigdecimal_refs(self, rhs)
     }
 }
 
@@ -98,12 +72,7 @@ impl Add<BigDecimal> for BigDecimalRef<'_> {
 impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimalRef<'_> {
     type Output = BigDecimal;
     fn add(self, rhs: T) -> BigDecimal {
-        let rhs = rhs.into();
-        if self.scale >= rhs.scale {
-            self.to_owned() + rhs
-        } else {
-            rhs.to_owned() + self
-        }
+        arithmetic::addition::add_bigdecimal_refs(self, rhs)
     }
 }
 
@@ -122,7 +91,7 @@ impl Add<BigDecimal> for BigInt {
 
     #[inline]
     fn add(self, rhs: BigDecimal) -> BigDecimal {
-        rhs + self
+        BigDecimal::from(self) + rhs
     }
 }
 
@@ -130,7 +99,7 @@ impl<'a> Add<&'a BigDecimal> for BigInt {
     type Output = BigDecimal;
 
     fn add(self, rhs: &BigDecimal) -> BigDecimal {
-        rhs.to_ref().add(self)
+        BigDecimal::from(self) + rhs
     }
 }
 
@@ -138,7 +107,7 @@ impl<'a> Add<BigDecimalRef<'a>> for BigInt {
     type Output = BigDecimal;
 
     fn add(self, rhs: BigDecimalRef<'_>) -> BigDecimal {
-        rhs.add(self)
+        BigDecimal::from(self) + rhs
     }
 }
 
@@ -173,43 +142,21 @@ impl<'a> Add<BigDecimalRef<'a>> for &BigInt {
 
 impl AddAssign<BigDecimal> for BigDecimal {
     fn add_assign(&mut self, rhs: BigDecimal) {
-        if rhs.is_zero() {
-            return;
-        }
-        if self.is_zero() {
-            *self = rhs;
-            return;
-        }
-        self.add_assign(rhs.to_ref());
+        arithmetic::addition::addassign_bigdecimals(self, rhs)
     }
 }
 
 impl<'a, N: Into<BigDecimalRef<'a>>> AddAssign<N> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: N) {
-        // TODO: Replace to_owned() with efficient addition algorithm
-        let rhs = rhs.into().to_owned();
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Less => {
-                let scaled = self.with_scale(rhs.scale);
-                self.int_val = scaled.int_val + &rhs.int_val;
-                self.scale = rhs.scale;
-            }
-            Ordering::Greater => {
-                let scaled = rhs.with_scale(self.scale);
-                self.int_val += scaled.int_val;
-            }
-            Ordering::Equal => {
-                self.int_val += &rhs.int_val;
-            }
-        }
+        arithmetic::addition::addassign_bigdecimal_ref(self, rhs)
     }
 }
 
 impl AddAssign<BigInt> for BigDecimal {
     #[inline]
     fn add_assign(&mut self, rhs: BigInt) {
-        self.add_assign(&rhs);
+        self.add_assign(BigDecimal::from(rhs));
     }
 }
 

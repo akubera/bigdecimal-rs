@@ -128,9 +128,7 @@ impl Context {
         A: Into<BigDecimalRef<'a>>,
         B: Into<BigDecimalRef<'b>>,
     {
-        let a = a.into();
-        let b = b.into();
-        let sum = a.to_owned() + b.to_owned();
+        let sum = a.into() + b.into();
         *dest = sum.with_precision_round(self.precision, self.rounding)
     }
 }
