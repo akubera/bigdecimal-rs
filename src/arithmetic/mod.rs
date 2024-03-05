@@ -2,6 +2,7 @@
 
 use crate::*;
 
+pub(crate) mod addition;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
