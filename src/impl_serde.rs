@@ -206,7 +206,7 @@ mod test {
 ///
 /// #[derive(Serialize, Deserialize)]
 /// pub struct ArbitraryExample {
-///     #[serde(with = "bigdecimal::impl_serde::arbitrary_precision")]
+///     #[serde(with = "bigdecimal::serde_json_float")]
 ///     value: BigDecimal,
 /// }
 ///
@@ -216,7 +216,7 @@ mod test {
 ///     r#"{"value":123.400}"#
 /// );
 /// ```
-#[cfg(feature = "arbitrary-precision")]
+#[cfg(feature = "serde_json")]
 pub mod arbitrary_precision {
     use crate::{BigDecimal, FromStr, stdlib::string::ToString};
     use serde::{Serialize, Deserialize};
@@ -268,7 +268,7 @@ pub mod arbitrary_precision {
 ///     r#"{"value":null}"#
 /// );
 /// ```
-#[cfg(feature = "arbitrary-precision")]
+#[cfg(feature = "serde_json")]
 pub mod arbitrary_precision_option {
     use crate::{BigDecimal, FromStr, stdlib::string::ToString};
     use serde::{Serialize, Deserialize};
@@ -295,8 +295,9 @@ pub mod arbitrary_precision_option {
 }
 
 
-#[cfg(all(test, feature = "arbitrary-precision"))]
-mod test_arbitrary_precision {
+#[cfg(all(test, feature = "serde_json"))]
+mod test_jsonification {
+    use super::*;
     extern crate serde_json;
 
     use crate::{BigDecimal, FromStr};

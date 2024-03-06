@@ -62,7 +62,7 @@ extern crate paste;
 #[cfg(feature = "serde")]
 extern crate serde;
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(all(test, any(feature = "serde", feature = "serde_json")))]
 extern crate serde_test;
 
 #[cfg(feature = "std")]
@@ -124,8 +124,11 @@ mod impl_num;
 mod impl_fmt;
 
 // Implementations for deserializations and serializations
-#[cfg(feature = "serde")]
+#[cfg(any(feature = "serde", feature="serde_json"))]
 pub mod impl_serde;
+
+#[cfg(feature = "serde_json")]
+pub use impl_serde::arbitrary_precision as serde_json_float;
 
 // construct BigDecimals from strings and floats
 mod parsing;
