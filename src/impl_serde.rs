@@ -2,7 +2,7 @@
 //! Support for serde implementations
 //!
 use crate::*;
-use serde::{de, ser};
+use serde_crate::{self as serde, de, ser, Serialize, Deserialize};
 
 
 impl ser::Serialize for BigDecimal {
@@ -206,7 +206,7 @@ mod test {
 ///
 /// #[derive(Serialize, Deserialize)]
 /// pub struct ArbitraryExample {
-///     #[serde(with = "bigdecimal::serde_json_float")]
+///     #[serde(with = "bigdecimal::serde::json_num")]
 ///     value: BigDecimal,
 /// }
 ///
@@ -218,8 +218,7 @@ mod test {
 /// ```
 #[cfg(feature = "serde_json")]
 pub mod arbitrary_precision {
-    use crate::{BigDecimal, FromStr, stdlib::string::ToString};
-    use serde::{Serialize, Deserialize};
+    use super::*;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<BigDecimal, D::Error>
     where
@@ -270,8 +269,7 @@ pub mod arbitrary_precision {
 /// ```
 #[cfg(feature = "serde_json")]
 pub mod arbitrary_precision_option {
-    use crate::{BigDecimal, FromStr, stdlib::string::ToString};
-    use serde::{Serialize, Deserialize};
+    use super::*;
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<BigDecimal>, D::Error>
     where
@@ -300,55 +298,71 @@ mod test_jsonification {
     use super::*;
     extern crate serde_json;
 
-    use crate::{BigDecimal, FromStr};
-    use serde::Deserialize;
+    mod deserialize_f64 {
+        use super::*;
 
-    #[test]
-    #[cfg(not(any(feature = "string-only", feature = "arbitrary-precision")))]
-    fn test_serde_deserialize_f64() {
-        use crate::{FromPrimitive,stdlib::f64::consts::PI};
+        macro_rules! impl_case {
+            ($name:ident : $input:expr) => {
+                impl_case!($name: $input => $input);
+            };
+            ($name:ident : $input:expr => $expected:literal) => {
+                #[test]
+                fn $name() {
+                    let mut json_deserialize = serde_json::Deserializer::from_str($input);
+                    let value = arbitrary_precision::deserialize(&mut json_deserialize)
+                                                    .expect("should parse JSON");
+                    let expected: BigDecimal = $expected.parse().unwrap();
 
-        let vals = vec![
-            1.0,
-            0.5,
-            0.25,
-            50.0,
-            50000.,
-            0.001,
-            12.34,
-            5.0 * 0.03125,
-            PI,
-            PI * 10000.0,
-            PI * 30000.0,
-        ];
-        for n in vals {
-            let expected = BigDecimal::from_f64(n).unwrap();
-            let value: BigDecimal = serde_json::from_str(&serde_json::to_string(&n).unwrap()).unwrap();
-            assert_eq!(expected, value);
+                    assert_eq!(expected, value);
+                }
+            };
         }
+
+        impl_case!(case_1d0: "1.0" => "1.0");
+        impl_case!(case_0d001: "0.001" => "0.001");
+        impl_case!(case_41009d2207etc: "41009.22075436852032769878903135430037010");
     }
 
-    /// Not a great test but demonstrates why `arbitrary-precision` exists.
-    #[test]
-    #[cfg(not(feature = "arbitrary-precision"))]
-    fn test_normal_precision() {
-        let json = r#"0.1"#;
-        let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
-        let deser: BigDecimal = serde_json::from_str(json).expect("should parse JSON");
+    mod serde_struct_decimals {
+        use super::*;
+        use crate as bigdecimal;
 
-        // 0.1 is directly representable in `BigDecimal`, but not `f64` so the default deserialization fails.
-        assert_ne!(expected, deser);
-    }
+        #[derive(Serialize, Deserialize)]
+        pub struct TestExample {
+            #[serde(with = "bigdecimal::serde::json_num")]
+            value: BigDecimal,
+        }
 
-    #[test]
-    #[cfg(feature = "arbitrary-precision")]
-    fn test_arbitrary_precision() {
-        use crate::impl_serde::arbitrary_precision;
+        macro_rules! impl_case {
+            ($name:ident : $input:expr => (error)) => {
+                #[test]
+                fn $name() {
+                    let res = serde_json::from_str::<TestExample>($input);
+                    assert!(res.is_err());
+                }
+            };
+            ($name:ident : $input:expr => $expected:expr) => {
+                #[test]
+                fn $name() {
+                    let obj: TestExample = serde_json::from_str($input).unwrap();
+                    let expected: BigDecimal = $expected.parse().unwrap();
 
-        let json = r#"0.1"#;
-        let expected = BigDecimal::from_str("0.1").expect("should parse 0.1 as BigDecimal");
-        let deser = arbitrary_precision::deserialize(&mut serde_json::Deserializer::from_str(json)).expect("should parse JSON");
+                    assert_eq!(expected, obj.value);
 
-        assert_eq!(expected, deser);
+                    // expect output to be input with all spaces removed
+                    let s = serde_json::to_string(&obj).unwrap();
+                    let input_stripped = $input.replace(" ", "");
+
+                    assert_eq!(&s, &input_stripped);
+                }
+            };
+        }
+
+        impl_case!(case_1d0: r#"{ "value": 1.0 }"# => "1.0" );
+        impl_case!(case_2d01: r#"{ "value": 2.01 }"# => "2.01" );
+        impl_case!(case_50: r#"{ "value": 50 }"# => "50" );
+        impl_case!(case_high_prec: r#"{ "value": 64771126779.35857825871133263810255301911 }"# => "64771126779.35857825871133263810255301911" );
+
+        impl_case!(case_nan: r#"{ "value": nan }"# => (error) );
     }
 }
