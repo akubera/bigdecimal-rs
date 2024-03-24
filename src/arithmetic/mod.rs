@@ -123,3 +123,36 @@ pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
         Equal => (Equal, 0),
     }
 }
+
+
+/// Add carry to given number, returning trimmed value and storing overflow back in carry
+///
+pub(crate) fn add_carry(n: u8, carry: &mut u8) -> u8 {
+    let s = n + *carry;
+    if s < 10 {
+        *carry = 0;
+        s
+    } else {
+        debug_assert!(s < 20);
+        *carry = 1;
+        s - 10
+    }
+}
+
+
+/// If n is greater than 10, split and store overflow in carry
+///
+/// No action if n is less than 10.
+///
+/// Carry is not allowed to be 1 if n is two digits
+///
+pub(crate) fn store_carry(n: u8, carry: &mut u8) -> u8 {
+    if n < 10 {
+        n
+    } else {
+        debug_assert!(n < 20);
+        debug_assert_eq!(carry, &0);
+        *carry = 1;
+        n - 10
+    }
+}
