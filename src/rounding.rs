@@ -195,6 +195,15 @@ impl RoundingMode {
         // shift rounded value back to position
         full * splitter
     }
+
+    /// Hint used to skip calculating trailing_zeros if they don't matter
+    fn needs_trailing_zeros(&self, insig_digit: u8) -> bool {
+        use RoundingMode::*;
+
+        insig_digit == 0
+        || (insig_digit == 5 && matches!(self, HalfUp | HalfDown | HalfEven))
+    }
+
 }
 
 
