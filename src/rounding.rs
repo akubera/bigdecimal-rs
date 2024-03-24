@@ -4,6 +4,7 @@ use crate::*;
 use crate::arithmetic::{add_carry, store_carry};
 use stdlib;
 
+
 /// Determines how to calculate the last digit of the number
 ///
 /// Default rounding mode is HalfUp
@@ -205,6 +206,38 @@ impl RoundingMode {
         || (insig_digit == 5 && matches!(self, HalfUp | HalfDown | HalfEven))
     }
 
+}
+
+
+/// All non-digit information required to round digits
+///
+/// Just the mode and the sign.
+///
+#[derive(Debug,Clone,Copy)]
+pub(crate) struct NonDigitRoundingData {
+    /// Rounding mode
+    pub mode: RoundingMode,
+    /// Sign of digits
+    pub sign: Sign,
+}
+
+impl NonDigitRoundingData {
+    /// Round pair of digits, storing overflow (10) in the carry
+    pub fn round_pair(&self, pair: (u8, u8), trailing_zeros: bool) -> u8 {
+        self.mode.round_pair(self.sign, pair, trailing_zeros)
+    }
+
+    /// round-pair with carry-digits
+    pub fn round_pair_with_carry(&self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
+        let rounded_digit = self.mode.round_pair(self.sign, pair, trailing_zeros);
+        if rounded_digit == 10 {
+            *carry = 1;
+            0
+        } else {
+            debug_assert!(rounded_digit < 10);
+            rounded_digit
+        }
+    }
 }
 
 
