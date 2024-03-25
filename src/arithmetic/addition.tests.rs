@@ -1,5 +1,6 @@
 mod add_bigdecimals {
     use super::*;
+    use paste::paste;
 
     macro_rules! impl_case {
         ( $name:ident: $a:literal + $b:literal = $c:literal ) => {
@@ -20,7 +21,24 @@ mod add_bigdecimals {
                 assert_eq!(expected.scale, r_plus_l.scale);
             }
 
-        }
+            paste! {
+                #[test]
+                fn [< $name _refs >]() {
+                    let lhs: BigDecimal = $a.parse().unwrap();
+                    let rhs: BigDecimal = $b.parse().unwrap();
+
+                    let l_plus_r = add_bigdecimal_refs(&lhs, &rhs, None);
+                    let r_plus_l = add_bigdecimal_refs(&rhs, &lhs, None);
+
+                    let expected: BigDecimal = $c.parse().unwrap();
+                    assert_eq!(expected.int_val, l_plus_r.int_val);
+                    assert_eq!(expected.scale, l_plus_r.scale);
+
+                    assert_eq!(expected.int_val, r_plus_l.int_val);
+                    assert_eq!(expected.scale, r_plus_l.scale);
+                }
+            }
+        };
     }
 
     impl_case!(case_1d2345_123d45: "1.2345" + "123.45" = "124.6845");
