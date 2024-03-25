@@ -383,9 +383,15 @@ impl BigDecimal {
     /// Useful for aligning decimals before adding/subtracting.
     ///
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
+        self.set_scale(new_scale);
+        self
+    }
+
+    /// Change to requested scale by multiplying or truncating
+    fn set_scale(&mut self, new_scale: i64) {
         if self.int_val.is_zero() {
             self.scale = new_scale;
-            return self;
+            return;
         }
 
         match diff(new_scale, self.scale) {
@@ -407,8 +413,6 @@ impl BigDecimal {
             }
             (Ordering::Equal, _) => {},
         }
-
-        self
     }
 
     /// Take and return bigdecimal with the given sign
