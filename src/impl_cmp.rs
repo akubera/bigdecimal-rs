@@ -64,6 +64,20 @@ fn check_equality_bigdecimal_ref(lhs: BigDecimalRef, rhs: BigDecimalRef) -> bool
         }
     }
 
+    debug_assert_ne!(trailing_zero_count, 0);
+
+    // multiplying by 10^trailing_zero_count guarantees shifting highest
+    // bit in 'scaled_int' to beyond the highest bit in 'unscaled_int',
+    // we know they are not equal
+    //
+    // x * 10^t > y
+    // log(x) + t * log(10) > log(y)
+    //
+    let ten_to_trailing_zero_bits = LOG2_10 * (64 - trailing_zero_count.leading_zeros()) as f64;
+    if ten_to_trailing_zero_bits as u64 + scaled_int.bits() > unscaled_int.bits() {
+        return false;
+    }
+
     // try compare without allocating
     if trailing_zero_count < 20 {
         let pow = ten_to_the_u64(trailing_zero_count as u8);
@@ -109,20 +123,29 @@ fn check_equality_bigdecimal_ref(lhs: BigDecimalRef, rhs: BigDecimalRef) -> bool
     }
 
     let trailing_zero_count = trailing_zero_count.to_usize().unwrap();
-
     let unscaled_digits = unscaled_int.to_radix_le(10);
-    let scaled_digits = scaled_int.to_radix_le(10);
 
-    // different lengths with trailing zeros
-    if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
+    if trailing_zero_count > unscaled_digits.len() {
         return false;
     }
 
-    // add leading zero digits to digits that need scaled
-    let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
+    // split into digits below the other value, and digits overlapping
+    let (low_digits, overlap_digits) = unscaled_digits.split_at(trailing_zero_count);
+
+    // if any of the low digits are zero, they are not equal
+    if low_digits.iter().any(|&d| d != 0) {
+        return false;
+    }
+
+    let scaled_digits = scaled_int.to_radix_le(10);
+
+    // different lengths with trailing zeros
+    if overlap_digits.len() != scaled_digits.len() {
+        return false;
+    }
 
     // return true if all digits are the same
-    unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| digit_a == digit_b)
+    overlap_digits.iter().zip(scaled_digits.iter()).all(|(digit_a, digit_b)| digit_a == digit_b)
 }
 
 
@@ -291,8 +314,9 @@ where
         (Some(a), Some(scaled_b)) => Some(a.cmp(&scaled_b)),
         // if scaled_b doesn't fit in size T, while 'a' does, then a is certainly less
         (Some(_), None) => Some(Ordering::Less),
-        // if scaled_b doesn't fit in size T, while 'a' does, then a is certainly less
+        // if a doesn't fit in size T, while 'scaled_b' does, then a is certainly greater
         (None, Some(_)) => Some(Ordering::Greater),
+        // neither fits, cannot determine relative size
         (None, None) => None,
     }
 }
@@ -359,6 +383,12 @@ mod test {
         impl_test!(case_compare_extremes: "1e-9223372036854775807" < "1e9223372036854775807");
         impl_test!(case_small_difference: "472697816888807260.1604" < "472697816888807260.16040000000000000000001");
         impl_test!(case_very_small_diff: "-1.0000000000000000000000000000000000000000000000000001" < "-1");
+
+        impl_test!(case_1_2p128: "1" < "340282366920938463463374607431768211455");
+        impl_test!(case_1_1e39: "1000000000000000000000000000000000000000" < "1e41");
+
+        impl_test!(case_1d414xxx573: "1.414213562373095048801688724209698078569671875376948073176679730000000000000000000000000000000000000" < "1.41421356237309504880168872420969807856967187537694807317667974000000000");
+        impl_test!(case_11d414xxx573: "1.414213562373095048801688724209698078569671875376948073176679730000000000000000000000000000000000000" < "11.41421356237309504880168872420969807856967187537694807317667974000000000");
     }
 
     mod eq {
