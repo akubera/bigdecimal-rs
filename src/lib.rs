@@ -1194,7 +1194,7 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
 /// assert_eq!(m, "-122.456".parse().unwrap());
 /// ```
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct BigDecimalRef<'a> {
     sign: Sign,
     digits: &'a BigUint,

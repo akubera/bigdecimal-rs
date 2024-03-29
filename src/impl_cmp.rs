@@ -86,7 +86,21 @@ impl PartialOrd for BigDecimal {
     }
 }
 
+impl PartialOrd for BigDecimalRef<'_> {
+    fn partial_cmp(&self, other: &BigDecimalRef<'_>) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+
 impl Ord for BigDecimal {
+    #[inline]
+    fn cmp(&self, other: &BigDecimal) -> Ordering {
+        self.to_ref().cmp(&other.to_ref())
+    }
+}
+
+impl Ord for BigDecimalRef<'_> {
     /// Complete ordering implementation for BigDecimal
     ///
     /// # Example
@@ -107,7 +121,7 @@ impl Ord for BigDecimal {
     /// assert!(e < c);
     /// ```
     #[inline]
-    fn cmp(&self, other: &BigDecimal) -> Ordering {
+    fn cmp(&self, other: &BigDecimalRef) -> Ordering {
         let scmp = self.sign().cmp(&other.sign());
         if scmp != Ordering::Equal {
             return scmp;
@@ -116,7 +130,7 @@ impl Ord for BigDecimal {
         match self.sign() {
             Sign::NoSign => Ordering::Equal,
             _ => {
-                let tmp = self - other;
+                let tmp = *self - *other;
                 match tmp.sign() {
                     Sign::Plus => Ordering::Greater,
                     Sign::Minus => Ordering::Less,
