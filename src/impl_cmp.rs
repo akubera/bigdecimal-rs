@@ -26,52 +26,103 @@ where
 {
     fn eq(&self, rhs: &T) -> bool {
         let rhs: BigDecimalRef<'rhs> = (*rhs).into();
+        check_equality_bigdecimal_ref(*self, rhs)
+    }
+}
 
-        match (self.sign(), rhs.sign()) {
-            // both zero
-            (Sign::NoSign, Sign::NoSign) => return true,
-            // signs are different
-            (a, b) if a != b => return false,
-            // signs are same, do nothing
-            _ => {}
+fn check_equality_bigdecimal_ref(lhs: BigDecimalRef, rhs: BigDecimalRef) -> bool {
+    match (lhs.sign(), rhs.sign()) {
+        // both zero
+        (Sign::NoSign, Sign::NoSign) => return true,
+        // signs are different
+        (a, b) if a != b => return false,
+        // signs are same, do nothing
+        _ => {}
+    }
+
+    let unscaled_int;
+    let scaled_int;
+    let trailing_zero_count;
+    match arithmetic::checked_diff(lhs.scale, rhs.scale) {
+        (Ordering::Equal, _) => {
+            return lhs.digits == rhs.digits;
         }
-
-        let unscaled_int;
-        let scaled_int;
-        let trailing_zero_count;
-        match self.scale.cmp(&rhs.scale) {
-            Ordering::Greater => {
-                unscaled_int = self.digits;
-                scaled_int = rhs.digits;
-                trailing_zero_count = (self.scale - rhs.scale) as usize;
-            }
-            Ordering::Less => {
-                unscaled_int = rhs.digits;
-                scaled_int = self.digits;
-                trailing_zero_count = (rhs.scale - self.scale) as usize;
-            }
-            Ordering::Equal => return self.digits == rhs.digits,
+        (Ordering::Greater, Some(scale_diff)) => {
+            unscaled_int = lhs.digits;
+            scaled_int = rhs.digits;
+            trailing_zero_count = scale_diff;
         }
-
-        if trailing_zero_count < 20 {
-            let scaled_int = scaled_int * crate::ten_to_the(trailing_zero_count as u64).magnitude();
-            return &scaled_int == unscaled_int;
+        (Ordering::Less, Some(scale_diff)) => {
+            unscaled_int = rhs.digits;
+            scaled_int = lhs.digits;
+            trailing_zero_count = scale_diff;
         }
-
-        let unscaled_digits = unscaled_int.to_radix_le(10);
-        let scaled_digits = scaled_int.to_radix_le(10);
-
-        // different lengths with trailing zeros
-        if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
+        _ => {
+            // all other cases imply overflow in difference of scale,
+            // numbers must not be equal
             return false;
         }
-
-        // add leading zero digits to digits that need scaled
-        let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
-
-        // return true if all digits are the same
-        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| digit_a == digit_b)
     }
+
+    // try compare without allocating
+    if trailing_zero_count < 20 {
+        let pow = ten_to_the_u64(trailing_zero_count as u8);
+
+        let mut a_digits = unscaled_int.iter_u32_digits();
+        let mut b_digits = scaled_int.iter_u32_digits();
+
+        let mut carry = 0;
+        loop {
+            match (a_digits.next(), b_digits.next()) {
+                (Some(next_a), Some(next_b)) => {
+                    let wide_b = match (next_b as u64).checked_mul(pow) {
+                        Some(tmp) => tmp + carry,
+                        None => break,
+                    };
+
+                    let true_b = wide_b as u32;
+
+                    if next_a != true_b {
+                        return false;
+                    }
+
+                    carry = wide_b >> 32;
+                }
+                (None, Some(_)) => {
+                    return false;
+                }
+                (Some(a_digit), None) => {
+                    if a_digit != (carry as u32) {
+                        return false
+                    }
+                    carry = 0;
+                }
+                (None, None) => {
+                    return carry == 0;
+                }
+            }
+        }
+
+        // we broke out of loop due to overflow - compare via allocation
+        let scaled_int = scaled_int * pow;
+        return &scaled_int == unscaled_int;
+    }
+
+    let trailing_zero_count = trailing_zero_count.to_usize().unwrap();
+
+    let unscaled_digits = unscaled_int.to_radix_le(10);
+    let scaled_digits = scaled_int.to_radix_le(10);
+
+    // different lengths with trailing zeros
+    if unscaled_digits.len() != scaled_digits.len() + trailing_zero_count {
+        return false;
+    }
+
+    // add leading zero digits to digits that need scaled
+    let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
+
+    // return true if all digits are the same
+    unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| digit_a == digit_b)
 }
 
 
