@@ -299,43 +299,88 @@ where
 
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::*;
 
-    macro_rules! impl_test {
-        ($name:ident: $a:literal > $b:literal e $e:literal) => {
-            impl_test!($name: $a Greater $b e $e);
-        };
-        ($name:ident: $a:literal < $b:literal e $e:literal) => {
-            impl_test!($name: $a Less $b e $e);
-        };
-        ($name:ident: $a:literal = $b:literal e $e:literal) => {
-            impl_test!($name: $a Equal $b e $e);
-        };
-        ($name:ident: $a:literal $op:ident $b:literal e $e:literal) => {
-            #[test]
-            fn $name() {
-                let a: BigUint = $a.parse().unwrap();
-                let b: BigUint = $b.parse().unwrap();
+    mod compare_scaled_biguints {
+        use super::*;
 
-                let result = compare_scaled_biguints(&a, &b, $e);
-                debug_assert_eq!(result, Ordering::$op);
-            }
-        };
+        macro_rules! impl_test {
+            ($name:ident: $a:literal > $b:literal e $e:literal) => {
+                impl_test!($name: $a Greater $b e $e);
+            };
+            ($name:ident: $a:literal < $b:literal e $e:literal) => {
+                impl_test!($name: $a Less $b e $e);
+            };
+            ($name:ident: $a:literal = $b:literal e $e:literal) => {
+                impl_test!($name: $a Equal $b e $e);
+            };
+            ($name:ident: $a:literal $op:ident $b:literal e $e:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigUint = $a.parse().unwrap();
+                    let b: BigUint = $b.parse().unwrap();
+
+                    let result = compare_scaled_biguints(&a, &b, $e);
+                    assert_eq!(result, Ordering::$op);
+                }
+            };
+        }
+
+        impl_test!(case_500_51e1: "500" < "51" e 1);
+        impl_test!(case_500_44e1: "500" > "44" e 1);
+        impl_test!(case_5000_50e2: "5000" = "50" e 2);
+        impl_test!(case_1234e9_12345e9: "1234000000000" < "12345" e 9);
+        impl_test!(case_1116xx459_759xx717e2: "1116386634271380982470843247639640260491505327092723527088459" < "759522625769651746138617259189939751893902453291243506584717" e 2);
     }
 
-    impl_test!(case_500_51e1: "500" < "51" e 1);
-    impl_test!(case_500_44e1: "500" > "44" e 1);
-    impl_test!(case_5000_50e2: "5000" = "50" e 2);
-    impl_test!(case_1234e9_12345e9: "1234000000000" < "12345" e 9);
-    impl_test!(case_1116xx_759xe2: "1116386634271380982470843247639640260491505327092723527088459" < "759522625769651746138617259189939751893902453291243506584717" e 2);
+    mod ord {
+        use super::*;
 
-    #[test]
-    fn test_compare_extreme() {
-        let teenytiny: BigDecimal = "1e-9223372036854775807".parse().unwrap();
-        let one = BigDecimal::from(1u8);
-        assert!(one > teenytiny);
-        assert!(teenytiny < one);
+        macro_rules! impl_test {
+            ($name:ident: $a:literal < $b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $a.parse().unwrap();
+                    let b: BigDecimal = $b.parse().unwrap();
+
+                    assert!(&a < &b);
+                    assert!(&b > &a);
+                    assert_ne!(a, b);
+                }
+            };
+        }
+
+        impl_test!(case_diff_signs: "-1" < "1");
+        impl_test!(case_n1_0: "-1" < "0");
+        impl_test!(case_0_1: "0" < "1");
+        impl_test!(case_1d2345_1d2346: "1.2345" < "1.2346");
+        impl_test!(case_compare_extreme: "1e-9223372036854775807" < "1");
+        impl_test!(case_compare_extremes: "1e-9223372036854775807" < "1e9223372036854775807");
+        impl_test!(case_small_difference: "472697816888807260.1604" < "472697816888807260.16040000000000000000001");
+        impl_test!(case_very_small_diff: "-1.0000000000000000000000000000000000000000000000000001" < "-1");
+    }
+
+    mod eq {
+        use super::*;
+
+        macro_rules! impl_test {
+            ($name:ident: $a:literal = $b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $a.parse().unwrap();
+                    let b: BigDecimal = $b.parse().unwrap();
+
+                    assert_eq!(&a, &b);
+                    assert_eq!(a, b);
+                }
+            };
+        }
+
+        impl_test!(case_zero: "0" = "0.00");
+        impl_test!(case_1_1d00: "1" = "1.00");
+        impl_test!(case_n1_n1000en3: "-1" = "-1000e-3");
+        impl_test!(case_0d000034500_345en7: "0.000034500" = "345e-7");
     }
 
     #[test]
