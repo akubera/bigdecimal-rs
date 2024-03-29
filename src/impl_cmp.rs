@@ -240,9 +240,44 @@ where
 
 
 #[cfg(test)]
-mod test_bigintref {
+mod tests {
     use super::*;
-    use stdlib::ops::Neg;
+
+    macro_rules! impl_test {
+        ($name:ident: $a:literal > $b:literal e $e:literal) => {
+            impl_test!($name: $a Greater $b e $e);
+        };
+        ($name:ident: $a:literal < $b:literal e $e:literal) => {
+            impl_test!($name: $a Less $b e $e);
+        };
+        ($name:ident: $a:literal = $b:literal e $e:literal) => {
+            impl_test!($name: $a Equal $b e $e);
+        };
+        ($name:ident: $a:literal $op:ident $b:literal e $e:literal) => {
+            #[test]
+            fn $name() {
+                let a: BigUint = $a.parse().unwrap();
+                let b: BigUint = $b.parse().unwrap();
+
+                let result = compare_scaled_biguints(&a, &b, $e);
+                debug_assert_eq!(result, Ordering::$op);
+            }
+        };
+    }
+
+    impl_test!(case_500_51e1: "500" < "51" e 1);
+    impl_test!(case_500_44e1: "500" > "44" e 1);
+    impl_test!(case_5000_50e2: "5000" = "50" e 2);
+    impl_test!(case_1234e9_12345e9: "1234000000000" < "12345" e 9);
+    impl_test!(case_1116xx_759xe2: "1116386634271380982470843247639640260491505327092723527088459" < "759522625769651746138617259189939751893902453291243506584717" e 2);
+
+    #[test]
+    fn test_compare_extreme() {
+        let teenytiny: BigDecimal = "1e-9223372036854775807".parse().unwrap();
+        let one = BigDecimal::from(1u8);
+        assert!(one > teenytiny);
+        assert!(teenytiny < one);
+    }
 
     #[test]
     fn test_borrow_neg_cmp() {
@@ -255,5 +290,29 @@ mod test_bigintref {
         assert_eq!(x_ref, &y);
         assert_ne!(x_ref.neg(), x_ref);
         assert_eq!(x_ref.neg().neg(), x_ref);
+    }
+
+    #[cfg(property_tests)]
+    mod prop {
+        use super::*;
+        use proptest::prelude::*;
+
+        proptest! {
+            #![proptest_config(ProptestConfig { cases: 5000, ..Default::default() })]
+
+            #[test]
+            fn cmp_matches_f64(
+                f in proptest::num::f64::NORMAL | proptest::num::f64::SUBNORMAL | proptest::num::f64::ZERO,
+                g in proptest::num::f64::NORMAL | proptest::num::f64::SUBNORMAL | proptest::num::f64::ZERO
+            ) {
+                let a: BigDecimal = BigDecimal::from_f64(f).unwrap();
+                let b: BigDecimal = BigDecimal::from_f64(g).unwrap();
+
+                let expected = PartialOrd::partial_cmp(&f, &g).unwrap();
+                let value = a.cmp(&b);
+
+                prop_assert_eq!(expected, value)
+            }
+        }
     }
 }
