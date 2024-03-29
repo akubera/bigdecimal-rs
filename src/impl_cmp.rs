@@ -8,11 +8,7 @@
 //! &BigDecimal and BigDecimalRef are comparable.
 //!
 
-use crate::{
-    BigDecimal,
-    BigDecimalRef,
-    Sign,
-};
+use crate::*;
 
 use stdlib::cmp::Ordering;
 use stdlib::iter;
@@ -74,7 +70,7 @@ where
         let scaled = iter::repeat(&0u8).take(trailing_zero_count).chain(scaled_digits.iter());
 
         // return true if all digits are the same
-        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| { digit_a == digit_b })
+        unscaled_digits.iter().zip(scaled).all(|(digit_a, digit_b)| digit_a == digit_b)
     }
 }
 
@@ -122,25 +118,125 @@ impl Ord for BigDecimalRef<'_> {
     /// ```
     #[inline]
     fn cmp(&self, other: &BigDecimalRef) -> Ordering {
+        use Ordering::*;
+
         let scmp = self.sign().cmp(&other.sign());
         if scmp != Ordering::Equal {
             return scmp;
         }
 
-        match self.sign() {
-            Sign::NoSign => Ordering::Equal,
-            _ => {
-                let tmp = *self - *other;
-                match tmp.sign() {
-                    Sign::Plus => Ordering::Greater,
-                    Sign::Minus => Ordering::Less,
-                    Sign::NoSign => Ordering::Equal,
+        if self.sign() == Sign::NoSign {
+            return Ordering::Equal;
+        }
+
+        let result = match arithmetic::diff(self.scale, other.scale) {
+            (Greater, scale_diff) | (Equal, scale_diff) => {
+                compare_scaled_biguints(self.digits, other.digits, scale_diff)
+            }
+            (Less, scale_diff) => {
+                compare_scaled_biguints(other.digits, self.digits, scale_diff).reverse()
+            }
+        };
+
+        if other.sign == Sign::Minus {
+            result.reverse()
+        } else {
+            result
+        }
+    }
+}
+
+
+/// compare scaled uints: a <=> b * 10^{scale_diff}
+///
+fn compare_scaled_biguints(a: &BigUint, b: &BigUint, scale_diff: u64) -> Ordering {
+    use Ordering::*;
+
+    if scale_diff == 0 {
+        return a.cmp(b);
+    }
+
+    // if biguints fit it u64 or u128, compare using those (avoiding allocations)
+    if let Some(result) = compare_scalar_biguints(a, b, scale_diff) {
+        return result;
+    }
+
+    let a_digit_count = count_decimal_digits_uint(a);
+    let b_digit_count = count_decimal_digits_uint(b);
+
+    let digit_count_cmp = a_digit_count.cmp(&(b_digit_count + scale_diff));
+    if digit_count_cmp != Equal {
+        return digit_count_cmp;
+    }
+
+    let a_digits = a.to_radix_le(10);
+    let b_digits = b.to_radix_le(10);
+
+    debug_assert_eq!(a_digits.len(), a_digit_count as usize);
+    debug_assert_eq!(b_digits.len(), b_digit_count as usize);
+
+    let mut a_it = a_digits.iter().rev();
+    let mut b_it = b_digits.iter().rev();
+
+    loop {
+        match (a_it.next(), b_it.next()) {
+            (Some(ai), Some(bi)) => {
+                match ai.cmp(bi) {
+                    Equal => continue,
+                    result => return result,
                 }
+            }
+            (Some(&ai), None) => {
+                if ai == 0 && a_it.all(Zero::is_zero) {
+                    return Equal;
+                } else {
+                    return Greater;
+                }
+            }
+            (None, Some(&bi)) => {
+                if bi == 0 && b_it.all(Zero::is_zero) {
+                    return Equal;
+                } else {
+                    return Less;
+                }
+            }
+            (None, None) => {
+                return Equal;
             }
         }
     }
 }
 
+/// Try fitting biguints into primitive integers, using those for ordering if possible
+fn compare_scalar_biguints(a: &BigUint, b: &BigUint, scale_diff: u64) -> Option<Ordering> {
+    let scale_diff = scale_diff.to_usize()?;
+
+    // try u64, then u128
+    compare_scaled_uints::<u64>(a, b, scale_diff)
+    .or_else(|| compare_scaled_uints::<u128>(a, b, scale_diff))
+}
+
+/// Implementation comparing biguints cast to generic type
+fn compare_scaled_uints<'a, T>(a: &'a BigUint, b: &'a BigUint, scale_diff: usize) -> Option<Ordering>
+where
+    T: num_traits::PrimInt + TryFrom<&'a BigUint>
+{
+    let ten = T::from(10).unwrap();
+
+    let a = T::try_from(a).ok();
+    let b = T::try_from(b).ok().and_then(
+                |b| num_traits::checked_pow(ten, scale_diff).and_then(
+                    |p| b.checked_mul(&p)));
+
+    match (a, b) {
+        (Some(a), Some(scaled_b)) => Some(a.cmp(&scaled_b)),
+        // if scaled_b doesn't fit in size T, while 'a' does, then a is certainly less
+        (Some(_), None) => Some(Ordering::Less),
+        // if scaled_b doesn't fit in size T, while 'a' does, then a is certainly less
+        (None, Some(_)) => Some(Ordering::Greater),
+        (None, None) => None,
+    }
+}
 
 
 #[cfg(test)]
