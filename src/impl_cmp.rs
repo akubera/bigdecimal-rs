@@ -66,15 +66,9 @@ fn check_equality_bigdecimal_ref(lhs: BigDecimalRef, rhs: BigDecimalRef) -> bool
 
     debug_assert_ne!(trailing_zero_count, 0);
 
-    // multiplying by 10^trailing_zero_count guarantees shifting highest
-    // bit in 'scaled_int' to beyond the highest bit in 'unscaled_int',
-    // we know they are not equal
-    //
-    // x * 10^t > y
-    // log(x) + t * log(10) > log(y)
-    //
-    let ten_to_trailing_zero_bits = LOG2_10 * (64 - trailing_zero_count.leading_zeros()) as f64;
-    if ten_to_trailing_zero_bits as u64 + scaled_int.bits() > unscaled_int.bits() {
+    // test if unscaled_int is guaranteed to be less than
+    // scaled_int*10^trailing_zero_count based on highest bit
+    if highest_bit_lessthan_scaled(unscaled_int, scaled_int, trailing_zero_count) {
         return false;
     }
 
@@ -238,6 +232,11 @@ fn compare_scaled_biguints(a: &BigUint, b: &BigUint, scale_diff: u64) -> Orderin
         return a.cmp(b);
     }
 
+    // check if highest bit of a is less than b * 10^scale_diff
+    if highest_bit_lessthan_scaled(a, b, scale_diff) {
+        return Ordering::Less;
+    }
+
     // if biguints fit it u64 or u128, compare using those (avoiding allocations)
     if let Some(result) = compare_scalar_biguints(a, b, scale_diff) {
         return result;
@@ -321,6 +320,27 @@ where
     }
 }
 
+/// Return highest_bit(a) < highest_bit(b * 10^{scale})
+///
+/// Used for optimization when comparing scaled integers
+///
+/// ```math
+/// a < b * 10^{scale}
+/// log(a) < log(b) + scale * log(10)
+/// ```
+///
+fn highest_bit_lessthan_scaled(a: &BigUint, b: &BigUint, scale: u64) -> bool {
+    let a_bits = a.bits();
+    let b_bits = b.bits();
+    if a_bits < b_bits {
+        return true;
+    }
+    let log_scale = LOG2_10 * scale as f64;
+    match b_bits.checked_add(log_scale as u64) {
+        Some(scaled_b_bit) => a_bits < scaled_b_bit,
+        None => true, // overflowing u64 means we are definitely bigger
+    }
+}
 
 #[cfg(test)]
 mod test {
