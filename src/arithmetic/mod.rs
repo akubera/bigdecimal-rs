@@ -75,7 +75,7 @@ pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
     }
     let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
     // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
+    let mut num = ten_to_the_uint(digits);
     while *uint >= num {
         num *= 10u8;
         digits += 1;
