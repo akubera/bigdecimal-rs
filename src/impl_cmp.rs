@@ -129,12 +129,20 @@ impl Ord for BigDecimalRef<'_> {
             return Ordering::Equal;
         }
 
-        let result = match arithmetic::diff(self.scale, other.scale) {
-            (Greater, scale_diff) | (Equal, scale_diff) => {
+        let result = match arithmetic::checked_diff(self.scale, other.scale) {
+            (Greater, Some(scale_diff)) | (Equal, Some(scale_diff)) => {
                 compare_scaled_biguints(self.digits, other.digits, scale_diff)
             }
-            (Less, scale_diff) => {
+            (Less, Some(scale_diff)) => {
                 compare_scaled_biguints(other.digits, self.digits, scale_diff).reverse()
+            }
+            (res, None) => {
+                // The difference in scale does not fit in a u64,
+                // we can safely assume the value of digits do not matter
+                // (unless we have a 2^64 (i.e. ~16 exabyte) long number
+
+                // larger scale means smaller number, reverse this ordering
+                res.reverse()
             }
         };
 
