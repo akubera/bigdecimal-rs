@@ -230,7 +230,7 @@ fn format_exponential(
     //
     //     For the (abs_int.len() - this.scale) == abs_int.len() I couldn't
     //     come up with an example
-    let exponent = abs_int.len() as i128 + exp as i128 - 1;
+    let exponent = abs_int.len() as i128 + exp - 1;
 
     if abs_int.len() > 1 {
         // only add decimal point if there is more than 1 decimal digit
