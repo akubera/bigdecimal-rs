@@ -1579,54 +1579,86 @@ mod bigdecimal_tests {
         }
     }
 
-    #[test]
-    fn test_hash_equal_scale() {
-        use stdlib::DefaultHasher;
-        use stdlib::hash::{Hash, Hasher};
+    mod with_prec {
+        use super::*;
 
-        fn hash<T>(obj: &T) -> u64
-            where T: Hash
-        {
-            let mut hasher = DefaultHasher::new();
-            obj.hash(&mut hasher);
-            hasher.finish()
+        macro_rules! impl_test {
+            ( $name:ident: $input:literal, $prec:literal => $e:literal, $e_scale:literal ) => {
+                #[test]
+                fn $name() {
+                    let n: BigDecimal = $input.parse().unwrap();
+                    let expected: num_bigint::BigInt = $e.parse().unwrap();
+
+                    let BigDecimal { int_val, scale } = n.with_prec($prec);
+                    assert_eq!(int_val, expected);
+                    assert_eq!(scale, $e_scale);
+                }
+            }
         }
 
-        let vals = vec![
-            ("1234.5678", -2, "1200", 0),
-            ("1234.5678", -2, "1200", -2),
-            ("1234.5678", 0, "1234.1234", 0),
-            ("1234.5678", -3, "1200", -3),
-            ("-1234", -2, "-1200", 0),
-        ];
-        for &(x,xs,y,ys) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().with_scale(xs);
-            let b = BigDecimal::from_str(y).unwrap().with_scale(ys);
-            assert_eq!(a, b);
-            assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
-        }
+        impl_test!(case_7_1: "7", 1 => "7", 0);
+        impl_test!(case_7_2: "7", 2 => "70", 1);
+        impl_test!(case_895_2: "895", 2 => "90", -1);
+        impl_test!(case_8934_2: "8934", 2 => "89", -2);
+        impl_test!(case_8934_5: "8934", 5 => "89340", 1);
+        impl_test!(case_1d0001_4: "1.0001", 4 => "1000", 3);
+        impl_test!(case_1d0001_5: "1.0001", 5 => "10001", 4);
+        impl_test!(case_1d0001_6: "1.0001", 6 => "100010", 5);
+        impl_test!(case_77332e90_2: "77332e90", 2 => "77", -93);
+        impl_test!(case_77332e90_5: "77332e90", 5 => "77332", -90);
+        impl_test!(case_77332e90_6: "77332e90", 6 => "773320", -89);
+        impl_test!(case_n11248223en4_2: "-11248223e-4", 2 => "-11", -2);
+        impl_test!(case_n11248223en4_3: "-11248223e-4", 3 => "-112", -1);
+        impl_test!(case_n11248223en4_4: "-11248223e-4", 4 => "-1125", 0);
+        impl_test!(case_n11248223en4_8: "-11248223e-4", 8 => "-11248223", 4);
+        impl_test!(case_n11248223en4_9: "-11248223e-4", 9 => "-112482230", 5);
+        impl_test!(case_n11248223en4_20: "-11248223e-4", 20 => "-11248223000000000000", 16);
+
+        impl_test!(case_1: "1", 0 => "0", 0);
+        impl_test!(case_n1: "-1", 0 => "0", 0);
+        impl_test!(case_1d234_2: "1.234", 2 => "12", 1);
+        impl_test!(case_1d234_4: "1.234", 4 => "1234", 3);
+        impl_test!(case_n1d234: "-1.234", 2 => "-12", 1);
+        impl_test!(case_1d555_3: "1.555", 3 => "156", 2);
+        impl_test!(case_n1d555_3: "-1.555", 3 => "-156", 2);
+        impl_test!(case_9999d444455556666_14:   "9999.444455556666", 14 =>  "99994444555567", 10);
+        impl_test!(case_n9999d444455556666_14: "-9999.444455556666", 14 => "-99994444555567", 10);
+        impl_test!(case_12345678987654321d123456789_25:   "12345678987654321.123456789", 25 =>  "1234567898765432112345679", 8);
+        impl_test!(case_n12345678987654321d123456789_25: "-12345678987654321.123456789", 25 => "-1234567898765432112345679", 8);
     }
 
-    #[test]
-    fn test_with_prec() {
-        let vals = vec![
-            ("7", 1, "7"),
-            ("7", 2, "7.0"),
-            ("895", 2, "900"),
-            ("8934", 2, "8900"),
-            ("8934", 1, "9000"),
-            ("1.0001", 5, "1.0001"),
-            ("1.0001", 4, "1"),
-            ("1.00009", 6, "1.00009"),
-            ("1.00009", 5, "1.0001"),
-            ("1.00009", 4, "1.000"),
-        ];
-        for &(x, p, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().with_prec(p);
-            assert_eq!(a, BigDecimal::from_str(y).unwrap());
-        }
-    }
+    mod with_scale {
+        use super::*;
 
+        macro_rules! impl_test {
+            ( $name:ident: $input:literal, $scale:literal => $e:literal ) => {
+                #[test]
+                fn $name() {
+                    let n: BigDecimal = $input.parse().unwrap();
+                    let expected: num_bigint::BigInt = $e.parse().unwrap();
+
+                    let BigDecimal { int_val, scale } = n.with_scale($scale);
+                    assert_eq!(int_val, expected);
+                    assert_eq!(scale, $scale);
+                }
+            }
+        }
+
+        impl_test!(case_9_0: "9", 0 => "9");
+        impl_test!(case_9_1: "9", 1 => "90");
+
+        impl_test!(case_1234d5678_n2: "1234.5678", -2 => "12");
+        impl_test!(case_1234d5678_n1: "1234.5678", -1 => "123");
+        impl_test!(case_1234d5678_0: "1234.5678", 0 => "1235");
+        impl_test!(case_1234d5678_1: "1234.5678", 1 => "12346");
+        impl_test!(case_1234d5678_4: "1234.5678", 4 => "12345678");
+        impl_test!(case_1234d5678_5: "1234.5678", 5 => "123456780");
+
+        impl_test!(case_12345678987654321d123456789_0:   "12345678987654321.123456789", 0 =>  "12345678987654321");
+        impl_test!(case_n12345678987654321d123456789_0: "-12345678987654321.123456789", 0 => "-12345678987654321");
+        impl_test!(case_12345678987654321d123456789_8:   "12345678987654321.123456789", 8 =>  "1234567898765432112345679");
+        impl_test!(case_n12345678987654321d123456789_8: "-12345678987654321.123456789", 8 => "-1234567898765432112345679");
+    }
 
     #[test]
     fn test_digits() {
