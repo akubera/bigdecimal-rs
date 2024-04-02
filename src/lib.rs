@@ -268,27 +268,12 @@ impl BigDecimal {
     /// Return a new BigDecimal object equivalent to self, with internal
     /// scaling set to the number specified.
     /// If the new_scale is lower than the current value (indicating a larger
-    /// power of 10), digits will be dropped (as precision is lower)
+    /// power of 10), digits will be rounded (as precision is lower)
     ///
     #[inline]
     pub fn with_scale(&self, new_scale: i64) -> BigDecimal {
-        if self.int_val.is_zero() {
-            return BigDecimal::new(BigInt::zero(), new_scale);
-        }
-
-        match new_scale.cmp(&self.scale) {
-            Ordering::Greater => {
-                let scale_diff = new_scale - self.scale;
-                let int_val = &self.int_val * ten_to_the(scale_diff as u64);
-                BigDecimal::new(int_val, new_scale)
-            }
-            Ordering::Less => {
-                let scale_diff = self.scale - new_scale;
-                let int_val = &self.int_val / ten_to_the(scale_diff as u64);
-                BigDecimal::new(int_val, new_scale)
-            }
-            Ordering::Equal => self.clone(),
-        }
+        let mode = Context::default().rounding_mode();
+        self.with_scale_round(new_scale, mode)
     }
 
     /// Return a new BigDecimal after shortening the digits and rounding
@@ -446,32 +431,13 @@ impl BigDecimal {
     /// assert_eq!(scale, 9);
     /// ```
     pub fn with_prec(&self, prec: u64) -> BigDecimal {
-        let digits = self.digits();
-
-        match digits.cmp(&prec) {
-            Ordering::Greater => {
-                let diff = digits - prec;
-                let p = ten_to_the(diff);
-                let (mut q, r) = self.int_val.div_rem(&p);
-
-                // check for "leading zero" in remainder term; otherwise round
-                if p < 10 * &r {
-                    q += get_rounding_term(&r);
-                }
-
-                BigDecimal {
-                    int_val: q,
-                    scale: self.scale - diff as i64,
-                }
+        match stdlib::num::NonZeroU64::new(prec) {
+            // Zero digits of precision? return zero
+            None => BigDecimal::zero(),
+            Some(prec) => {
+                let mode = Context::default().rounding_mode();
+                self.with_precision_round(prec, mode)
             }
-            Ordering::Less => {
-                let diff = prec - digits;
-                BigDecimal {
-                    int_val: &self.int_val * ten_to_the(diff),
-                    scale: self.scale + diff as i64,
-                }
-            }
-            Ordering::Equal => self.clone(),
         }
     }
 
