@@ -9,18 +9,12 @@ pub(crate) fn add_bigdecimals(
     mut b: BigDecimal,
 ) -> BigDecimal {
     if b.is_zero() {
-        if a.scale < b.scale {
-            a.int_val *= ten_to_the((b.scale - a.scale) as u64);
-            a.scale = b.scale;
-        }
+        a.extend_scale_to(b.scale);
         return a;
     }
 
     if a.is_zero() {
-        if b.scale < a.scale {
-            b.int_val *= ten_to_the((a.scale - b.scale) as u64);
-            b.scale = a.scale;
-        }
+        b.extend_scale_to(a.scale);
         return b;
     }
 
