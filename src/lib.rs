@@ -428,6 +428,13 @@ impl BigDecimal {
         }
     }
 
+    /// set scale only if new_scale is greater than current
+    pub(crate) fn extend_scale_to(&mut self, new_scale: i64) {
+        if new_scale > self.scale {
+            self.set_scale(new_scale)
+        }
+    }
+
     /// Take and return bigdecimal with the given sign
     ///
     /// The Sign value `NoSign` is ignored: only use Plus & Minus
