@@ -56,18 +56,12 @@ where
     let lhs = lhs.into();
     let rhs = rhs.into();
     if rhs.is_zero() {
-        if lhs.scale < rhs.scale {
-            let digits = lhs.digits * ten_to_the_uint((rhs.scale - lhs.scale) as u64);
-            return BigDecimal::new(BigInt::from_biguint(lhs.sign, digits), rhs.scale);
-        }
-        return lhs.to_owned();
+        let scale_diff = rhs.scale.saturating_sub(lhs.scale).max(0).min(15);
+        return lhs.to_owned_with_scale(lhs.scale + scale_diff);
     }
     if lhs.is_zero() {
-        if rhs.scale < lhs.scale {
-            let digits = rhs.digits * ten_to_the_uint((lhs.scale - rhs.scale) as u64);
-            return BigDecimal::new(BigInt::from_biguint(rhs.sign, digits), lhs.scale);
-        }
-        return rhs.to_owned();
+        let scale_diff = lhs.scale.saturating_sub(rhs.scale).max(0).min(15);
+        return rhs.to_owned_with_scale(rhs.scale + scale_diff);
     }
 
     match lhs.scale.cmp(&rhs.scale) {
