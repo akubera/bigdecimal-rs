@@ -1,6 +1,7 @@
 //! Rounding structures and subroutines
 
-use crate::Sign;
+use crate::*;
+use crate::arithmetic::{add_carry, store_carry};
 use stdlib;
 
 /// Determines how to calculate the last digit of the number
@@ -204,6 +205,108 @@ impl RoundingMode {
         || (insig_digit == 5 && matches!(self, HalfUp | HalfDown | HalfEven))
     }
 
+}
+
+
+/// Relevant information about insignificant digits, used for rounding
+///
+/// If rounding at indicated point:
+///
+/// ```txt
+///  aaaaizzzzzzzz
+///     ^
+/// ```
+///
+/// 'a' values are significant, 'i' is the insignificant digit,
+/// and trailing_zeros is true if all 'z' are 0.
+///
+#[derive(Debug,Clone,Copy)]
+pub(crate) struct InsigData {
+    /// highest insignificant digit
+    pub digit: u8,
+
+    /// true if all digits more insignificant than 'digit' is zero
+    ///
+    /// This is only useful if relevant for the rounding mode, it
+    /// may be 'wrong' in these cases.
+    pub trailing_zeros: bool,
+}
+
+impl InsigData {
+    /// Build from slice of insignificant little-endian digits
+    pub fn from_digit_slice(mode: RoundingMode, digits: &[u8]) -> Self {
+        match digits.split_last() {
+            Some((&d0, trailing)) => {
+                Self {
+                    digit: d0,
+                    trailing_zeros: mode.needs_trailing_zeros(d0) && trailing.iter().all(Zero::is_zero),
+                }
+            }
+            None => {
+                Self {
+                    digit: 0,
+                    trailing_zeros: true,
+                }
+            }
+        }
+    }
+
+    /// from sum of overlapping digits, (a is longer than b)
+    pub fn from_overlapping_digits_backward_sum(
+        mode: RoundingMode,
+        mut a_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
+        mut b_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
+        carry: &mut u8,
+    ) -> Self {
+        debug_assert!(a_digits.len() >= b_digits.len());
+        debug_assert_eq!(carry, &0);
+
+        // most-significant insignificant digit
+        let insig_digit;
+        match (a_digits.next(), b_digits.next()) {
+            (Some(a), Some(b)) => {
+                // store 'full', initial sum, we will handle carry below
+                insig_digit = a + b;
+            }
+            (Some(d), None) | (None, Some(d)) => {
+                insig_digit = *d;
+            }
+            (None, None) => {
+                // both digit slices were empty; all zeros
+                return Self {
+                    digit: 0,
+                    trailing_zeros: true,
+                };
+            }
+        };
+
+        // find first non-nine value
+        let mut sum = 9;
+        while sum == 9 {
+            let next_a = a_digits.next().unwrap_or(&0);
+            let next_b = b_digits.next().unwrap_or(&0);
+            sum = next_a + next_b;
+        }
+
+        // if previous sum was greater than ten,
+        // the one would carry through all the 9s
+        let sum = store_carry(sum, carry);
+
+        // propagate carry to the highest insignificant digit
+        let insig_digit = add_carry(insig_digit, carry);
+
+        // if the last 'sum' value isn't zero, or if any remaining
+        // digit is not zero, then it's not trailing zeros
+        let trailing_zeros = sum == 0
+                             && mode.needs_trailing_zeros(insig_digit)
+                             && a_digits.all(Zero::is_zero)
+                             && b_digits.all(Zero::is_zero);
+
+        Self {
+            digit: insig_digit,
+            trailing_zeros: trailing_zeros,
+        }
+    }
 }
 
 
