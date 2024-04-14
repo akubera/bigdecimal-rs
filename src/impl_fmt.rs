@@ -96,60 +96,81 @@ fn format_full_scale(
 
     debug_assert_ne!(digits.len(), 0);
 
-    match f.precision() {
-        // precision limits the number of digits - we have to round
-        Some(prec) if prec < digits.len() && 1 < digits.len() => {
-            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
-            debug_assert_eq!(digits.len(), prec);
-        },
-        _ => {
-            // not limited by precision
-        }
-    };
-
-    // add the decimal point to 'digits' buffer
-    match exp.cmp(&0) {
-        // do not add decimal point for "full" integer
-        Equal => {
-        }
-
-        // never decimal point if only one digit long
-        Greater if digits.len() == 1 => {
-        }
-
-        // we format with scientific notation if exponent is positive
-        Greater => {
-            debug_assert!(digits.len() > 1);
-
-            // increase exp by len(digits)-1 (eg [ddddd]E+{exp} => [d.dddd]E+{exp+4})
-            exp += digits.len() as i128 - 1;
-
-            // push decimal point and rotate it to index '1'
-            digits.push(b'.');
-            digits[1..].rotate_right(1);
-        }
-
-        // decimal point is within the digits   (ddd.ddddddd)
-        Less if (-exp as usize) < digits.len() => {
-            let digits_to_shift = digits.len() - exp.abs() as usize;
-            digits.push(b'.');
-            digits[digits_to_shift..].rotate_right(1);
-
-            // exp = 0 means exponential-part will be ignored in output
+    if this.scale <= 0 {
+        if let Some(prec) = f.precision() {
+            digits.resize(digits.len() + this.scale.neg() as usize, b'0');
+            if prec > 0 {
+                digits.push(b'.');
+                digits.resize(digits.len() + prec as usize, b'0');
+            }
             exp = 0;
         }
+    } else {
+        let scale = this.scale as usize;
+        let prec = f.precision().unwrap_or(scale);
 
-        // decimal point is to the left of digits (0.0000dddddddd)
-        Less => {
-            let digits_to_shift = exp.abs() as usize - digits.len();
+        if scale < digits.len() {
+            // there are both integer and fractional digits
+            let integer_digit_count = digits.len() - scale;
 
-            digits.push(b'0');
-            digits.push(b'.');
-            digits.extend(stdlib::iter::repeat(b'0').take(digits_to_shift));
-            digits.rotate_right(digits_to_shift + 2);
+            if prec < scale {
+                apply_rounding_to_ascii_digits(
+                    &mut digits, &mut exp, integer_digit_count + prec, this.sign
+                );
+            }
 
-            exp = 0;
+            if prec != 0 {
+                digits.insert(integer_digit_count, b'.');
+            }
+
+            if scale < prec {
+                // precision required beyond scale
+                digits.resize(digits.len() + (prec - scale), b'0');
+            }
+
+        } else {
+            // there are no integer digits
+            let leading_zeros = scale - digits.len();
+
+            match prec.checked_sub(leading_zeros) {
+                None => {
+                    digits.clear();
+                    digits.push(b'0');
+                    if prec > 0 {
+                        digits.push(b'.');
+                        digits.resize(2 + prec, b'0');
+                    }
+                }
+                Some(0) => {
+                    // precision is at the decimal digit boundary, round one value
+                    let insig_digit = digits[0] - b'0';
+                    let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
+                    let rounded_value = Context::default().round_pair(this.sign, 0, insig_digit, trailing_zeros);
+
+                    digits.clear();
+                    if leading_zeros != 0 {
+                        digits.push(b'0');
+                        digits.push(b'.');
+                        digits.resize(1 + leading_zeros, b'0');
+                    }
+                    digits.push(rounded_value + b'0');
+                }
+                Some(digit_prec) => {
+                    let trailing_zeros = digit_prec.saturating_sub(digits.len());
+                    if digit_prec < digits.len() {
+                        apply_rounding_to_ascii_digits(&mut digits, &mut exp, digit_prec, this.sign);
+                    }
+                    digits.extend_from_slice(b"0.");
+                    digits.resize(digits.len() + leading_zeros, b'0');
+                    digits.rotate_right(leading_zeros + 2);
+
+                    // add any extra trailing zeros
+                    digits.resize(digits.len() + trailing_zeros, b'0');
+                }
+            }
         }
+        // never print exp when in this branch
+        exp = 0;
     }
 
     // move digits back into String form
@@ -177,15 +198,46 @@ fn format_exponential(
     //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
     //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
 
-    let mut exp = (this.scale as i128).neg();
-    let mut digits = abs_int.into_bytes();
+    let exp = (this.scale as i128).neg();
+    let digits = abs_int.into_bytes();
 
-    if digits.len() > 1 {
-        // only modify for precision if there is more than 1 decimal digit
-        if let Some(prec) = f.precision() {
-            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
+    format_exponential_bigendian_ascii_digits(
+        digits, this.sign, exp, f, e_symbol
+    )
+}
+
+
+fn format_exponential_bigendian_ascii_digits(
+    mut digits: Vec<u8>,
+    sign: Sign,
+    mut exp: i128,
+    f: &mut fmt::Formatter,
+    e_symbol: &str,
+) -> fmt::Result {
+    // how many zeros to pad at the end of the decimal
+    let mut extra_trailing_zero_count = 0;
+
+    if let Some(prec) = f.precision() {
+        // 'prec' is number of digits after the decimal point
+        let total_prec = prec + 1;
+        let digit_count = digits.len();
+
+        match total_prec.cmp(&digit_count) {
+            Ordering::Equal => {
+                // digit count is one more than precision - do nothing
+            }
+            Ordering::Less => {
+                // round to smaller precision
+                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, sign);
+            }
+            Ordering::Greater => {
+                // increase number of zeros to add to end of digits
+                extra_trailing_zero_count = total_prec - digit_count;
+            }
         }
     }
+
+    let needs_decimal_point = digits.len() > 1 || extra_trailing_zero_count > 0;
 
     let mut abs_int = String::from_utf8(digits).unwrap();
 
@@ -232,16 +284,19 @@ fn format_exponential(
     //     come up with an example
     let exponent = abs_int.len() as i128 + exp - 1;
 
-    if abs_int.len() > 1 {
+    if needs_decimal_point {
         // only add decimal point if there is more than 1 decimal digit
         abs_int.insert(1, '.');
     }
 
-    if exponent != 0 {
-        write!(abs_int, "{}{:+}", e_symbol, exponent)?;
+    if extra_trailing_zero_count > 0 {
+        abs_int.extend(stdlib::iter::repeat('0').take(extra_trailing_zero_count));
     }
 
-    let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
+    // always print exponent in exponential mode
+    write!(abs_int, "{}{:+}", e_symbol, exponent)?;
+
+    let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &abs_int)
 }
