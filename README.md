@@ -50,6 +50,67 @@ this code will print
 sqrt(2) = 1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573
 ```
 
+### Serialization
+
+If you are passing BigDecimals between systems, be sure to use a serialization format
+which explicitly supports decimal numbers and does not require transformations to
+floating-point binary numbers, or there will be information loss.
+
+Text formats like JSON should work ok as long as the receiver will also parse
+numbers as decimals so complete precision is kept accurate.
+Typically JSON-parsing implementations do not do this by default, and need special
+configuration.
+
+Binary formats like msgpack may expect/require representing numbers as 64-bit IEEE-754
+floating-point, and will likely lose precision by default unless you explicitly format
+the decimal as a string, bytes, or some custom structure.
+
+By default, this will serialize the decimal _as a string_.
+
+To use `serde_json` with this crate it is recommended to enable the `serde-json` feature
+(note `serde -dash- json` , not `serde_json`) and that will add support for
+serializing & deserializing values to BigDecimal.
+By default it will parse numbers and strings using normal conventions.
+If you want to serialize to a number, rather than a string, you can use the
+`serde(with)` annotation as shown in the following example:
+
+```toml
+[dependencies]
+bigdecimal = { version = "0.4", features = [ "serde-json" ] }  # '-' not '_'
+```
+
+```rust
+use bigdecimal::BigDecimal;
+use serde::*;
+use serde_json;
+
+#[derive(Debug,Serialize,Deserialize)]
+struct MyStruct {
+    name: String,
+    // this will be witten to json as string
+    value: BigDecimal,
+    // this will be witten to json as number
+    #[serde(with = "bigdecimal::serde::json_num")]
+    number: BigDecimal,
+}
+
+fn main() {
+    let json_src = r#"
+        { "name": "foo", "value": 1234567e-3, "number": 3.14159 }
+    "#;
+
+    let my_struct: MyStruct = serde_json::from_str(&json_src).unwrap();
+    dbg!(my_struct);
+    // MyStruct { name: "foo", value: BigDecimal("1234.567"), BigDecimal("3.1459") }
+
+    println!("{}", serde_json::to_string(&my_struct));
+    // {"name":"foo","value":"1234.567","number":3.1459}
+}
+```
+
+If you have suggestions for improving serialization, please bring them
+to the Zulip chat.
+
 ### Formatting
 
 Until a more sophisticated formatting solution is implemented (currently work in progress),
@@ -207,6 +268,7 @@ $ cargo run
 ```
 
 > [!NOTE]
+>
 > These are **compile time** environment variables, and the BigDecimal
 > library is not configurable at **runtime** via environment variable, or
 > any kind of global variables, by default.
