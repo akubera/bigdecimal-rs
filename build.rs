@@ -1,6 +1,10 @@
-
 use std::env;
 use std::path::{Path, PathBuf};
+
+// configuration defaults
+const DEFAULT_PRECISION: &str = "100";
+const DEFAULT_ROUNDING_MODE: &str = "HalfEven";
+const EXPONENTIAL_FORMAT_THRESHOLD: &str = "5";
 
 
 fn main() {
@@ -19,12 +23,17 @@ fn main() {
     write_exponential_format_threshold_file(&outdir);
 }
 
+/// Loads the environment variable string or default
+macro_rules! load_env {
+    ($env:ident, $name:literal, $default:ident) => {{
+        println!("cargo:rerun-if-env-changed={}", $name);
+        $env::var($name).unwrap_or_else(|_| $default.to_owned())
+    }};
+}
 
 /// Create default_precision.rs, containing definition of constant DEFAULT_PRECISION loaded in src/lib.rs
 fn write_default_precision_file(outdir: &Path) {
-    let env_var = env::var("RUST_BIGDECIMAL_DEFAULT_PRECISION").unwrap_or_else(|_| "100".to_owned());
-    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_DEFAULT_PRECISION");
-
+    let env_var = load_env!(env, "RUST_BIGDECIMAL_DEFAULT_PRECISION", DEFAULT_PRECISION);
     let rust_file_path = outdir.join("default_precision.rs");
 
     let default_prec: u32 = env_var
@@ -39,8 +48,7 @@ fn write_default_precision_file(outdir: &Path) {
 
 /// Create default_rounding_mode.rs, using value of RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE environment variable
 fn write_default_rounding_mode(outdir: &Path) {
-    let rounding_mode_name = env::var("RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE").unwrap_or_else(|_| "HalfEven".to_owned());
-    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE");
+    let rounding_mode_name = load_env!(env, "RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE", DEFAULT_ROUNDING_MODE);
 
     let rust_file_path = outdir.join("default_rounding_mode.rs");
     let rust_file_contents = format!("const DEFAULT_ROUNDING_MODE: RoundingMode = RoundingMode::{};", rounding_mode_name);
@@ -50,8 +58,7 @@ fn write_default_rounding_mode(outdir: &Path) {
 
 /// Create write_default_rounding_mode.rs, containing definition of constant EXPONENTIAL_FORMAT_THRESHOLD loaded in src/impl_fmt.rs
 fn write_exponential_format_threshold_file(outdir: &Path) {
-    let env_var = env::var("RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD").unwrap_or_else(|_| "5".to_owned());
-    println!("cargo:rerun-if-env-changed=RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD");
+    let env_var = load_env!(env, "RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD", EXPONENTIAL_FORMAT_THRESHOLD);
 
     let rust_file_path = outdir.join("exponential_format_threshold.rs");
 
