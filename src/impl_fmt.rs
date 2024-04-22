@@ -6,6 +6,7 @@ use stdlib::fmt::Write;
 
 
 // const EXPONENTIAL_FORMAT_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD} or 5;
 include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 
