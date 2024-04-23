@@ -12,13 +12,23 @@ include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        dynamically_format_decimal(self.to_ref(), f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(
+            self.to_ref(),
+            f,
+            EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD,
+            EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD,
+        )
     }
 }
 
 impl fmt::Display for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        dynamically_format_decimal(*self, f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(
+            *self,
+            f,
+            EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD,
+            EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD,
+        )
     }
 }
 
@@ -68,15 +78,27 @@ impl fmt::Debug for BigDecimal {
 fn dynamically_format_decimal(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
-    threshold: i64,
+    leading_zero_threshold: usize,
+    trailing_zero_threshold: usize,
 ) -> fmt::Result {
     // Acquire the absolute integer as a decimal string
     let abs_int = this.digits.to_str_radix(10);
 
-    // use exponential form if decimal point is not "within" the number.
-    // "threshold" is max number of leading zeros before being considered
-    // "outside" the number
-    if this.scale < 0 || (this.scale > abs_int.len() as i64 + threshold) {
+    // number of zeros between most significant digit and decimal point
+    let leading_zero_count = this.scale
+                                 .to_usize()
+                                 .and_then(|scale| scale.checked_sub(abs_int.len()))
+                                 .unwrap_or(0);
+
+    // number of zeros between least significant digit and decimal point
+    let trailing_zero_count = this.scale
+                                  .checked_neg()
+                                  .and_then(|d| d.to_usize())
+                                  .unwrap_or(0);
+
+    // use exponential form if decimal point is outside
+    // the upper and lower thresholds of the decimal
+    if leading_zero_threshold < leading_zero_count || trailing_zero_threshold < trailing_zero_count {
         format_exponential(this, f, abs_int, "E")
     } else {
         format_full_scale(this, f, abs_int)
@@ -105,6 +127,10 @@ fn format_full_scale(
                 digits.resize(digits.len() + prec as usize, b'0');
             }
             exp = 0;
+        // } else if -(EXPONENTIAL_FORMAT_UPPER_THRESHOLD as i64) < this.scale {
+        //     // dbg!(this.scale);
+        //     digits.resize(digits.len() + this.scale.neg() as usize, b'0');
+        //     exp = 0;
         }
     } else {
         let scale = this.scale as usize;
@@ -483,7 +509,7 @@ mod test {
 
         macro_rules! test_fmt_function {
             ($n:ident) => {{
-                format!("{}", Fmt(|f| dynamically_format_decimal($n.to_ref(), f, 2)))
+                format!("{}", Fmt(|f| dynamically_format_decimal($n.to_ref(), f, 2, 9)))
             }};
         }
 

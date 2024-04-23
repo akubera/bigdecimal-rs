@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 const DEFAULT_PRECISION: &str = "100";
 const DEFAULT_ROUNDING_MODE: &str = "HalfEven";
 const EXPONENTIAL_FORMAT_THRESHOLD: &str = "5";
-const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: &str = "9";
+const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: &str = "12";
 
 
 fn main() {
@@ -74,8 +74,8 @@ fn write_exponential_format_threshold_file(outdir: &Path) {
     let rust_file_path = outdir.join("exponential_format_threshold.rs");
 
     let rust_file_contents = [
-        format!("const EXPONENTIAL_FORMAT_THRESHOLD: i64 = {};", low_value),
-        format!("const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: i64 = {};", high_value),
+        format!("const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = {};", low_value),
+        format!("const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: usize = {};", high_value),
     ];
 
     std::fs::write(rust_file_path, rust_file_contents.join("\n")).unwrap();
