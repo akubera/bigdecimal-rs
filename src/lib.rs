@@ -1968,33 +1968,29 @@ mod bigdecimal_tests {
         assert!((-BigDecimal::one()).abs().is_positive());
     }
 
-    #[test]
-    fn test_normalize() {
-        use num_bigint::BigInt;
+    mod normalize {
+        use super::*;
 
-        let vals = vec![
-            (BigDecimal::new(BigInt::from(10), 2),
-            BigDecimal::new(BigInt::from(1), 1),
-            "0.1"),
-            (BigDecimal::new(BigInt::from(132400), -4),
-            BigDecimal::new(BigInt::from(1324), -6),
-            "1.324E+9"),
-            (BigDecimal::new(BigInt::from(1_900_000), 3),
-            BigDecimal::new(BigInt::from(19), -2),
-            "1.9E+3"),
-            (BigDecimal::new(BigInt::from(0), -3),
-            BigDecimal::zero(),
-            "0"),
-            (BigDecimal::new(BigInt::from(0), 5),
-            BigDecimal::zero(),
-            "0"),
-        ];
-
-        for (not_normalized, normalized, string) in vals {
-            assert_eq!(not_normalized.normalized(), normalized);
-            assert_eq!(not_normalized.normalized().to_string(), string);
-            assert_eq!(normalized.to_string(), string);
+        macro_rules! impl_case {
+            ( $name:ident: ($i:literal, $s:literal) =>  ($e_int_val:literal, $e_scale:literal) ) => {
+                #[test]
+                fn $name() {
+                    let d = BigDecimal::new($i.into(), $s);
+                    let n = d.normalized();
+                    assert_eq!(n.int_val, $e_int_val.into());
+                    assert_eq!(n.scale, $e_scale);
+                }
+            }
         }
+
+        impl_case!(case_0e3: (0, -3) => (0, 0));
+        impl_case!(case_0en50: (0, 50) => (0, 0));
+        impl_case!(case_10en2: (10, 2) => (1, 1));
+        impl_case!(case_11en2: (11, 2) => (11, 2));
+        impl_case!(case_132400en4: (132400, 4) => (1324, 2));
+        impl_case!(case_1_900_000en3: (1_900_000, 3) => (19, -2));
+        impl_case!(case_834700e4: (834700, -4) => (8347, -6));
+        impl_case!(case_n834700e4: (-9900, 2) => (-99, 0));
     }
 
     #[test]
