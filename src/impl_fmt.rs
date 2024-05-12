@@ -715,6 +715,25 @@ mod test {
             impl_case!(fmt_010d3:  "{:010.3}" => "019073.972");
         }
 
+        mod dec_n90037659d6902 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "-90037659.6905".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "-90037659.6905");
+            impl_case!(fmt_debug:      "{:?}" => "BigDecimal(sign=Minus, scale=4, digits=[900376596905])");
+            impl_case!(fmt_debug_alt: "{:#?}" => "BigDecimal(\"-900376596905e-4\")");
+            impl_case!(fmt_pd7:      "{:+.7}" => "-90037659.6905000");
+            impl_case!(fmt_d0:        "{:.0}" => "-90037660");
+            impl_case!(fmt_d3:        "{:.3}" => "-90037659.690");
+            impl_case!(fmt_d4:        "{:.4}" => "-90037659.6905");
+            impl_case!(fmt_14d4:      "{:14.4}" => "-90037659.6905");
+            impl_case!(fmt_15d4:    "{:15.4}" => " -90037659.6905");
+            impl_case!(fmt_l17d5:  "{:<17.5}" => "-90037659.69050  ");
+        }
+
         mod dec_1764031078en13 {
             use super::*;
 
