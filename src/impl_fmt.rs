@@ -5,8 +5,8 @@ use crate::*;
 use stdlib::fmt::Write;
 
 
-// const EXPONENTIAL_FORMAT_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 5;
-// const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD} or 5;
 include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 
@@ -120,81 +120,19 @@ fn format_full_scale(
     debug_assert_ne!(digits.len(), 0);
 
     if this.scale <= 0 {
-        if let Some(prec) = f.precision() {
-            digits.resize(digits.len() + this.scale.neg() as usize, b'0');
-            if prec > 0 {
-                digits.push(b'.');
-                digits.resize(digits.len() + prec as usize, b'0');
-            }
-            exp = 0;
-        // } else if -(EXPONENTIAL_FORMAT_UPPER_THRESHOLD as i64) < this.scale {
-        //     // dbg!(this.scale);
-        //     digits.resize(digits.len() + this.scale.neg() as usize, b'0');
-        //     exp = 0;
-        }
+        // formating an integer value (add trailing zeros to the right)
+        zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
         let scale = this.scale as usize;
+        // no-precision behaves the same as precision matching scale (i.e. no padding or rounding)
         let prec = f.precision().unwrap_or(scale);
 
         if scale < digits.len() {
-            // there are both integer and fractional digits
-            let integer_digit_count = digits.len() - scale;
-
-            if prec < scale {
-                apply_rounding_to_ascii_digits(
-                    &mut digits, &mut exp, integer_digit_count + prec, this.sign
-                );
-            }
-
-            if prec != 0 {
-                digits.insert(integer_digit_count, b'.');
-            }
-
-            if scale < prec {
-                // precision required beyond scale
-                digits.resize(digits.len() + (prec - scale), b'0');
-            }
-
+            // format both integer and fractional digits (always just 'trim')
+            trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
         } else {
-            // there are no integer digits
-            let leading_zeros = scale - digits.len();
-
-            match prec.checked_sub(leading_zeros) {
-                None => {
-                    digits.clear();
-                    digits.push(b'0');
-                    if prec > 0 {
-                        digits.push(b'.');
-                        digits.resize(2 + prec, b'0');
-                    }
-                }
-                Some(0) => {
-                    // precision is at the decimal digit boundary, round one value
-                    let insig_digit = digits[0] - b'0';
-                    let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
-                    let rounded_value = Context::default().round_pair(this.sign, 0, insig_digit, trailing_zeros);
-
-                    digits.clear();
-                    if leading_zeros != 0 {
-                        digits.push(b'0');
-                        digits.push(b'.');
-                        digits.resize(1 + leading_zeros, b'0');
-                    }
-                    digits.push(rounded_value + b'0');
-                }
-                Some(digit_prec) => {
-                    let trailing_zeros = digit_prec.saturating_sub(digits.len());
-                    if digit_prec < digits.len() {
-                        apply_rounding_to_ascii_digits(&mut digits, &mut exp, digit_prec, this.sign);
-                    }
-                    digits.extend_from_slice(b"0.");
-                    digits.resize(digits.len() + leading_zeros, b'0');
-                    digits.rotate_right(leading_zeros + 2);
-
-                    // add any extra trailing zeros
-                    digits.resize(digits.len() + trailing_zeros, b'0');
-                }
-            }
+            // format only fractional digits
+            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, this.sign);
         }
         // never print exp when in this branch
         exp = 0;
@@ -211,6 +149,119 @@ fn format_full_scale(
     // write buffer to formatter
     f.pad_integral(non_negative, "", &buf)
 }
+
+/// Fill appropriate number of zeros and decimal point into Vec of (ascii/utf-8) digits
+///
+/// Exponent is set to zero if zeros were added
+///
+fn zero_right_pad_integer_ascii_digits(
+    digits: &mut Vec<u8>,
+    exp: &mut i128,
+    precision: Option<usize>,
+) {
+    debug_assert!(*exp >= 0);
+
+    let trailing_zero_count = exp.to_usize().unwrap();
+    let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
+    if total_additional_zeros > 4096 {
+        return;
+    }
+
+    // requested 'prec' digits of precision after decimal point
+    match precision {
+        None if trailing_zero_count > 20 => {
+        }
+        None | Some(0) => {
+            digits.resize(digits.len() + trailing_zero_count, b'0');
+            *exp = 0;
+        }
+        Some(prec) => {
+            digits.resize(digits.len() + trailing_zero_count, b'0');
+            digits.push(b'.');
+            digits.resize(digits.len() + prec, b'0');
+            *exp = 0;
+        }
+    }
+}
+
+/// Fill zeros into utf-8 digits
+fn trim_ascii_digits(
+    digits: &mut Vec<u8>,
+    scale: usize,
+    prec: usize,
+    exp: &mut i128,
+    sign: Sign,
+) {
+    debug_assert!(scale < digits.len());
+    // there are both integer and fractional digits
+    let integer_digit_count = digits.len() - scale;
+
+    if prec < scale {
+        apply_rounding_to_ascii_digits(
+            digits, exp, integer_digit_count + prec, sign
+        );
+    }
+
+    if prec != 0 {
+        digits.insert(integer_digit_count, b'.');
+    }
+
+    if scale < prec {
+        // precision required beyond scale
+        digits.resize(digits.len() + (prec - scale), b'0');
+    }
+}
+
+
+fn shift_or_trim_fractional_digits(
+    digits: &mut Vec<u8>,
+    scale: usize,
+    prec: usize,
+    exp: &mut i128,
+    sign: Sign,
+) {
+    debug_assert!(scale >= digits.len());
+    // there are no integer digits
+    let leading_zeros = scale - digits.len();
+
+    match prec.checked_sub(leading_zeros) {
+        None => {
+            digits.clear();
+            digits.push(b'0');
+            if prec > 0 {
+                digits.push(b'.');
+                digits.resize(2 + prec, b'0');
+            }
+        }
+        Some(0) => {
+            // precision is at the decimal digit boundary, round one value
+            let insig_digit = digits[0] - b'0';
+            let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
+            let rounded_value = Context::default().round_pair(sign, 0, insig_digit, trailing_zeros);
+
+            digits.clear();
+            if leading_zeros != 0 {
+                digits.push(b'0');
+                digits.push(b'.');
+                digits.resize(1 + leading_zeros, b'0');
+            }
+            digits.push(rounded_value + b'0');
+        }
+        Some(digit_prec) => {
+            let trailing_zeros = digit_prec.saturating_sub(digits.len());
+            if digit_prec < digits.len() {
+                apply_rounding_to_ascii_digits(digits, exp, digit_prec, sign);
+            }
+            digits.extend_from_slice(b"0.");
+            digits.resize(digits.len() + leading_zeros, b'0');
+            digits.rotate_right(leading_zeros + 2);
+
+            // add any extra trailing zeros
+            digits.resize(digits.len() + trailing_zeros, b'0');
+        }
+    }
+}
+
 
 
 fn format_exponential(
