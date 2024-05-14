@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 const DEFAULT_PRECISION: &str = "100";
 const DEFAULT_ROUNDING_MODE: &str = "HalfEven";
 const EXPONENTIAL_FORMAT_THRESHOLD: &str = "5";
-const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: &str = "12";
+const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: &str = "15";
 
 
 fn main() {
