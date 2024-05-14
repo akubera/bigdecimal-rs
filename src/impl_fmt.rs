@@ -571,7 +571,7 @@ mod test {
         impl_case!(case_0d000123: "0.000123" => "1.23E-4");
 
         impl_case!(case_123d: "123." => "123");
-        impl_case!(case_123de1: "123.e1" => "1.23E+3");
+        impl_case!(case_123de1: "123.e1" => "1230");
     }
 
     mod fmt_options {
@@ -615,9 +615,11 @@ mod test {
             }
 
             impl_case!(fmt_default:      "{}" => "10");
-            impl_case!(fmt_d0:        "{:.0}" => "1e1");
-            impl_case!(fmt_d1:        "{:.1}" => "1.0e1");
-            impl_case!(fmt_d2:        "{:.2}" => "1.00e1");
+            impl_case!(fmt_debug:      "{:?}" => "BigDecimal(sign=Plus, scale=-1, digits=[1])");
+            impl_case!(fmt_debug_alt: "{:#?}" => "BigDecimal(\"1e1\")");
+            impl_case!(fmt_d0:        "{:.0}" => "10");
+            impl_case!(fmt_d1:        "{:.1}" => "10.0");
+            impl_case!(fmt_d2:        "{:.2}" => "10.00");
         }
 
         mod dec_1en1 {
@@ -751,6 +753,31 @@ mod test {
             impl_case!(fmt_d20:    "{:.20}" => "0.00017640310780000000");
 
         }
+
+        mod dec_1e15 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1e15".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "1000000000000000");
+            impl_case!(fmt_d0:          "{:.0}" => "1000000000000000");
+            impl_case!(fmt_d1:          "{:.1}" => "1000000000000000.0");
+        }
+
+        mod dec_1e16 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1e16".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "1e16");
+            impl_case!(fmt_d0:          "{:.0}" => "10000000000000000");
+            impl_case!(fmt_d1:          "{:.1}" => "10000000000000000.0");
+        }
+
 
         mod dec_491326en12 {
             use super::*;
