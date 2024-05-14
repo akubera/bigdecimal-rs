@@ -5,8 +5,9 @@ use crate::*;
 use stdlib::fmt::Write;
 
 
-// const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 5;
-// const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD} or 15;
+// const FMT_MAX_INTEGER_PADDING: usize = = ${RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING} or  1000;
 include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 
@@ -128,7 +129,7 @@ fn format_full_scale(
         let prec = f.precision().unwrap_or(scale);
 
         if scale < digits.len() {
-            // format both integer and fractional digits (always just 'trim')
+            // format both integer and fractional digits (always 'trim' to precision)
             trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
         } else {
             // format only fractional digits
@@ -163,7 +164,7 @@ fn zero_right_pad_integer_ascii_digits(
 
     let trailing_zero_count = exp.to_usize().unwrap();
     let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
-    if total_additional_zeros > 4096 {
+    if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
         return;
     }
 

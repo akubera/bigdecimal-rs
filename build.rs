@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 // configuration defaults
 const DEFAULT_PRECISION: &str = "100";
 const DEFAULT_ROUNDING_MODE: &str = "HalfEven";
-const EXPONENTIAL_FORMAT_THRESHOLD: &str = "5";
-const EXPONENTIAL_FORMAT_UPPER_THRESHOLD: &str = "15";
+const FMT_EXPONENTIAL_LOWER_THRESHOLD: &str = "5";
+const FMT_EXPONENTIAL_UPPER_THRESHOLD: &str = "15";
+const FMT_MAX_INTEGER_PADDING: &str = "1000";
 
 
 fn main() {
@@ -59,23 +60,29 @@ fn write_default_rounding_mode(outdir: &Path) {
 
 /// Create write_default_rounding_mode.rs, containing definition of constant EXPONENTIAL_FORMAT_THRESHOLD loaded in src/impl_fmt.rs
 fn write_exponential_format_threshold_file(outdir: &Path) {
-    let low_value = load_env!(env, "RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD", EXPONENTIAL_FORMAT_THRESHOLD);
-    let high_value = load_env!(env, "RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD", EXPONENTIAL_FORMAT_UPPER_THRESHOLD);
+    let low_value = load_env!(env, "RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD", FMT_EXPONENTIAL_LOWER_THRESHOLD);
+    let high_value = load_env!(env, "RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD", FMT_EXPONENTIAL_UPPER_THRESHOLD);
+    let max_padding = load_env!(env, "RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING", FMT_MAX_INTEGER_PADDING);
 
     let low_value: u32 = low_value
         .parse::<std::num::NonZeroU32>()
-        .expect("$RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD must be an integer > 0")
+        .expect("$RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD must be an integer > 0")
         .into();
 
     let high_value: u32 = high_value
         .parse::<u32>()
-        .expect("$RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_UPPER_THRESHOLD must be valid u32");
+        .expect("$RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD must be valid u32");
+
+    let max_padding: u32 = max_padding
+        .parse::<u32>()
+        .expect("$RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING must be valid u32");
 
     let rust_file_path = outdir.join("exponential_format_threshold.rs");
 
     let rust_file_contents = [
         format!("const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = {};", low_value),
         format!("const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: usize = {};", high_value),
+        format!("const FMT_MAX_INTEGER_PADDING: usize = {};", max_padding),
     ];
 
     std::fs::write(rust_file_path, rust_file_contents.join("\n")).unwrap();
