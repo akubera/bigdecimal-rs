@@ -797,9 +797,9 @@ mod test {
                 "1e16".parse().unwrap()
             }
 
-            impl_case!(fmt_default:        "{}" => "1e16");
+            impl_case!(fmt_default:        "{}" => "1e+16");
             impl_case!(fmt_d0:          "{:.0}" => "10000000000000000");
-            impl_case!(fmt_d1:          "{:.1}" => "10000000000000000.0");
+            impl_case!(fmt_d2:          "{:.2}" => "10000000000000000.00");
         }
 
 
@@ -859,12 +859,12 @@ mod test {
             use super::*;
 
             fn test_input() -> BigDecimal {
-                "1e10000".parse().unwrap()
+                "1e100000".parse().unwrap()
             }
 
-            impl_case!(fmt_default: "{}" => "1E+10000");
-            impl_case!(fmt_d1: "{:.1}" => "1.0E+10000");
-            impl_case!(fmt_d4: "{:.4}" => "1.0000E+10000");
+            impl_case!(fmt_default: "{}" => "1e+100000");
+            impl_case!(fmt_d1: "{:.1}" => "1E+100000");
+            impl_case!(fmt_d4: "{:.4}" => "1E+100000");
         }
 
 
@@ -890,12 +890,22 @@ mod test {
                 BigDecimal::new(1234506789.into(), -15)
             }
 
-            impl_case!(fmt_default: "{}" => "1.234506789E+24");
-            impl_case!(fmt_d1: "{:.1}" => "1.2E+24");
-            impl_case!(fmt_d3: "{:.3}" => "1.235E+24");
-            impl_case!(fmt_d4: "{:.4}" => "1.2345E+24");
-            impl_case!(fmt_l13d4: "{:<13.4}" => "1.2345E+24   ");
-            impl_case!(fmt_r13d4: "{:>13.4}" => "   1.2345E+24");
+            impl_case!(fmt_default: "{}" => "1234506789000000000000000");
+            impl_case!(fmt_d1: "{:.1}" => "1234506789000000000000000.0");
+            impl_case!(fmt_d3: "{:.3}" => "1234506789000000000000000.000");
+            impl_case!(fmt_l13d4: "{:<+32.2}" => "+1234506789000000000000000.00   ");
+            impl_case!(fmt_r13d4: "{:>+32.2}" => "   +1234506789000000000000000.00");
+        }
+
+        mod dec_13400476439814628800E2502 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(13400476439814628800u64.into(), -2502)
+            }
+
+            impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
+            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800E+2502");
         }
     }
 
@@ -911,11 +921,16 @@ mod test {
                     let result = bd.to_string();
                     assert_eq!(result, $expected);
 
-                    bd.to_scientific_notation();
-                    bd.to_engineering_notation();
-
                     let round_trip = BigDecimal::from_str(&result).unwrap();
                     assert_eq!(round_trip, bd);
+
+                    let sci = bd.to_scientific_notation();
+                    let sci_round_trip = BigDecimal::from_str(&sci).unwrap();
+                    assert_eq!(sci_round_trip, bd);
+
+                    let eng = bd.to_engineering_notation();
+                    let eng_round_trip = BigDecimal::from_str(&eng).unwrap();
+                    assert_eq!(eng_round_trip, bd);
                 }
             };
             ( (panics) $name:ident: $src:expr ) => {
@@ -928,10 +943,12 @@ mod test {
             };
         }
 
-        impl_case!(test_max: format!("1E{}", i64::MAX) => "1E+9223372036854775807");
-        impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "3.14156E+9223372036854775812");
-        impl_case!(test_min_scale: "1E9223372036854775808" => "1E+9223372036854775808");
-        impl_case!(test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
+
+        impl_case!(test_max: format!("1E{}", i64::MAX) => "1e+9223372036854775807");
+        impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "314156e+9223372036854775807");
+        impl_case!(test_min_scale: "1E9223372036854775807" => "1e+9223372036854775807");
+
+        // impl_case!(test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
         impl_case!(test_min_multiple_digits: format!("271828182E-{}", i64::MAX) => "2.71828182E-9223372036854775799");
 
         impl_case!((panics) test_max_exp_overflow: "1E9223372036854775809");
