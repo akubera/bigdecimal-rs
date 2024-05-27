@@ -94,13 +94,20 @@ fn dynamically_format_decimal(
     // number of zeros between least significant digit and decimal point
     let trailing_zero_count = this.scale
                                   .checked_neg()
-                                  .and_then(|d| d.to_usize())
-                                  .unwrap_or(0);
+                                  .and_then(|d| d.to_usize());
+
+    // this ignores scientific-formatting if precision is requested
+    let trailing_zeros = f.precision().map(|_| 0)
+                          .or(trailing_zero_count)
+                          .unwrap_or(0);
 
     // use exponential form if decimal point is outside
     // the upper and lower thresholds of the decimal
-    if leading_zero_threshold < leading_zero_count || trailing_zero_threshold < trailing_zero_count {
+    if leading_zero_threshold < leading_zero_count {
         format_exponential(this, f, abs_int, "E")
+    } else if trailing_zero_threshold < trailing_zeros {
+        // non-scientific notation
+        format_dotless_exponential(f, abs_int, this.sign, this.scale, "e")
     } else {
         format_full_scale(this, f, abs_int)
     }
@@ -264,6 +271,23 @@ fn shift_or_trim_fractional_digits(
 }
 
 
+/// Format integer as {int}e+{exp}
+///
+/// Slightly different than scientific notation,
+///
+fn format_dotless_exponential(
+    f: &mut fmt::Formatter,
+    mut abs_int: String,
+    sign: Sign,
+    scale: i64,
+    e_symbol: &str,
+) -> fmt::Result {
+    debug_assert!(scale <= 0);
+
+    write!(abs_int, "{}{:+}", e_symbol, -scale).unwrap();
+    let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
+    f.pad_integral(non_negative, "", &abs_int)
+}
 
 fn format_exponential(
     this: BigDecimalRef,
