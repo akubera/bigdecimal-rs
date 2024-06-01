@@ -50,16 +50,86 @@ this code will print
 sqrt(2) = 1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573
 ```
 
+### Formatting
+
+Until a more sophisticated formatting solution is implemented (currently work in progress),
+we are restricted to Rust's `fmt::Display` formatting options.
+This is how this crate formats BigDecimals:
+
+- `{}` - Default Display
+    - Format as "human readable" number
+    - "Small" fractional numbers (close to zero) are printed in scientific notation
+        - Number is considered "small" by number of leading zeros exceeding a threshold
+        - Configurable by the compile-time environment variable:
+          `RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD`
+            - Default 5
+        - Example: `1.23e-3` will print as `0.00123` but `1.23e-10` will be `1.23E-10`
+    - Trailing zeros will be added to "small" integers, avoiding scientific notation
+        - May appear to have more precision than they do
+        - Example: decimal `1e1` would be rendered as `10`
+        - The threshold for "small" is configured by compile-time environment variable:
+          `RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD`
+            - Default 15
+        - `1e15` => `1000000000000000`
+        - Large integers (e.g. `1e50000000`) will print in scientific notation, not
+          a 1 followed by fifty million zeros
+    - All other numbers are printed in standard decimal notation
+
+- `{:.<PREC>}` - Display with precision
+    - Format number with exactly `PREC` digits after the decimal place
+    - Numbers with fractional components will be rounded at precision point, or have
+      zeros padded to precision point
+    - Integers will have zeros padded to the precision point
+        - To prevent unreasonably sized output, a threshold limits the number
+          of padded zeros
+            - Greater than the default case, since specific precision was requested
+            - Configurable by the compile-time environment variable:
+              `RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING`
+                - Default 1000
+        - If digits exceed this threshold, they are printed without decimal-point,
+          suffixed with scale of the big decimal
+
+- `{:e}` / `{:E}` - Exponential format
+    - Formats in scientific notation with either `e` or `E` as exponent delimiter
+    - Precision is kept exactly
+
+- `{:.<PREC>e}` - formats in scientific notation, keeping number
+    - Number is rounded / zero padded until
+
+- `{:?}` - Debug
+    - Shows internal representation of BigDecimal
+        - `123.456` => `BigDecimal(sign=Plus, scale=3, digits=[123456])`
+        - `-1e10000` => `BigDecimal(sign=Minus, scale=-10000, digits=[1])`
+
+- `{:#?}` - Alternate Debug (used by `dbg!()`)
+    - Shows simple int+exponent string representation of BigDecimal
+        - `123.456` => `BigDecimal("123456e-3")`
+        - `-1e10000` => `BigDecimal("-1e10000")`
+
+There is a [formatting-example](examples/formatting-example.rs) script in the
+`examples/` directory that demonstrates the formatting options and comparison
+with Rust's standard floating point Display.
+
+It is recommended you include unit tests in your code to guarantee that future
+versions of BigDecimal continue to format numbers the way you expect.
+The rules above are not likely to change, but they are probably the only part
+of this library that are relatively subjective, and could change behavior
+without indication from the compiler.
+
+Also, check for changes to the configuration environment variables, those
+may change name until 1.0.
 
 ### Compile-Time Configuration
 
 You can set a few default parameters at _compile-time_ via environment variables:
 
-|  Environment Variable                           | Default    |
-|-------------------------------------------------|------------|
-|  `RUST_BIGDECIMAL_DEFAULT_PRECISION`            |  100       |
-|  `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`        | `HalfEven` |
-|  `RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD` |  5         |
+|  Environment Variable                              | Default    |
+|----------------------------------------------------|------------|
+|  `RUST_BIGDECIMAL_DEFAULT_PRECISION`               |  100       |
+|  `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`           | `HalfEven` |
+|  `RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD` |  5         |
+|  `RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD` |  15        |
+|  `RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING`         |  1000      |
 
 These allow setting the default [Context] fields globally without incurring a runtime lookup,
 or having to pass Context parameters through all calculations.
