@@ -933,6 +933,26 @@ mod test {
                     assert_eq!(eng_round_trip, bd);
                 }
             };
+            ( (eng-check-invalid) $name:ident: $src:expr => $expected:literal ) => {
+                #[test]
+                fn $name() {
+                    let src = $src;
+                    let bd: BigDecimal = src.parse().unwrap();
+                    let result = bd.to_string();
+                    assert_eq!(result, $expected);
+
+                    let round_trip = BigDecimal::from_str(&result).unwrap();
+                    assert_eq!(round_trip, bd);
+
+                    let sci = bd.to_scientific_notation();
+                    let sci_round_trip = BigDecimal::from_str(&sci).unwrap();
+                    assert_eq!(sci_round_trip, bd);
+
+                    let eng = bd.to_engineering_notation();
+                    let eng_round_trip = BigDecimal::from_str(&eng);
+                    assert!(eng_round_trip.is_err());
+                }
+            };
             ( (panics) $name:ident: $src:expr ) => {
                 #[test]
                 #[should_panic]
@@ -948,7 +968,7 @@ mod test {
         impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "314156e+9223372036854775807");
         impl_case!(test_min_scale: "1E9223372036854775807" => "1e+9223372036854775807");
 
-        // impl_case!(test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
+        impl_case!((eng-check-invalid) test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
         impl_case!(test_min_multiple_digits: format!("271828182E-{}", i64::MAX) => "2.71828182E-9223372036854775799");
 
         impl_case!((panics) test_max_exp_overflow: "1E9223372036854775809");
