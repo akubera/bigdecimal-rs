@@ -45,11 +45,46 @@ impl<'de> de::Visitor<'de> for BigDecimalVisitor {
         Ok(BigDecimal::from(value))
     }
 
+    fn visit_u128<E>(self, value: u128) -> Result<BigDecimal, E>
+    where
+        E: de::Error,
+    {
+        Ok(BigDecimal::from(value))
+    }
+
+    fn visit_i128<E>(self, value: i128) -> Result<BigDecimal, E>
+    where
+        E: de::Error,
+    {
+        Ok(BigDecimal::from(value))
+    }
+
+    fn visit_f32<E>(self, value: f32) -> Result<BigDecimal, E>
+    where
+        E: de::Error,
+    {
+        BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
+    }
+
     fn visit_f64<E>(self, value: f64) -> Result<BigDecimal, E>
     where
         E: de::Error,
     {
         BigDecimal::try_from(value).map_err(|err| E::custom(format!("{}", err)))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: de::MapAccess<'de>,
+    {
+        match map.next_key::<&str>() {
+            Ok(Some("$serde_json::private::Number")) => {
+                map.next_value::<BigDecimal>()
+            }
+            _ => {
+                Err(de::Error::invalid_type(de::Unexpected::Map, &self))
+            }
+        }
     }
 }
 
