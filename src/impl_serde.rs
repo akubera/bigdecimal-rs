@@ -136,7 +136,7 @@ mod test {
         impl_case!(case_50: "50" => "50");
         impl_case!(case_50000: "50000" => "50000");
         impl_case!(case_1en3: "1e-3" => "0.001");
-        impl_case!(case_10e11: "10e11" => "1.0E+12");
+        impl_case!(case_10e11: "10e11" => "1000000000000");
         impl_case!(case_d25: ".25" => "0.25");
         impl_case!(case_12d34e1: "12.34e1" => "123.4");
         impl_case!(case_40d0010: "40.0010" => "40.0010");
