@@ -226,6 +226,38 @@ mod test {
             assert_de_tokens_error::<BigDecimal>(&tokens, "NAN");
         }
     }
+
+
+    #[cfg(feature = "serde_json")]
+    mod json_support {
+        use super::*;
+        use impl_serde::{Serialize, Deserialize};
+        use serde_json;
+
+        #[derive(Serialize,Deserialize)]
+        struct TestStruct {
+            name: String,
+            value: BigDecimal,
+            #[serde(with = "crate::serde::json_num")]
+            number: BigDecimal,
+        }
+
+
+        #[test]
+        fn test_struct_parsing() {
+            let json_src = r#"
+                { "name": "foo", "value": 0.0008741329382918, "number": "12.34" }
+            "#;
+            let my_struct: TestStruct = serde_json::from_str(&json_src).unwrap();
+            assert_eq!(&my_struct.name, "foo");
+            assert_eq!(&my_struct.value, &"0.0008741329382918".parse().unwrap());
+            assert_eq!(&my_struct.number, &"12.34".parse().unwrap());
+
+            let s = serde_json::to_string(&my_struct).unwrap();
+            assert_eq!(s, r#"{"name":"foo","value":"0.0008741329382918","number":12.34}"#);
+        }
+
+    }
 }
 
 

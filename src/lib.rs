@@ -65,6 +65,9 @@ extern crate serde as serde_crate;
 #[cfg(all(test, any(feature = "serde", feature = "serde_json")))]
 extern crate serde_test;
 
+#[cfg(all(test, feature = "serde_json"))]
+extern crate serde_json;
+
 #[cfg(feature = "std")]
 include!("./with_std.rs");
 
