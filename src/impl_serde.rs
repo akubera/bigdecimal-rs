@@ -4,6 +4,8 @@
 use crate::*;
 use serde_crate::{self as serde, de, ser, Serialize, Deserialize};
 
+// const SERDE_SCALE_LIMIT: usize = = ${RUST_BIGDECIMAL_SERDE_SCALE_LIMIT} or  150_000;
+include!(concat!(env!("OUT_DIR"), "/serde_scale_limit.rs"));
 
 impl ser::Serialize for BigDecimal {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
