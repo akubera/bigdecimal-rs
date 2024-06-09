@@ -293,10 +293,14 @@ pub mod arbitrary_precision {
     where
         D: serde::de::Deserializer<'de>,
     {
-        serde_json::Number::deserialize(deserializer)?
-                           .as_str()
-                           .parse()
-                           .map_err(de::Error::custom)
+        let n = BigDecimal::deserialize(deserializer)?;
+
+        if n.scale.abs() > SERDE_SCALE_LIMIT && SERDE_SCALE_LIMIT > 0 {
+            let msg = format!("Calculated exponent '{}' out of bounds", -n.scale);
+            Err(serde::de::Error::custom(msg))
+        } else {
+            Ok(n)
+        }
     }
 
     pub fn serialize<S>(value: &BigDecimal, serializer: S) -> Result<S::Ok, S::Error>
@@ -438,5 +442,18 @@ mod test_jsonification {
         impl_case!(case_high_prec: r#"{ "value": 64771126779.35857825871133263810255301911 }"# => "64771126779.35857825871133263810255301911" );
 
         impl_case!(case_nan: r#"{ "value": nan }"# => (error) );
+
+
+        #[test]
+        fn scale_out_of_bounds() {
+            use serde_crate::de::Error;
+
+            let src = r#"{ "value": 1e92233720392233 }"#;
+
+            let parse_err = serde_json::from_str::<TestExample>(&src).err().unwrap();
+            let err_str = parse_err.to_string();
+
+            assert!(err_str.starts_with("Calculated exponent '92233720392233' out of bounds"), "{}", err_str);
+        }
     }
 }
