@@ -218,6 +218,29 @@ cargo:test:serde:
   <<: *script-cargo-test
   script:
     - cargo test --features=serde --all-targets
+    - cargo test --features=serde --no-default-features
+
+cargo:build:serde-json:
+  stage: build
+  image: akubera/rust:stable
+  needs:
+    - cargo:check
+  variables:
+    RUST_CACHE_KEY: "stable+serde-json"
+  <<: *script-cargo-build
+  script:
+    - cargo build --features=serde-json --all-targets
+
+cargo:test:serde-json:
+  stage: test
+  image: akubera/rust:stable
+  needs:
+    - "cargo:build:serde-json"
+  variables:
+    RUST_CACHE_KEY: "stable+serde-json"
+  <<: *script-cargo-test
+  script:
+    - cargo test --features=serde-json --all-targets
 
 
 cargo:build-nightly:
@@ -264,6 +287,18 @@ cargo:test-1.43:
   variables:
     RUST_CACHE_KEY: "1.43"
   <<: *script-cargo-test
+
+cargo:test-1.43:serde:
+  stage: test
+  needs:
+    - "cargo:build-1.43"
+  image: "akubera/rust-kcov:1.43.1-buster"
+  variables:
+    RUST_CACHE_KEY: "1.43-serde"
+  <<: *script-cargo-test
+  script:
+    - cargo test --features=serde --all-targets
+    - cargo test --features=serde --no-default-features
 
 
 cargo:check-1.70:

@@ -8,6 +8,8 @@ const FMT_EXPONENTIAL_LOWER_THRESHOLD: &str = "5";
 const FMT_EXPONENTIAL_UPPER_THRESHOLD: &str = "15";
 const FMT_MAX_INTEGER_PADDING: &str = "1000";
 
+const SERDE_MAX_SCALE: &str = "150000";
+
 
 fn main() {
     let ac = autocfg::new();
@@ -23,6 +25,7 @@ fn main() {
     write_default_precision_file(&outdir);
     write_default_rounding_mode(&outdir);
     write_exponential_format_threshold_file(&outdir);
+    write_max_serde_parsing_scale_limit(&outdir);
 }
 
 /// Loads the environment variable string or default
@@ -83,6 +86,25 @@ fn write_exponential_format_threshold_file(outdir: &Path) {
         format!("const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = {};", low_value),
         format!("const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: usize = {};", high_value),
         format!("const FMT_MAX_INTEGER_PADDING: usize = {};", max_padding),
+    ];
+
+    std::fs::write(rust_file_path, rust_file_contents.join("\n")).unwrap();
+}
+
+
+/// Create write_default_rounding_mode.rs, containing definition of constant EXPONENTIAL_FORMAT_THRESHOLD loaded in src/impl_fmt.rs
+fn write_max_serde_parsing_scale_limit(outdir: &Path) {
+    let scale_limit = load_env!(env, "RUST_BIGDECIMAL_SERDE_SCALE_LIMIT", SERDE_MAX_SCALE);
+
+    let scale_limit: u32 = scale_limit
+        .parse::<u32>()
+        .or_else(|e| if scale_limit.to_lowercase() == "none" { Ok(0) } else { Err(e) })
+        .expect("$RUST_BIGDECIMAL_SERDE_SCALE_LIMIT must be an integer");
+
+    let rust_file_path = outdir.join("serde_scale_limit.rs");
+
+    let rust_file_contents = [
+        format!("const SERDE_SCALE_LIMIT: i64 = {};", scale_limit),
     ];
 
     std::fs::write(rust_file_path, rust_file_contents.join("\n")).unwrap();

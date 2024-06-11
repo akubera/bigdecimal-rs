@@ -163,6 +163,14 @@ workflows:
         name: build-and-test:serde+no_std
         rust-features: "--no-default-features --features='serde'"
 
+    - build-and-test:
+        name: build-and-test:serde_json
+        rust-features: "--features='serde-json'"
+
+    - build-and-test:
+        name: build-and-test:serde_json+no_std
+        rust-features: "--features='serde-json' --no-default-features"
+
     - cargo-semver-check:
         requires:
         - build-and-test:latest:serde

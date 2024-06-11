@@ -60,10 +60,13 @@ extern crate num_integer;
 extern crate paste;
 
 #[cfg(feature = "serde")]
-extern crate serde;
+extern crate serde as serde_crate;
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(all(test, any(feature = "serde", feature = "serde_json")))]
 extern crate serde_test;
+
+#[cfg(all(test, feature = "serde_json"))]
+extern crate serde_json;
 
 #[cfg(feature = "std")]
 include!("./with_std.rs");
@@ -124,8 +127,18 @@ mod impl_num;
 mod impl_fmt;
 
 // Implementations for deserializations and serializations
-#[cfg(feature = "serde")]
+#[cfg(any(feature = "serde", feature="serde_json"))]
 pub mod impl_serde;
+
+/// re-export serde-json derive modules
+#[cfg(feature = "serde_json")]
+pub mod serde {
+    /// Parse JSON number directly to BigDecimal
+    pub use impl_serde::arbitrary_precision as json_num;
+    /// Parse JSON (number | null) directly to Option<BigDecimal>
+    pub use impl_serde::arbitrary_precision_option as json_num_option;
+}
+
 
 // construct BigDecimals from strings and floats
 mod parsing;
