@@ -128,7 +128,7 @@ fn format_full_scale(
     debug_assert_ne!(digits.len(), 0);
 
     if this.scale <= 0 {
-        // formating an integer value (add trailing zeros to the right)
+        // formatting an integer value (add trailing zeros to the right)
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
         let scale = this.scale as usize;
