@@ -1,6 +1,7 @@
 //! arithmetic routines
 
 use crate::*;
+use num_traits::CheckedSub;
 
 pub(crate) mod addition;
 pub(crate) mod sqrt;
@@ -74,7 +75,7 @@ pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
     }
     let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
     // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the(digits).to_biguint().expect("Ten to power is negative");
+    let mut num = ten_to_the_uint(digits);
     while *uint >= num {
         num *= 10u8;
         digits += 1;
@@ -86,14 +87,28 @@ pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
 /// Return difference of two numbers, returning diff as u64
 pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)
 where
-    T: ToPrimitive + stdlib::ops::Sub<Output=T> + stdlib::cmp::Ord
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
 {
     use stdlib::cmp::Ordering::*;
 
+    let (ord, diff) = checked_diff(a, b);
+
+    (ord, diff.expect("subtraction overflow"))
+}
+
+/// Return difference of two numbers. If num doesn't fit in u64, return None
+pub(crate) fn checked_diff<T>(a: T, b: T) -> (Ordering, Option<u64>)
+where
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
+{
+    use stdlib::cmp::Ordering::*;
+
+    let _try_subtracting = |x:T, y:T| x.checked_sub(&y).and_then(|diff| diff.to_u64());
+
     match a.cmp(&b) {
-        Less => (Less, (b - a).to_u64().unwrap()),
-        Greater => (Greater, (a - b).to_u64().unwrap()),
-        Equal => (Equal, 0),
+        Less => (Less, _try_subtracting(b, a)),
+        Greater => (Greater, _try_subtracting(a, b)),
+        Equal => (Equal, Some(0)),
     }
 }
 

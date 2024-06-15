@@ -89,8 +89,7 @@ impl Num for BigDecimal {
         // Return error if anything overflows outside i64 boundary.
         let scale = decimal_offset
                     .checked_sub(exponent_value)
-                    .map(|scale| scale.to_i64())
-                    .flatten()
+                    .and_then(|scale| scale.to_i64())
                     .ok_or_else(||
                         ParseBigDecimalError::Other(
                             format!("Exponent overflow when parsing '{}'", s))

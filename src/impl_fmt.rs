@@ -5,19 +5,31 @@ use crate::*;
 use stdlib::fmt::Write;
 
 
-// const EXPONENTIAL_FORMAT_THRESHOLD: i64 = ${RUST_BIGDECIMAL_EXPONENTIAL_FORMAT_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD} or 5;
+// const EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_UPPER_THRESHOLD} or 15;
+// const FMT_MAX_INTEGER_PADDING: usize = = ${RUST_BIGDECIMAL_FMT_MAX_INTEGER_PADDING} or  1000;
 include!(concat!(env!("OUT_DIR"), "/exponential_format_threshold.rs"));
 
 
 impl fmt::Display for BigDecimal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        dynamically_format_decimal(self.to_ref(), f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(
+            self.to_ref(),
+            f,
+            EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD,
+            EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD,
+        )
     }
 }
 
 impl fmt::Display for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        dynamically_format_decimal(*self, f, EXPONENTIAL_FORMAT_THRESHOLD)
+        dynamically_format_decimal(
+            *self,
+            f,
+            EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD,
+            EXPONENTIAL_FORMAT_TRAILING_ZERO_THRESHOLD,
+        )
     }
 }
 
@@ -67,16 +79,35 @@ impl fmt::Debug for BigDecimal {
 fn dynamically_format_decimal(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
-    threshold: i64,
+    leading_zero_threshold: usize,
+    trailing_zero_threshold: usize,
 ) -> fmt::Result {
     // Acquire the absolute integer as a decimal string
     let abs_int = this.digits.to_str_radix(10);
 
-    // use exponential form if decimal point is not "within" the number.
-    // "threshold" is max number of leading zeros before being considered
-    // "outside" the number
-    if this.scale < 0 || (this.scale > abs_int.len() as i64 + threshold) {
+    // number of zeros between most significant digit and decimal point
+    let leading_zero_count = this.scale
+                                 .to_usize()
+                                 .and_then(|scale| scale.checked_sub(abs_int.len()))
+                                 .unwrap_or(0);
+
+    // number of zeros between least significant digit and decimal point
+    let trailing_zero_count = this.scale
+                                  .checked_neg()
+                                  .and_then(|d| d.to_usize());
+
+    // this ignores scientific-formatting if precision is requested
+    let trailing_zeros = f.precision().map(|_| 0)
+                          .or(trailing_zero_count)
+                          .unwrap_or(0);
+
+    // use exponential form if decimal point is outside
+    // the upper and lower thresholds of the decimal
+    if leading_zero_threshold < leading_zero_count {
         format_exponential(this, f, abs_int, "E")
+    } else if trailing_zero_threshold < trailing_zeros {
+        // non-scientific notation
+        format_dotless_exponential(f, abs_int, this.sign, this.scale, "e")
     } else {
         format_full_scale(this, f, abs_int)
     }
@@ -96,60 +127,23 @@ fn format_full_scale(
 
     debug_assert_ne!(digits.len(), 0);
 
-    match f.precision() {
-        // precision limits the number of digits - we have to round
-        Some(prec) if prec < digits.len() && 1 < digits.len() => {
-            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
-            debug_assert_eq!(digits.len(), prec);
-        },
-        _ => {
-            // not limited by precision
+    if this.scale <= 0 {
+        // formating an integer value (add trailing zeros to the right)
+        zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
+    } else {
+        let scale = this.scale as usize;
+        // no-precision behaves the same as precision matching scale (i.e. no padding or rounding)
+        let prec = f.precision().unwrap_or(scale);
+
+        if scale < digits.len() {
+            // format both integer and fractional digits (always 'trim' to precision)
+            trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
+        } else {
+            // format only fractional digits
+            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, this.sign);
         }
-    };
-
-    // add the decimal point to 'digits' buffer
-    match exp.cmp(&0) {
-        // do not add decimal point for "full" integer
-        Equal => {
-        }
-
-        // never decimal point if only one digit long
-        Greater if digits.len() == 1 => {
-        }
-
-        // we format with scientific notation if exponent is positive
-        Greater => {
-            debug_assert!(digits.len() > 1);
-
-            // increase exp by len(digits)-1 (eg [ddddd]E+{exp} => [d.dddd]E+{exp+4})
-            exp += digits.len() as i128 - 1;
-
-            // push decimal point and rotate it to index '1'
-            digits.push(b'.');
-            digits[1..].rotate_right(1);
-        }
-
-        // decimal point is within the digits   (ddd.ddddddd)
-        Less if (-exp as usize) < digits.len() => {
-            let digits_to_shift = digits.len() - exp.abs() as usize;
-            digits.push(b'.');
-            digits[digits_to_shift..].rotate_right(1);
-
-            // exp = 0 means exponential-part will be ignored in output
-            exp = 0;
-        }
-
-        // decimal point is to the left of digits (0.0000dddddddd)
-        Less => {
-            let digits_to_shift = exp.abs() as usize - digits.len();
-
-            digits.push(b'0');
-            digits.push(b'.');
-            digits.extend(stdlib::iter::repeat(b'0').take(digits_to_shift));
-            digits.rotate_right(digits_to_shift + 2);
-
-            exp = 0;
-        }
+        // never print exp when in this branch
+        exp = 0;
     }
 
     // move digits back into String form
@@ -164,6 +158,136 @@ fn format_full_scale(
     f.pad_integral(non_negative, "", &buf)
 }
 
+/// Fill appropriate number of zeros and decimal point into Vec of (ascii/utf-8) digits
+///
+/// Exponent is set to zero if zeros were added
+///
+fn zero_right_pad_integer_ascii_digits(
+    digits: &mut Vec<u8>,
+    exp: &mut i128,
+    precision: Option<usize>,
+) {
+    debug_assert!(*exp >= 0);
+
+    let trailing_zero_count = exp.to_usize().unwrap();
+    let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
+    if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
+        return;
+    }
+
+    // requested 'prec' digits of precision after decimal point
+    match precision {
+        None if trailing_zero_count > 20 => {
+        }
+        None | Some(0) => {
+            digits.resize(digits.len() + trailing_zero_count, b'0');
+            *exp = 0;
+        }
+        Some(prec) => {
+            digits.resize(digits.len() + trailing_zero_count, b'0');
+            digits.push(b'.');
+            digits.resize(digits.len() + prec, b'0');
+            *exp = 0;
+        }
+    }
+}
+
+/// Fill zeros into utf-8 digits
+fn trim_ascii_digits(
+    digits: &mut Vec<u8>,
+    scale: usize,
+    prec: usize,
+    exp: &mut i128,
+    sign: Sign,
+) {
+    debug_assert!(scale < digits.len());
+    // there are both integer and fractional digits
+    let integer_digit_count = digits.len() - scale;
+
+    if prec < scale {
+        apply_rounding_to_ascii_digits(
+            digits, exp, integer_digit_count + prec, sign
+        );
+    }
+
+    if prec != 0 {
+        digits.insert(integer_digit_count, b'.');
+    }
+
+    if scale < prec {
+        // precision required beyond scale
+        digits.resize(digits.len() + (prec - scale), b'0');
+    }
+}
+
+
+fn shift_or_trim_fractional_digits(
+    digits: &mut Vec<u8>,
+    scale: usize,
+    prec: usize,
+    exp: &mut i128,
+    sign: Sign,
+) {
+    debug_assert!(scale >= digits.len());
+    // there are no integer digits
+    let leading_zeros = scale - digits.len();
+
+    match prec.checked_sub(leading_zeros) {
+        None => {
+            digits.clear();
+            digits.push(b'0');
+            if prec > 0 {
+                digits.push(b'.');
+                digits.resize(2 + prec, b'0');
+            }
+        }
+        Some(0) => {
+            // precision is at the decimal digit boundary, round one value
+            let insig_digit = digits[0] - b'0';
+            let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
+            let rounded_value = Context::default().round_pair(sign, 0, insig_digit, trailing_zeros);
+
+            digits.clear();
+            if leading_zeros != 0 {
+                digits.push(b'0');
+                digits.push(b'.');
+                digits.resize(1 + leading_zeros, b'0');
+            }
+            digits.push(rounded_value + b'0');
+        }
+        Some(digit_prec) => {
+            let trailing_zeros = digit_prec.saturating_sub(digits.len());
+            if digit_prec < digits.len() {
+                apply_rounding_to_ascii_digits(digits, exp, digit_prec, sign);
+            }
+            digits.extend_from_slice(b"0.");
+            digits.resize(digits.len() + leading_zeros, b'0');
+            digits.rotate_right(leading_zeros + 2);
+
+            // add any extra trailing zeros
+            digits.resize(digits.len() + trailing_zeros, b'0');
+        }
+    }
+}
+
+
+/// Format integer as {int}e+{exp}
+///
+/// Slightly different than scientific notation,
+///
+fn format_dotless_exponential(
+    f: &mut fmt::Formatter,
+    mut abs_int: String,
+    sign: Sign,
+    scale: i64,
+    e_symbol: &str,
+) -> fmt::Result {
+    debug_assert!(scale <= 0);
+
+    write!(abs_int, "{}{:+}", e_symbol, -scale).unwrap();
+    let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
+    f.pad_integral(non_negative, "", &abs_int)
+}
 
 fn format_exponential(
     this: BigDecimalRef,
@@ -177,15 +301,46 @@ fn format_exponential(
     //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
     //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
 
-    let mut exp = (this.scale as i128).neg();
-    let mut digits = abs_int.into_bytes();
+    let exp = (this.scale as i128).neg();
+    let digits = abs_int.into_bytes();
 
-    if digits.len() > 1 {
-        // only modify for precision if there is more than 1 decimal digit
-        if let Some(prec) = f.precision() {
-            apply_rounding_to_ascii_digits(&mut digits, &mut exp, prec, this.sign);
+    format_exponential_bigendian_ascii_digits(
+        digits, this.sign, exp, f, e_symbol
+    )
+}
+
+
+fn format_exponential_bigendian_ascii_digits(
+    mut digits: Vec<u8>,
+    sign: Sign,
+    mut exp: i128,
+    f: &mut fmt::Formatter,
+    e_symbol: &str,
+) -> fmt::Result {
+    // how many zeros to pad at the end of the decimal
+    let mut extra_trailing_zero_count = 0;
+
+    if let Some(prec) = f.precision() {
+        // 'prec' is number of digits after the decimal point
+        let total_prec = prec + 1;
+        let digit_count = digits.len();
+
+        match total_prec.cmp(&digit_count) {
+            Ordering::Equal => {
+                // digit count is one more than precision - do nothing
+            }
+            Ordering::Less => {
+                // round to smaller precision
+                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, sign);
+            }
+            Ordering::Greater => {
+                // increase number of zeros to add to end of digits
+                extra_trailing_zero_count = total_prec - digit_count;
+            }
         }
     }
+
+    let needs_decimal_point = digits.len() > 1 || extra_trailing_zero_count > 0;
 
     let mut abs_int = String::from_utf8(digits).unwrap();
 
@@ -230,18 +385,21 @@ fn format_exponential(
     //
     //     For the (abs_int.len() - this.scale) == abs_int.len() I couldn't
     //     come up with an example
-    let exponent = abs_int.len() as i128 + exp as i128 - 1;
+    let exponent = abs_int.len() as i128 + exp - 1;
 
-    if abs_int.len() > 1 {
+    if needs_decimal_point {
         // only add decimal point if there is more than 1 decimal digit
         abs_int.insert(1, '.');
     }
 
-    if exponent != 0 {
-        write!(abs_int, "{}{:+}", e_symbol, exponent)?;
+    if extra_trailing_zero_count > 0 {
+        abs_int.extend(stdlib::iter::repeat('0').take(extra_trailing_zero_count));
     }
 
-    let non_negative = matches!(this.sign(), Sign::Plus | Sign::NoSign);
+    // always print exponent in exponential mode
+    write!(abs_int, "{}{:+}", e_symbol, exponent)?;
+
+    let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &abs_int)
 }
@@ -378,6 +536,7 @@ fn apply_rounding_to_ascii_digits(
 
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod test {
     use super::*;
     use paste::*;
@@ -426,7 +585,7 @@ mod test {
 
         macro_rules! test_fmt_function {
             ($n:ident) => {{
-                format!("{}", Fmt(|f| dynamically_format_decimal($n.to_ref(), f, 2)))
+                format!("{}", Fmt(|f| dynamically_format_decimal($n.to_ref(), f, 2, 9)))
             }};
         }
 
@@ -436,7 +595,7 @@ mod test {
         impl_case!(case_0d000123: "0.000123" => "1.23E-4");
 
         impl_case!(case_123d: "123." => "123");
-        impl_case!(case_123de1: "123.e1" => "1.23E+3");
+        impl_case!(case_123de1: "123.e1" => "1230");
     }
 
     mod fmt_options {
@@ -461,12 +620,70 @@ mod test {
             }
 
             impl_case!(fmt_default:      "{}" => "1");
-            impl_case!(fmt_d1:        "{:.1}" => "1");
-            impl_case!(fmt_d4:        "{:.4}" => "1");
-            impl_case!(fmt_4d1:      "{:4.1}" => "   1");
-            impl_case!(fmt_r4d1:    "{:>4.1}" => "   1");
-            impl_case!(fmt_l4d1:    "{:<4.1}" => "1   ");
-            impl_case!(fmt_p05d1:  "{:+05.1}" => "+0001");
+            impl_case!(fmt_d1:        "{:.1}" => "1.0");
+            impl_case!(fmt_d4:        "{:.4}" => "1.0000");
+            impl_case!(fmt_4d1:      "{:4.1}" => " 1.0");
+            impl_case!(fmt_r4d1:    "{:>4.1}" => " 1.0");
+            impl_case!(fmt_l4d1:    "{:<4.1}" => "1.0 ");
+            impl_case!(fmt_p05d1:  "{:+05.1}" => "+01.0");
+
+            impl_case!(fmt_e:      "{:e}" => "1e+0");
+            impl_case!(fmt_E:      "{:E}" => "1E+0");
+        }
+
+        mod dec_1e1 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(1.into(), -1)
+            }
+
+            impl_case!(fmt_default:      "{}" => "10");
+            impl_case!(fmt_debug:      "{:?}" => "BigDecimal(sign=Plus, scale=-1, digits=[1])");
+            impl_case!(fmt_debug_alt: "{:#?}" => "BigDecimal(\"1e1\")");
+            impl_case!(fmt_d0:        "{:.0}" => "10");
+            impl_case!(fmt_d1:        "{:.1}" => "10.0");
+            impl_case!(fmt_d2:        "{:.2}" => "10.00");
+        }
+
+        mod dec_1en1 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(1.into(), 1)
+            }
+
+            impl_case!(fmt_default:      "{}" => "0.1");
+            impl_case!(fmt_d0:        "{:.0}" => "0");
+            impl_case!(fmt_d1:        "{:.1}" => "0.1");
+            impl_case!(fmt_d2:        "{:.2}" => "0.10");
+        }
+
+        mod dec_9en1 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(9.into(), 1)
+            }
+
+            impl_case!(fmt_default:      "{}" => "0.9");
+            impl_case!(fmt_d0:        "{:.0}" => "1");
+            impl_case!(fmt_d1:        "{:.1}" => "0.9");
+            impl_case!(fmt_d4:        "{:.4}" => "0.9000");
+        }
+
+        mod dec_800en3 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(800.into(), 3)
+            }
+
+            impl_case!(fmt_default:      "{}" => "0.800");
+            impl_case!(fmt_d0:        "{:.0}" => "1");
+            impl_case!(fmt_d1:        "{:.1}" => "0.8");
+            impl_case!(fmt_d3:        "{:.3}" => "0.800");
+            impl_case!(fmt_d9:        "{:.9}" => "0.800000000");
         }
 
         mod dec_123456 {
@@ -477,13 +694,13 @@ mod test {
             }
 
             impl_case!(fmt_default:      "{}" => "123456");
-            impl_case!(fmt_p05d1:  "{:+05.1}" => "+1E+5");
-            impl_case!(fmt_d1:        "{:.1}" => "1E+5");
-            impl_case!(fmt_d4:        "{:.4}" => "1.235E+5");
-            impl_case!(fmt_4d1:      "{:4.1}" => "1E+5");
-            impl_case!(fmt_r4d3:    "{:>4.3}" => "1.23E+5");
-            impl_case!(fmt_r4d4:    "{:>4.4}" => "1.235E+5");
-            impl_case!(fmt_l4d1:    "{:<4.1}" => "1E+5");
+            impl_case!(fmt_d1:        "{:.1}" => "123456.0");
+            impl_case!(fmt_d4:        "{:.4}" => "123456.0000");
+            impl_case!(fmt_4d1:      "{:4.1}" => "123456.0");
+            impl_case!(fmt_15d2:    "{:15.2}" => "      123456.00");
+            impl_case!(fmt_r15d2:  "{:>15.2}" => "      123456.00");
+            impl_case!(fmt_l15d2:  "{:<15.2}" => "123456.00      ");
+            impl_case!(fmt_p05d1:  "{:+05.7}" => "+123456.0000000");
         }
 
         mod dec_9999999 {
@@ -493,8 +710,18 @@ mod test {
                 "9999999".parse().unwrap()
             }
 
-            impl_case!(fmt_d4:  "{:.4}" => "1.000E+7");
-            impl_case!(fmt_d8:  "{:.8}" => "9999999");
+            impl_case!(fmt_default:  "{}" => "9999999");
+            impl_case!(fmt_d8:  "{:.8}" => "9999999.00000000");
+
+            impl_case!(fmt_e:  "{:e}" => "9.999999e+6");
+            impl_case!(fmt_E:  "{:E}" => "9.999999E+6");
+            impl_case!(fmt_d0e:  "{:.0e}" => "1e+7");
+            impl_case!(fmt_d1e:  "{:.1e}" => "1.0e+7");
+            impl_case!(fmt_d2e:  "{:.2e}" => "1.00e+7");
+            impl_case!(fmt_d4e:  "{:.4e}" => "1.0000e+7");
+            impl_case!(fmt_d6e:  "{:.6e}" => "9.999999e+6");
+            impl_case!(fmt_d7e:  "{:.7e}" => "9.9999990e+6");
+            impl_case!(fmt_d10e:  "{:.10e}" => "9.9999990000e+6");
         }
 
         mod dec_19073d97235939614856 {
@@ -505,14 +732,76 @@ mod test {
             }
 
             impl_case!(fmt_default:      "{}" => "19073.97235939614856");
-            impl_case!(fmt_p05d7:  "{:+05.7}" => "+19073.97");
-            impl_case!(fmt_d3:        "{:.3}" => "1.91E+4");
-            impl_case!(fmt_0d4:      "{:0.4}" => "1.907E+4");
-            impl_case!(fmt_4d1:      "{:4.1}" => "2E+4");
-            impl_case!(fmt_r8d3:    "{:>8.3}" => " 1.91E+4");
-            impl_case!(fmt_r8d4:    "{:>8.4}" => "1.907E+4");
-            impl_case!(fmt_l8d1:    "{:<8.1}" => "2E+4    ");
+            impl_case!(fmt_pd7:      "{:+.7}" => "+19073.9723594");
+            impl_case!(fmt_d0:        "{:.0}" => "19074");
+            impl_case!(fmt_d1:        "{:.1}" => "19074.0");
+            impl_case!(fmt_d3:        "{:.3}" => "19073.972");
+            impl_case!(fmt_d4:        "{:.4}" => "19073.9724");
+            impl_case!(fmt_8d3:      "{:8.3}" => "19073.972");
+            impl_case!(fmt_10d3:    "{:10.3}" => " 19073.972");
+            impl_case!(fmt_010d3:  "{:010.3}" => "019073.972");
         }
+
+        mod dec_n90037659d6902 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "-90037659.6905".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "-90037659.6905");
+            impl_case!(fmt_debug:      "{:?}" => "BigDecimal(sign=Minus, scale=4, digits=[900376596905])");
+            impl_case!(fmt_debug_alt: "{:#?}" => "BigDecimal(\"-900376596905e-4\")");
+            impl_case!(fmt_pd7:      "{:+.7}" => "-90037659.6905000");
+            impl_case!(fmt_d0:        "{:.0}" => "-90037660");
+            impl_case!(fmt_d3:        "{:.3}" => "-90037659.690");
+            impl_case!(fmt_d4:        "{:.4}" => "-90037659.6905");
+            impl_case!(fmt_14d4:      "{:14.4}" => "-90037659.6905");
+            impl_case!(fmt_15d4:    "{:15.4}" => " -90037659.6905");
+            impl_case!(fmt_l17d5:  "{:<17.5}" => "-90037659.69050  ");
+        }
+
+        mod dec_1764031078en13 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(1764031078.into(), 13)
+            }
+
+            impl_case!(fmt_default:    "{}" => "0.0001764031078");
+            impl_case!(fmt_d1:      "{:.1}" => "0.0");
+            impl_case!(fmt_d3:      "{:.3}" => "0.000");
+            impl_case!(fmt_d4:      "{:.4}" => "0.0002");
+            impl_case!(fmt_d5:      "{:.5}" => "0.00018");
+            impl_case!(fmt_d13:    "{:.13}" => "0.0001764031078");
+            impl_case!(fmt_d20:    "{:.20}" => "0.00017640310780000000");
+
+        }
+
+        mod dec_1e15 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1e15".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "1000000000000000");
+            impl_case!(fmt_d0:          "{:.0}" => "1000000000000000");
+            impl_case!(fmt_d1:          "{:.1}" => "1000000000000000.0");
+        }
+
+        mod dec_1e16 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1e16".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "1e+16");
+            impl_case!(fmt_d0:          "{:.0}" => "10000000000000000");
+            impl_case!(fmt_d2:          "{:.2}" => "10000000000000000.00");
+        }
+
 
         mod dec_491326en12 {
             use super::*;
@@ -522,13 +811,101 @@ mod test {
             }
 
             impl_case!(fmt_default:        "{}" => "4.91326E-7");
-            impl_case!(fmt_p015d7:  "{:+015.7}" => "+00004.91326E-7");
-            impl_case!(fmt_d3:          "{:.3}" => "4.91E-7");
-            impl_case!(fmt_0d4:        "{:0.4}" => "4.913E-7");
-            impl_case!(fmt_4d1:        "{:4.1}" => "5E-7");
-            impl_case!(fmt_r8d3:      "{:>8.3}" => " 4.91E-7");
-            impl_case!(fmt_r8d4:      "{:>8.4}" => "4.913E-7");
-            impl_case!(fmt_l8d1:      "{:<8.1}" => "5E-7    ");
+            impl_case!(fmt_d0:          "{:.0}" => "5E-7");
+            impl_case!(fmt_d1:          "{:.1}" => "4.9E-7");
+            impl_case!(fmt_d3:          "{:.3}" => "4.913E-7");
+            impl_case!(fmt_d5:          "{:.5}" => "4.91326E-7");
+            impl_case!(fmt_d6:          "{:.6}" => "4.913260E-7");
+
+            impl_case!(fmt_d9:          "{:.9}" => "4.913260000E-7");
+            impl_case!(fmt_d20:        "{:.20}" => "4.91326000000000000000E-7");
+        }
+
+        mod dec_0d00003102564500 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0.00003102564500".parse().unwrap()
+            }
+
+            impl_case!(fmt_default: "{}" => "0.00003102564500");
+            impl_case!(fmt_d0:   "{:.0}" => "0");
+            impl_case!(fmt_d4:   "{:.4}" => "0.0000");
+            impl_case!(fmt_d5:   "{:.5}" => "0.00003");
+            impl_case!(fmt_d10:  "{:.10}" => "0.0000310256");
+            impl_case!(fmt_d14:  "{:.14}" => "0.00003102564500");
+            impl_case!(fmt_d17:  "{:.17}" => "0.00003102564500000");
+
+            impl_case!(fmt_e:      "{:e}" => "3.102564500e-5");
+            impl_case!(fmt_de:    "{:.e}" => "3.102564500e-5");
+            impl_case!(fmt_d0e:  "{:.0e}" => "3e-5");
+            impl_case!(fmt_d1e:  "{:.1e}" => "3.1e-5");
+            impl_case!(fmt_d4e:  "{:.4e}" => "3.1026e-5");
+        }
+
+        mod dec_1en100000 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1E-10000".parse().unwrap()
+            }
+
+            impl_case!(fmt_default: "{}" => "1E-10000");
+            impl_case!(fmt_d1: "{:.1}" => "1.0E-10000");
+            impl_case!(fmt_d4: "{:.4}" => "1.0000E-10000");
+        }
+
+        mod dec_1e100000 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "1e100000".parse().unwrap()
+            }
+
+            impl_case!(fmt_default: "{}" => "1e+100000");
+            impl_case!(fmt_d1: "{:.1}" => "1E+100000");
+            impl_case!(fmt_d4: "{:.4}" => "1E+100000");
+        }
+
+
+        mod dec_1234506789E5 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(1234506789.into(), -5)
+            }
+
+            impl_case!(fmt_default: "{}" => "123450678900000");
+            impl_case!(fmt_d1: "{:.1}" => "123450678900000.0");
+            impl_case!(fmt_d3: "{:.3}" => "123450678900000.000");
+            impl_case!(fmt_d4: "{:.4}" => "123450678900000.0000");
+            impl_case!(fmt_l13d4: "{:<23.4}" => "123450678900000.0000   ");
+            impl_case!(fmt_r13d4: "{:>23.4}" => "   123450678900000.0000");
+        }
+
+        mod dec_1234506789E15 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(1234506789.into(), -15)
+            }
+
+            impl_case!(fmt_default: "{}" => "1234506789000000000000000");
+            impl_case!(fmt_d1: "{:.1}" => "1234506789000000000000000.0");
+            impl_case!(fmt_d3: "{:.3}" => "1234506789000000000000000.000");
+            impl_case!(fmt_l13d4: "{:<+32.2}" => "+1234506789000000000000000.00   ");
+            impl_case!(fmt_r13d4: "{:>+32.2}" => "   +1234506789000000000000000.00");
+        }
+
+        mod dec_13400476439814628800E2502 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                BigDecimal::new(13400476439814628800u64.into(), -2502)
+            }
+
+            impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
+            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800E+2502");
         }
     }
 
@@ -544,11 +921,36 @@ mod test {
                     let result = bd.to_string();
                     assert_eq!(result, $expected);
 
-                    bd.to_scientific_notation();
-                    bd.to_engineering_notation();
+                    let round_trip = BigDecimal::from_str(&result).unwrap();
+                    assert_eq!(round_trip, bd);
+
+                    let sci = bd.to_scientific_notation();
+                    let sci_round_trip = BigDecimal::from_str(&sci).unwrap();
+                    assert_eq!(sci_round_trip, bd);
+
+                    let eng = bd.to_engineering_notation();
+                    let eng_round_trip = BigDecimal::from_str(&eng).unwrap();
+                    assert_eq!(eng_round_trip, bd);
+                }
+            };
+            ( (eng-check-invalid) $name:ident: $src:expr => $expected:literal ) => {
+                #[test]
+                fn $name() {
+                    let src = $src;
+                    let bd: BigDecimal = src.parse().unwrap();
+                    let result = bd.to_string();
+                    assert_eq!(result, $expected);
 
                     let round_trip = BigDecimal::from_str(&result).unwrap();
                     assert_eq!(round_trip, bd);
+
+                    let sci = bd.to_scientific_notation();
+                    let sci_round_trip = BigDecimal::from_str(&sci).unwrap();
+                    assert_eq!(sci_round_trip, bd);
+
+                    let eng = bd.to_engineering_notation();
+                    let eng_round_trip = BigDecimal::from_str(&eng);
+                    assert!(eng_round_trip.is_err());
                 }
             };
             ( (panics) $name:ident: $src:expr ) => {
@@ -561,10 +963,12 @@ mod test {
             };
         }
 
-        impl_case!(test_max: format!("1E{}", i64::MAX) => "1E+9223372036854775807");
-        impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "3.14156E+9223372036854775812");
-        impl_case!(test_min_scale: "1E9223372036854775808" => "1E+9223372036854775808");
-        impl_case!(test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
+
+        impl_case!(test_max: format!("1E{}", i64::MAX) => "1e+9223372036854775807");
+        impl_case!(test_max_multiple_digits: format!("314156E{}", i64::MAX) => "314156e+9223372036854775807");
+        impl_case!(test_min_scale: "1E9223372036854775807" => "1e+9223372036854775807");
+
+        impl_case!((eng-check-invalid) test_max_scale: "1E-9223372036854775807" => "1E-9223372036854775807");
         impl_case!(test_min_multiple_digits: format!("271828182E-{}", i64::MAX) => "2.71828182E-9223372036854775799");
 
         impl_case!((panics) test_max_exp_overflow: "1E9223372036854775809");
@@ -574,14 +978,14 @@ mod test {
     #[test]
     fn test_fmt() {
         let vals = vec![
-            // b  s   (   {}     {:.1}     {:.4}    {:4.1}   {:+05.7}     {:<6.4}
-            (1, 0,  (    "1",      "1",      "1",   "   1",   "+0001",   "1     " )),
-            (1, 1,  (  "0.1",    "0.1",    "0.1",   " 0.1",   "+00.1",   "0.1   " )),
-            (1, 2,  ( "0.01",   "0.01",   "0.01",   "0.01",   "+0.01",   "0.01  " )),
-            (1, -2, ( "1E+2",   "1E+2",   "1E+2",   "1E+2",   "+1E+2",   "1E+2  " )),
-            (-1, 0, (   "-1",     "-1",     "-1",   "  -1",   "-0001",   "-1    " )),
-            (-1, 1, ( "-0.1",   "-0.1",   "-0.1",   "-0.1",   "-00.1",   "-0.1  " )),
-            (-1, 2, ("-0.01",  "-0.01",  "-0.01",  "-0.01",   "-0.01",   "-0.01 " )),
+            // b  s (      {}     {:.1}        {:.4}    {:4.1}   {:+05.1}   {:<4.1}
+            (1, 0,  (     "1",    "1.0",    "1.0000",   " 1.0",   "+01.0",   "1.0 " )),
+            (1, 1,  (   "0.1",    "0.1",    "0.1000",   " 0.1",   "+00.1",   "0.1 " )),
+            (1, 2,  (  "0.01",    "0.0",    "0.0100",   " 0.0",   "+00.0",   "0.0 " )),
+            (1, -2, (   "100",  "100.0",  "100.0000",  "100.0",  "+100.0",  "100.0" )),
+            (-1, 0, (    "-1",   "-1.0",   "-1.0000",   "-1.0",   "-01.0",   "-1.0" )),
+            (-1, 1, (  "-0.1",   "-0.1",   "-0.1000",   "-0.1",   "-00.1",   "-0.1" )),
+            (-1, 2, ( "-0.01",   "-0.0",   "-0.0100",   "-0.0",   "-00.0",   "-0.0" )),
         ];
         for (i, scale, results) in vals {
             let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
@@ -589,32 +993,11 @@ mod test {
             assert_eq!(format!("{:.1}", x), results.1);
             assert_eq!(format!("{:.4}", x), results.2);
             assert_eq!(format!("{:4.1}", x), results.3);
-            assert_eq!(format!("{:+05.7}", x), results.4);
-            assert_eq!(format!("{:<6.4}", x), results.5);
+            assert_eq!(format!("{:+05.1}", x), results.4);
+            assert_eq!(format!("{:<4.1}", x), results.5);
         }
     }
 
-    #[test]
-    fn test_fmt_with_large_values() {
-        let vals = vec![
-            // b  s          (                {}         {:.1}          {:2.4}      {:4.2}           {:+05.7}         {:<13.4}
-            // Numbers with large scales
-            (1,      10_000, (        "1E-10000",   "1E-10000",     "1E-10000",   "1E-10000",     "+1E-10000", "1E-10000     ")),
-            (1,     -10_000, (        "1E+10000",   "1E+10000",     "1E+10000",   "1E+10000",     "+1E+10000", "1E+10000     ")),
-            // // Numbers with many digits
-            (1234506789,  5, (     "12345.06789",       "1E+4",     "1.235E+4",     "1.2E+4",     "+12345.07", "1.235E+4     ")),
-            (1234506789, -5, ( "1.234506789E+14",      "1E+14",    "1.235E+14",    "1.2E+14", "+1.234507E+14", "1.235E+14    ")),
-        ];
-        for (i, scale, results) in vals {
-            let x = BigDecimal::new(num_bigint::BigInt::from(i), scale);
-            assert_eq!(format!("{}", x), results.0, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:.1}", x), results.1, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:2.4}", x), results.2, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:4.2}", x), results.3, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:+05.7}", x), results.4, "digits={} scale={}", i, scale);
-            assert_eq!(format!("{:<13.4}", x), results.5, "digits={} scale={}", i, scale);
-        }
-    }
 
     mod fmt_debug {
         use super::*;

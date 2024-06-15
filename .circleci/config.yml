@@ -129,6 +129,10 @@ workflows:
         name: "lint-test-build:1.56"
         release: true
         version: "1.56"
+        pre-steps:
+            - checkout
+            - run:
+                command: cargo generate-lockfile
 
     - lint-check
 
@@ -158,6 +162,14 @@ workflows:
     - build-and-test:
         name: build-and-test:serde+no_std
         rust-features: "--no-default-features --features='serde'"
+
+    - build-and-test:
+        name: build-and-test:serde_json
+        rust-features: "--features='serde-json'"
+
+    - build-and-test:
+        name: build-and-test:serde_json+no_std
+        rust-features: "--features='serde-json' --no-default-features"
 
     - cargo-semver-check:
         requires:

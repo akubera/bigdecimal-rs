@@ -60,10 +60,13 @@ extern crate num_integer;
 extern crate paste;
 
 #[cfg(feature = "serde")]
-extern crate serde;
+extern crate serde as serde_crate;
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(all(test, any(feature = "serde", feature = "serde_json")))]
 extern crate serde_test;
+
+#[cfg(all(test, feature = "serde_json"))]
+extern crate serde_json;
 
 #[cfg(feature = "std")]
 include!("./with_std.rs");
@@ -124,8 +127,18 @@ mod impl_num;
 mod impl_fmt;
 
 // Implementations for deserializations and serializations
-#[cfg(feature = "serde")]
+#[cfg(any(feature = "serde", feature="serde_json"))]
 pub mod impl_serde;
+
+/// re-export serde-json derive modules
+#[cfg(feature = "serde_json")]
+pub mod serde {
+    /// Parse JSON number directly to BigDecimal
+    pub use impl_serde::arbitrary_precision as json_num;
+    /// Parse JSON (number | null) directly to Option<BigDecimal>
+    pub use impl_serde::arbitrary_precision_option as json_num_option;
+}
+
 
 // construct BigDecimals from strings and floats
 mod parsing;
@@ -383,9 +396,15 @@ impl BigDecimal {
     /// Useful for aligning decimals before adding/subtracting.
     ///
     fn take_and_scale(mut self, new_scale: i64) -> BigDecimal {
+        self.set_scale(new_scale);
+        self
+    }
+
+    /// Change to requested scale by multiplying or truncating
+    fn set_scale(&mut self, new_scale: i64) {
         if self.int_val.is_zero() {
             self.scale = new_scale;
-            return self;
+            return;
         }
 
         match diff(new_scale, self.scale) {
@@ -407,8 +426,6 @@ impl BigDecimal {
             }
             (Ordering::Equal, _) => {},
         }
-
-        self
     }
 
     /// Take and return bigdecimal with the given sign
@@ -1013,54 +1030,6 @@ impl Hash for BigDecimal {
     }
 }
 
-impl PartialOrd for BigDecimal {
-    #[inline]
-    fn partial_cmp(&self, other: &BigDecimal) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for BigDecimal {
-    /// Complete ordering implementation for BigDecimal
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    ///
-    /// let a = bigdecimal::BigDecimal::from_str("-1").unwrap();
-    /// let b = bigdecimal::BigDecimal::from_str("1").unwrap();
-    /// assert!(a < b);
-    /// assert!(b > a);
-    /// let c = bigdecimal::BigDecimal::from_str("1").unwrap();
-    /// assert!(b >= c);
-    /// assert!(c >= b);
-    /// let d = bigdecimal::BigDecimal::from_str("10.0").unwrap();
-    /// assert!(d > c);
-    /// let e = bigdecimal::BigDecimal::from_str(".5").unwrap();
-    /// assert!(e < c);
-    /// ```
-    #[inline]
-    fn cmp(&self, other: &BigDecimal) -> Ordering {
-        let scmp = self.sign().cmp(&other.sign());
-        if scmp != Ordering::Equal {
-            return scmp;
-        }
-
-        match self.sign() {
-            Sign::NoSign => Ordering::Equal,
-            _ => {
-                let tmp = self - other;
-                match tmp.sign() {
-                    Sign::Plus => Ordering::Greater,
-                    Sign::Minus => Ordering::Less,
-                    Sign::NoSign => Ordering::Equal,
-                }
-            }
-        }
-    }
-}
-
 
 impl Default for BigDecimal {
     #[inline]
@@ -1238,7 +1207,7 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
 /// assert_eq!(m, "-122.456".parse().unwrap());
 /// ```
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 pub struct BigDecimalRef<'a> {
     sign: Sign,
     digits: &'a BigUint,
@@ -1330,6 +1299,12 @@ impl BigDecimalRef<'_> {
     /// Return if the referenced decimal is zero
     pub fn is_zero(&self) -> bool {
         self.digits.is_zero()
+    }
+
+    /// Clone this value into dest
+    pub fn clone_into(&self, dest: &mut BigDecimal) {
+        dest.int_val = num_bigint::BigInt::from_biguint(self.sign, self.digits.clone());
+        dest.scale = self.scale;
     }
 }
 
@@ -2006,33 +1981,29 @@ mod bigdecimal_tests {
         assert!((-BigDecimal::one()).abs().is_positive());
     }
 
-    #[test]
-    fn test_normalize() {
-        use num_bigint::BigInt;
+    mod normalize {
+        use super::*;
 
-        let vals = vec![
-            (BigDecimal::new(BigInt::from(10), 2),
-            BigDecimal::new(BigInt::from(1), 1),
-            "0.1"),
-            (BigDecimal::new(BigInt::from(132400), -4),
-            BigDecimal::new(BigInt::from(1324), -6),
-            "1.324E+9"),
-            (BigDecimal::new(BigInt::from(1_900_000), 3),
-            BigDecimal::new(BigInt::from(19), -2),
-            "1.9E+3"),
-            (BigDecimal::new(BigInt::from(0), -3),
-            BigDecimal::zero(),
-            "0"),
-            (BigDecimal::new(BigInt::from(0), 5),
-            BigDecimal::zero(),
-            "0"),
-        ];
-
-        for (not_normalized, normalized, string) in vals {
-            assert_eq!(not_normalized.normalized(), normalized);
-            assert_eq!(not_normalized.normalized().to_string(), string);
-            assert_eq!(normalized.to_string(), string);
+        macro_rules! impl_case {
+            ( $name:ident: ($i:literal, $s:literal) =>  ($e_int_val:literal, $e_scale:literal) ) => {
+                #[test]
+                fn $name() {
+                    let d = BigDecimal::new($i.into(), $s);
+                    let n = d.normalized();
+                    assert_eq!(n.int_val, $e_int_val.into());
+                    assert_eq!(n.scale, $e_scale);
+                }
+            }
         }
+
+        impl_case!(case_0e3: (0, -3) => (0, 0));
+        impl_case!(case_0en50: (0, 50) => (0, 0));
+        impl_case!(case_10en2: (10, 2) => (1, 1));
+        impl_case!(case_11en2: (11, 2) => (11, 2));
+        impl_case!(case_132400en4: (132400, 4) => (1324, 2));
+        impl_case!(case_1_900_000en3: (1_900_000, 3) => (19, -2));
+        impl_case!(case_834700e4: (834700, -4) => (8347, -6));
+        impl_case!(case_n834700e4: (-9900, 2) => (-99, 0));
     }
 
     #[test]

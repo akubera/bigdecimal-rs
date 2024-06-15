@@ -33,6 +33,7 @@ restore_disabled_property_tests() {
   # Restore Cargo.toml with backup
   mv Cargo.toml.bak Cargo.toml
   mv build.rs.bak build.rs
+  touch build.rs
 }
 
 
