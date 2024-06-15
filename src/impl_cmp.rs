@@ -378,6 +378,20 @@ mod test {
         impl_test!(case_1116xx459_759xx717e2: "1116386634271380982470843247639640260491505327092723527088459" < "759522625769651746138617259189939751893902453291243506584717" e 2);
     }
 
+    /// Test that large-magnitidue exponentials will not crash
+    #[test]
+    fn test_cmp_on_exp_boundaries() {
+        let a = BigDecimal::new(1.into(), i64::MAX);
+        let z = BigDecimal::new(1.into(), i64::MIN);
+        assert_ne!(a, z);
+        assert_ne!(z, a);
+
+        assert!(a < z);
+
+        assert_eq!(a, a);
+        assert_eq!(z, z);
+    }
+
     mod ord {
         use super::*;
 
