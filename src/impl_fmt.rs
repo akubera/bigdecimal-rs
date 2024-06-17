@@ -151,7 +151,7 @@ fn format_full_scale(
 
     // add exp part to buffer (if not zero)
     if exp != 0 {
-        write!(buf, "E{:+}", exp)?;
+        write!(buf, "e{:+}", exp)?;
     }
 
     // write buffer to formatter
@@ -866,8 +866,8 @@ mod test {
             }
 
             impl_case!(fmt_default: "{}" => "1e+100000");
-            impl_case!(fmt_d1: "{:.1}" => "1E+100000");
-            impl_case!(fmt_d4: "{:.4}" => "1E+100000");
+            impl_case!(fmt_d1: "{:.1}" => "1e+100000");
+            impl_case!(fmt_d4: "{:.4}" => "1e+100000");
         }
 
 
@@ -908,7 +908,7 @@ mod test {
             }
 
             impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
-            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800E+2502");
+            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800e+2502");
         }
     }
 
