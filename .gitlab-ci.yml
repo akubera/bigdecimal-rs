@@ -173,6 +173,20 @@ cargo:test-stable:
     # enable property tests for the stable 'pipeline'
     - scripts/bigdecimal-property-tests run cargo test
 
+cargo:test-i686:
+  stage: test
+  image: akubera/rust:stable
+  cache:
+    - <<: *cache-cargo-registry
+      policy: pull-push
+    - <<: *cache-cargo-build
+  variables:
+    RUST_CACHE_KEY: "stable-i686"
+  script:
+    - rustc --version && cargo --version
+    - rustup target add i686-unknown-linux-gnu
+    - cargo test --target i686-unknown-linux-gnu
+
 
 cargo:build:no-std:
   stage: build

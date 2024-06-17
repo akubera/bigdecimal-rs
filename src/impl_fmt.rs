@@ -87,19 +87,22 @@ fn dynamically_format_decimal(
 
     // number of zeros between most significant digit and decimal point
     let leading_zero_count = this.scale
-                                 .to_usize()
-                                 .and_then(|scale| scale.checked_sub(abs_int.len()))
+                                 .to_u64()
+                                 .and_then(|scale| scale.checked_sub(abs_int.len() as u64))
                                  .unwrap_or(0);
 
     // number of zeros between least significant digit and decimal point
     let trailing_zero_count = this.scale
                                   .checked_neg()
-                                  .and_then(|d| d.to_usize());
+                                  .and_then(|d| d.to_u64());
 
     // this ignores scientific-formatting if precision is requested
     let trailing_zeros = f.precision().map(|_| 0)
                           .or(trailing_zero_count)
                           .unwrap_or(0);
+
+    let leading_zero_threshold = leading_zero_threshold as u64;
+    let trailing_zero_threshold = trailing_zero_threshold as u64;
 
     // use exponential form if decimal point is outside
     // the upper and lower thresholds of the decimal
@@ -131,11 +134,11 @@ fn format_full_scale(
         // formatting an integer value (add trailing zeros to the right)
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
-        let scale = this.scale as usize;
+        let scale = this.scale as u64;
         // no-precision behaves the same as precision matching scale (i.e. no padding or rounding)
-        let prec = f.precision().unwrap_or(scale);
+        let prec = f.precision().and_then(|prec| prec.to_u64()).unwrap_or(scale);
 
-        if scale < digits.len() {
+        if scale < digits.len() as u64 {
             // format both integer and fractional digits (always 'trim' to precision)
             trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
         } else {
@@ -151,7 +154,7 @@ fn format_full_scale(
 
     // add exp part to buffer (if not zero)
     if exp != 0 {
-        write!(buf, "E{:+}", exp)?;
+        write!(buf, "e{:+}", exp)?;
     }
 
     // write buffer to formatter
@@ -169,7 +172,10 @@ fn zero_right_pad_integer_ascii_digits(
 ) {
     debug_assert!(*exp >= 0);
 
-    let trailing_zero_count = exp.to_usize().unwrap();
+    let trailing_zero_count = match exp.to_usize() {
+        Some(n) => n,
+        None => { return; }
+    };
     let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
     if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
         return;
@@ -195,16 +201,20 @@ fn zero_right_pad_integer_ascii_digits(
 /// Fill zeros into utf-8 digits
 fn trim_ascii_digits(
     digits: &mut Vec<u8>,
-    scale: usize,
-    prec: usize,
+    scale: u64,
+    prec: u64,
     exp: &mut i128,
     sign: Sign,
 ) {
-    debug_assert!(scale < digits.len());
+    debug_assert!(scale < digits.len() as u64);
     // there are both integer and fractional digits
-    let integer_digit_count = digits.len() - scale;
+    let integer_digit_count = (digits.len() as u64 - scale)
+                              .to_usize()
+                              .expect("Number of digits exceeds maximum usize");
 
     if prec < scale {
+        let prec = prec.to_usize()
+                       .expect("Precision exceeds maximum usize");
         apply_rounding_to_ascii_digits(
             digits, exp, integer_digit_count + prec, sign
         );
@@ -215,22 +225,26 @@ fn trim_ascii_digits(
     }
 
     if scale < prec {
+        let trailing_zero_count = (prec - scale)
+                                  .to_usize()
+                                  .expect("Too Big");
+
         // precision required beyond scale
-        digits.resize(digits.len() + (prec - scale), b'0');
+        digits.resize(digits.len() + trailing_zero_count, b'0');
     }
 }
 
 
 fn shift_or_trim_fractional_digits(
     digits: &mut Vec<u8>,
-    scale: usize,
-    prec: usize,
+    scale: u64,
+    prec: u64,
     exp: &mut i128,
     sign: Sign,
 ) {
-    debug_assert!(scale >= digits.len());
+    debug_assert!(scale >= digits.len() as u64);
     // there are no integer digits
-    let leading_zeros = scale - digits.len();
+    let leading_zeros = scale - digits.len() as u64;
 
     match prec.checked_sub(leading_zeros) {
         None => {
@@ -238,7 +252,7 @@ fn shift_or_trim_fractional_digits(
             digits.push(b'0');
             if prec > 0 {
                 digits.push(b'.');
-                digits.resize(2 + prec, b'0');
+                digits.resize(2 + prec as usize, b'0');
             }
         }
         Some(0) => {
@@ -251,11 +265,15 @@ fn shift_or_trim_fractional_digits(
             if leading_zeros != 0 {
                 digits.push(b'0');
                 digits.push(b'.');
-                digits.resize(1 + leading_zeros, b'0');
+                digits.resize(1 + leading_zeros as usize, b'0');
             }
             digits.push(rounded_value + b'0');
         }
         Some(digit_prec) => {
+            let digit_prec = digit_prec as usize;
+            let leading_zeros = leading_zeros
+                                .to_usize()
+                                .expect("Number of leading zeros exceeds max usize");
             let trailing_zeros = digit_prec.saturating_sub(digits.len());
             if digit_prec < digits.len() {
                 apply_rounding_to_ascii_digits(digits, exp, digit_prec, sign);
@@ -863,8 +881,8 @@ mod test {
             }
 
             impl_case!(fmt_default: "{}" => "1e+100000");
-            impl_case!(fmt_d1: "{:.1}" => "1E+100000");
-            impl_case!(fmt_d4: "{:.4}" => "1E+100000");
+            impl_case!(fmt_d1: "{:.1}" => "1e+100000");
+            impl_case!(fmt_d4: "{:.4}" => "1e+100000");
         }
 
 
@@ -905,7 +923,7 @@ mod test {
             }
 
             impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
-            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800E+2502");
+            impl_case!(fmt_d1: "{:.1}" => "13400476439814628800e+2502");
         }
     }
 
