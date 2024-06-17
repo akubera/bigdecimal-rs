@@ -87,19 +87,22 @@ fn dynamically_format_decimal(
 
     // number of zeros between most significant digit and decimal point
     let leading_zero_count = this.scale
-                                 .to_usize()
-                                 .and_then(|scale| scale.checked_sub(abs_int.len()))
+                                 .to_u64()
+                                 .and_then(|scale| scale.checked_sub(abs_int.len() as u64))
                                  .unwrap_or(0);
 
     // number of zeros between least significant digit and decimal point
     let trailing_zero_count = this.scale
                                   .checked_neg()
-                                  .and_then(|d| d.to_usize());
+                                  .and_then(|d| d.to_u64());
 
     // this ignores scientific-formatting if precision is requested
     let trailing_zeros = f.precision().map(|_| 0)
                           .or(trailing_zero_count)
                           .unwrap_or(0);
+
+    let leading_zero_threshold = leading_zero_threshold as u64;
+    let trailing_zero_threshold = trailing_zero_threshold as u64;
 
     // use exponential form if decimal point is outside
     // the upper and lower thresholds of the decimal
