@@ -169,7 +169,10 @@ fn zero_right_pad_integer_ascii_digits(
 ) {
     debug_assert!(*exp >= 0);
 
-    let trailing_zero_count = exp.to_usize().unwrap();
+    let trailing_zero_count = match exp.to_usize() {
+        Some(n) => n,
+        None => { return; }
+    };
     let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
     if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
         return;
