@@ -36,7 +36,7 @@ jobs:
               command: scripts/bigdecimal-property-tests enable
       - run:
           name: Generate cargo.lock
-          command: cargo generate-lockfile
+          command: if [ ! -f Cargo.lock ]; then cargo generate-lockfile; fi
       - restore_cache:
           keys:
             - bigdecimal-cargo-<< parameters.rust-version >>-{{ checksum "Cargo.lock" }}

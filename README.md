@@ -87,9 +87,9 @@ use serde_json;
 #[derive(Debug,Serialize,Deserialize)]
 struct MyStruct {
     name: String,
-    // this will be witten to json as string
+    // this will be written to json as string
     value: BigDecimal,
-    // this will be witten to json as number
+    // this will be written to json as number
     #[serde(with = "bigdecimal::serde::json_num")]
     number: BigDecimal,
 }
