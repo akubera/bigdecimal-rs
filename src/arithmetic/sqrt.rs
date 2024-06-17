@@ -105,7 +105,7 @@ pub(crate) fn impl_sqrt(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
         // division needs to be precise to (at least) one extra digit
         let tmp = impl_division(
             n.clone(),
-            &r.int_val.magnitude(),
+            r.int_val.magnitude(),
             scale - r.scale,
             max_precision + 1,
         );
