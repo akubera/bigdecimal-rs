@@ -88,6 +88,7 @@ use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 use self::stdlib::Vec;
+use self::stdlib::borrow::Cow;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
@@ -570,6 +571,24 @@ impl BigDecimal {
     #[inline]
     pub fn as_bigint_and_exponent(&self) -> (BigInt, i64) {
         (self.int_val.clone(), self.scale)
+    }
+
+    /// Take BigDecimal and split into `num::BigInt` of digits, and the scale
+    ///
+    /// Scale is number of digits after the decimal point, can be negative.
+    ///
+    pub fn into_bigint_and_scale(self) -> (BigInt, i64) {
+        (self.int_val, self.scale)
+    }
+
+
+    /// Return digits as borrowed Cow of integer digits, and its scale
+    ///
+    /// Scale is number of digits after the decimal point, can be negative.
+    ///
+    pub fn as_bigint_and_scale(&self) -> (Cow<'_, BigInt>, i64) {
+        let cow_int = Cow::Borrowed(&self.int_val);
+        (cow_int, self.scale)
     }
 
     /// Convert into the internal big integer value and an exponent. Note that a positive
