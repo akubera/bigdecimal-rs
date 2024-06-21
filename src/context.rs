@@ -100,8 +100,7 @@ impl Context {
         trailing_zeros: bool,
         carry: &mut u8,
     ) -> u8 {
-        let r = self.round_pair(sign, x, y, trailing_zeros);
-        store_carry(r, carry)
+        self.rounding.round_pair_with_carry(sign, (x, y), trailing_zeros, carry)
     }
 }
 
