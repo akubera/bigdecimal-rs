@@ -4,6 +4,8 @@
 use crate::*;
 use stdlib::num::NonZeroU64;
 
+use arithmetic::store_carry;
+
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
 include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
@@ -90,14 +92,16 @@ impl Context {
 
     /// Round digits x and y with the rounding mode
     #[allow(dead_code)]
-    pub(crate) fn round_pair_with_carry(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool, carry: &mut u8) -> u8 {
+    pub(crate) fn round_pair_with_carry(
+        &self,
+        sign: Sign,
+        x: u8,
+        y: u8,
+        trailing_zeros: bool,
+        carry: &mut u8,
+    ) -> u8 {
         let r = self.round_pair(sign, x, y, trailing_zeros);
-        if r == 10 {
-            *carry = 1;
-            0
-        } else {
-            r
-        }
+        store_carry(r, carry)
     }
 }
 
