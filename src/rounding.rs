@@ -151,6 +151,18 @@ impl RoundingMode {
         }
     }
 
+    /// Round digits, and if rounded up to 10, store 1 in carry and return zero
+    pub(crate) fn round_pair_with_carry(
+        &self,
+        sign: Sign,
+        pair: (u8, u8),
+        trailing_zeros: bool,
+        carry: &mut u8,
+    ) -> u8 {
+        let r = self.round_pair(sign, pair, trailing_zeros);
+        store_carry(r, carry)
+    }
+
     /// Round value at particular digit, returning replacement digit
     ///
     /// Parameters
@@ -229,14 +241,7 @@ impl NonDigitRoundingData {
 
     /// round-pair with carry-digits
     pub fn round_pair_with_carry(&self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
-        let rounded_digit = self.mode.round_pair(self.sign, pair, trailing_zeros);
-        if rounded_digit == 10 {
-            *carry = 1;
-            0
-        } else {
-            debug_assert!(rounded_digit < 10);
-            rounded_digit
-        }
+        self.mode.round_pair_with_carry(self.sign, pair, trailing_zeros, carry)
     }
 }
 
