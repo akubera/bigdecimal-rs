@@ -102,3 +102,11 @@ pub(crate) fn addassign_bigdecimal_ref<'a, T: Into<BigDecimalRef<'a>>>(
         }
     }
 }
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    include!("addition.tests.rs");
+}
