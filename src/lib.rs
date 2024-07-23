@@ -428,6 +428,13 @@ impl BigDecimal {
         }
     }
 
+    /// set scale only if new_scale is greater than current
+    pub(crate) fn extend_scale_to(&mut self, new_scale: i64) {
+        if new_scale > self.scale {
+            self.set_scale(new_scale)
+        }
+    }
+
     /// Take and return bigdecimal with the given sign
     ///
     /// The Sign value `NoSign` is ignored: only use Plus & Minus
@@ -1241,10 +1248,22 @@ impl BigDecimalRef<'_> {
     pub fn to_owned_with_scale(&self, scale: i64) -> BigDecimal {
         use stdlib::cmp::Ordering::*;
 
-        let digits = match scale.cmp(&self.scale) {
-            Equal => self.digits.clone(),
-            Greater => self.digits * ten_to_the_uint((scale - self.scale) as u64),
-            Less => self.digits / ten_to_the_uint((self.scale - scale) as u64)
+        let digits = match arithmetic::diff(self.scale, scale) {
+            (Equal, _) => self.digits.clone(),
+            (Less, scale_diff) => {
+                if scale_diff < 20 {
+                    self.digits * ten_to_the_u64(scale_diff as u8)
+                } else {
+                    self.digits * ten_to_the_uint(scale_diff)
+                }
+            }
+            (Greater, scale_diff) => {
+                if scale_diff < 20 {
+                    self.digits / ten_to_the_u64(scale_diff as u8)
+                } else {
+                    self.digits / ten_to_the_uint(scale_diff)
+                }
+            }
         };
 
         BigDecimal {
