@@ -91,7 +91,7 @@ use self::stdlib::Vec;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
-pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
+pub use num_traits::{FromPrimitive, Num, One, Pow, Signed, ToPrimitive, Zero};
 
 use stdlib::f64::consts::LOG2_10;
 
