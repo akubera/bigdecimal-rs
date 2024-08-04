@@ -159,6 +159,38 @@ mod test {
     }
 
     #[test]
+    fn test_sqrt_rounding() {
+        let vals = vec![
+            // sqrt(1.21) = 1.1, [Ceiling, Up] should round up
+            ("1.21", "2", "1", "1", "1", "1", "1", "2"),
+            // sqrt(2.25) = 1.5, [Ceiling, HalfEven, HalfUp, Up] should round up
+            ("2.25", "2", "1", "1", "1", "2", "2", "2"),
+            // sqrt(6.25) = 2.5, [Ceiling, HalfUp, Up] should round up
+            ("6.25", "3", "2", "2", "2", "2", "3", "3"),
+            // sqrt(8.41) = 2.9, [Ceiling, HalfDown, HalfEven, HalfUp, Up] should round up
+            ("8.41", "3", "2", "2", "3", "3", "3", "3"),
+        ];
+        for &(val, ceiling, down, floor, half_down, half_even, half_up, up) in vals.iter() {
+            let val = BigDecimal::from_str(val).unwrap();
+            let ceiling = BigDecimal::from_str(ceiling).unwrap();
+            let down = BigDecimal::from_str(down).unwrap();
+            let floor = BigDecimal::from_str(floor).unwrap();
+            let half_down = BigDecimal::from_str(half_down).unwrap();
+            let half_even = BigDecimal::from_str(half_even).unwrap();
+            let half_up = BigDecimal::from_str(half_up).unwrap();
+            let up = BigDecimal::from_str(up).unwrap();
+            let ctx = Context::default().with_prec(1).unwrap();
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::Ceiling)).unwrap(), ceiling);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::Down)).unwrap(), down);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::Floor)).unwrap(), floor);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::HalfDown)).unwrap(), half_down);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::HalfEven)).unwrap(), half_even);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::HalfUp)).unwrap(), half_up);
+            assert_eq!(val.sqrt_with_context(&ctx.with_rounding_mode(RoundingMode::Up)).unwrap(), up);
+        }
+    }
+
+    #[test]
     fn case_sqrt_3242053850483855em13() {
         let d: BigDecimal = "324.2053850483855".parse().unwrap();
 
