@@ -89,45 +89,45 @@ mod test {
     use super::*;
     use stdlib::num::NonZeroU64;
 
-    #[test]
-    fn test_cbrt() {
-        let vals = vec![
-            ("0.00", "0"),
-            ("1.00", "1"),
-            ("1.001", "1.000333222283909495175449559955220102010284758197360454054345461242739715702641939155238095670636841"),
-            ("10", "2.154434690031883721759293566519350495259344942192108582489235506346411106648340800185441503543243276"),
-            ("13409.179789484375", "23.7575"),
-            ("-59283293e25", "-84006090355.84281237113712383191213626687332139035750444925827809487776780721673264524620270275301685"),
-            ("94213372931e-127", "2.112049945275324414051072540210070583697242797173805198575907094646677475250362108901530353886613160E-39"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().cbrt();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
-        }
+    macro_rules! impl_test {
+        ($name:ident; $input:literal => $expected:literal) => {
+            #[test]
+            fn $name() {
+                let n: BigDecimal = $input.parse().unwrap();
+                let value = n.cbrt();
+
+                let expected = $expected.parse().unwrap();
+                assert_eq!(value, expected);
+            }
+        };
+        ($name:ident; prec=$prec:literal; round=$round:ident; $input:literal => $expected:literal) => {
+            #[test]
+            fn $name() {
+                let ctx = Context::new(NonZeroU64::new($prec).unwrap(), RoundingMode::$round);
+                let n: BigDecimal = $input.parse().unwrap();
+                let value = n.cbrt_with_context(&ctx);
+
+                let expected = $expected.parse().unwrap();
+                assert_eq!(value, expected);
+            }
+        };
     }
 
+    mod default {
+        use super::*;
 
-    #[test]
-    fn test_cbrt_prec15() {
-        let vals = vec![
-            ("0.00", "0"),
-            ("1.00", "1"),
-            ("1.001", "1.00033322228390"),
-            ("10", "2.15443469003188"),
-            ("13409.179789484375", "23.7575"),
-            ("-59283293e25", "-84006090355.8428"),
-            ("94213372931e-127", "2.11204994527532E-39"),
-        ];
-
-        let ctx = Context::new(NonZeroU64::new(15).unwrap(), RoundingMode::Down);
-
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap().cbrt_with_context(&ctx);
-            let b = y.parse().unwrap();
-            assert_eq!(a, b);
-        }
+        impl_test!(case_0; "0.00" => "0");
+        impl_test!(case_1; "1.00" => "1");
+        impl_test!(case_1d001; "1.001" => "1.000333222283909495175449559955220102010284758197360454054345461242739715702641939155238095670636841");
+        impl_test!(case_10; "10" => "2.154434690031883721759293566519350495259344942192108582489235506346411106648340800185441503543243276");
+        impl_test!(case_13409d179789484375; "13409.179789484375" => "23.7575");
+        impl_test!(case_n59283293e25; "-59283293e25" => "-84006090355.84281237113712383191213626687332139035750444925827809487776780721673264524620270275301685");
+        impl_test!(case_94213372931en127; "94213372931e-127" => "2.112049945275324414051072540210070583697242797173805198575907094646677475250362108901530353886613160E-39");
     }
+
+    impl_test!(case_prec15_down_10; prec=15; round=Down; "10" => "2.15443469003188");
+    impl_test!(case_prec6_up_0d979970546636727; prec=6; round=Up; "0.979970546636727" => "0.993279");
+
 
     #[cfg(property_tests)]
     mod prop {
