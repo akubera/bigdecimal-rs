@@ -276,6 +276,18 @@ pub(crate) struct InsigData {
 }
 
 impl InsigData {
+    /// Build from insig data and lazily calcuated trailing-zeros callable
+    pub fn from_digit_and_lazy_trailing_zeros(
+        rounder: NonDigitRoundingData,
+        insig_digit: u8,
+        calc_trailing_zeros: impl FnOnce() -> bool
+    ) -> Self {
+        Self {
+            digit: insig_digit,
+            trailing_zeros: rounder.mode.needs_trailing_zeros(insig_digit) && calc_trailing_zeros(),
+        }
+    }
+
     /// Build from slice of insignificant little-endian digits
     pub fn from_digit_slice(mode: RoundingMode, digits: &[u8]) -> Self {
         match digits.split_last() {
