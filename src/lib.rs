@@ -227,6 +227,11 @@ impl BigDecimal {
         }
     }
 
+    /// Construct positive BigDecimal from BigUint and a scale
+    pub fn from_biguint(digits: BigUint, scale: i64) -> BigDecimal {
+        BigDecimal::new(BigInt::from_biguint(Sign::Plus, digits), scale)
+    }
+
     /// Make a BigDecimalRef of this value
     pub fn to_ref(&self) -> BigDecimalRef<'_> {
         // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
@@ -1296,6 +1301,33 @@ mod bigdecimal_tests {
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
+
+
+    mod from_biguint {
+        use super::*;
+        use num_bigint::BigUint;
+        use num_bigint::Sign;
+
+        macro_rules! impl_case {
+            ($name:ident; $i:literal; $scale:literal) => {
+                impl_case!($name; $i.into(); $scale; Plus);
+            };
+            ($name:ident; $i:expr; $scale:literal; $sign:ident) => {
+                #[test]
+                fn $name() {
+                    let i: BigUint = $i;
+                    let d = BigDecimal::from_biguint(i.clone(), $scale);
+                    assert_eq!(d.int_val.magnitude(), &i);
+                    assert_eq!(d.scale, $scale);
+                    assert_eq!(d.sign(), Sign::$sign);
+                }
+            };
+        }
+
+        impl_case!(case_0en3; BigUint::zero(); 3; NoSign);
+        impl_case!(case_30e2; 30u8; -2);
+        impl_case!(case_7446124798en5; 7446124798u128; 5);
+    }
 
     #[test]
     fn test_fractional_digit_count() {
