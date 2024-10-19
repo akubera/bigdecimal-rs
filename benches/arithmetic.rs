@@ -331,14 +331,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             },
             criterion::BatchSize::SmallInput));
 
-    c.bench_function(
-        "sqrt",
-        |b| b.iter_batched(
-            || {
-                random_decimal.next()
-            },
-            |a| {
-                black_box(a.sqrt());
-            },
-            criterion::BatchSize::SmallInput));
+    let mut sqrt_group = c.benchmark_group("sqrt");
+    for prec in [10, 100, 1000, 10000] {
+        sqrt_group.bench_function(
+            format!("sqrt_prec_{prec}"),
+            |b| b.iter_batched(
+                || {
+                    (bigdecimal::Context::default().with_precision(std::num::NonZeroU64::new(prec).unwrap()), random_decimal.next())
+                },
+                |(ctx, a)| {
+                    black_box(a.sqrt_with_context(&ctx));
+                },
+                criterion::BatchSize::SmallInput));
+    }
 }

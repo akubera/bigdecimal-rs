@@ -69,10 +69,10 @@ where
             add_aligned_bigdecimal_ref_ref(lhs, rhs)
         }
         Greater => {
-            add_unaligned_bigdecimal_ref_ref(lhs, rhs, (lhs.scale - rhs.scale) as u64, ctx)
+            add_unaligned_bigdecimal_ref_ref(lhs, rhs, ctx)
         }
         Less => {
-            add_unaligned_bigdecimal_ref_ref(rhs, lhs, (rhs.scale - lhs.scale) as u64, ctx)
+            add_unaligned_bigdecimal_ref_ref(rhs, lhs, ctx)
         }
     }
 }
@@ -129,11 +129,13 @@ fn add_aligned_bigdecimal_ref_ref<'a, 'b>(
     }
 }
 
-fn add_unaligned_bigdecimal_ref_ref<'a, 'b>(
-    lhs: BigDecimalRef<'a>, rhs: BigDecimalRef<'b>, scale_diff: u64, ctx: Option<&Context>,
+fn add_unaligned_bigdecimal_ref_ref(
+    lhs: BigDecimalRef, rhs: BigDecimalRef, ctx: Option<&Context>,
 ) -> BigDecimal {
     debug_assert!(!lhs.is_zero() && !rhs.is_zero());
-    debug_assert_eq!(lhs.scale, rhs.scale + scale_diff as i64);
+    debug_assert!(lhs.scale >= rhs.scale);
+
+    let scale_diff = (lhs.scale - rhs.scale) as u64;
 
     let shifted_rhs_digits = rhs.digits * ten_to_the_uint(scale_diff);
     let shifted_rhs_int = BigInt::from_biguint(rhs.sign, shifted_rhs_digits).into();
