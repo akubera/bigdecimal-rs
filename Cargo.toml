@@ -46,7 +46,7 @@ autocfg = "1"
 
 [features]
 default = ["std"]
-serde-json = ["serde/derive", "serde_json"]
+serde-json = ["serde/derive", "dep:serde_json"]
 string-only = []
 std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
 
