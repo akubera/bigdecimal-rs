@@ -1235,6 +1235,14 @@ impl BigDecimalRef<'_> {
         }
     }
 
+    /// Create BigDecimal from this reference, rounding to precision and
+    /// with rounding-mode of the given context
+    ///
+    ///
+    pub fn round_with_context(&self, ctx: &Context) -> BigDecimal {
+        ctx.round_decimal_ref(*self)
+    }
+
     /// Take square root of this number
     pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
         use Sign::*;
