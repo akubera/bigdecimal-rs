@@ -215,8 +215,12 @@ impl RoundingMode {
     fn needs_trailing_zeros(&self, insig_digit: u8) -> bool {
         use RoundingMode::*;
 
-        insig_digit == 0
-        || (insig_digit == 5 && matches!(self, HalfUp | HalfDown | HalfEven))
+        // only need trailing zeros if the rounding digit is 0 or 5
+        if matches!(self, HalfUp | HalfDown | HalfEven) {
+            insig_digit == 5
+        } else {
+            insig_digit == 0
+        }
     }
 
 }
