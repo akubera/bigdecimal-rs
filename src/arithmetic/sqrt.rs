@@ -6,18 +6,19 @@ use crate::*;
 pub(crate) fn impl_sqrt(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
     // Calculate the number of digits and the difference compared to the scale
     let num_digits = count_decimal_digits_uint(&n);
-    let scale_diff = i128::from(num_digits) - i128::from(scale);
+    let scale_diff = BigInt::from(num_digits) - scale;
 
     // Calculate the number of wanted digits and the exponent we need to raise the original value to
     // We want twice as many digits as the precision because sqrt halves the number of digits
     // We add an extra one for rounding purposes
     let prec = ctx.precision().get();
-    let wanted_digits = 2 * (prec + 1);
+    let extra_rounding_digit_count = 5;
+    let wanted_digits = 2 * (prec + extra_rounding_digit_count);
     let exponent = wanted_digits.saturating_sub(num_digits) + u64::from(scale_diff.is_odd());
     let sqrt_digits = (n * ten_to_the_uint(exponent)).sqrt();
 
     // Calculate the scale of the result
-    let result_scale_digits = 4 * BigInt::from(prec) - 2 * BigInt::from(scale_diff) - 1;
+    let result_scale_digits = 2 * (2 * prec - scale_diff) - 1;
     let result_scale_decimal: BigDecimal = BigDecimal::new(result_scale_digits, 0) / 4.0;
     let mut result_scale = result_scale_decimal.with_scale_round(0, RoundingMode::HalfEven).int_val;
 
@@ -98,6 +99,8 @@ mod test {
     impl_case!(case_3242053850483855en13_prec31_round_up; prec=31; round=Up; "324.2053850483855" => "18.00570423639090823994825477228");
 
     impl_case!(case_5d085019992340351en10_prec25_round_down; prec=25; round=Down; "5.085019992340351e-10" => "0.00002254998889653906459324292");
+
+    impl_case!(case_3025d13579652399025_prec3_round_up; prec=3; round=Up; "3025.13579652399025" => "55.1");
 
     impl_case!(case_3025d13579652399025_prec9_round_down; prec=9; round=Down; "3025.13579652399025" => "55.0012345");
     impl_case!(case_3025d13579652399025_prec9_round_up; prec=9; round=Up; "3025.13579652399025" => "55.0012345");
