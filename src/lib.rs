@@ -773,7 +773,13 @@ impl BigDecimal {
         result.take_with_sign(self.sign())
     }
 
-    /// Return number rounded to round_digits precision after the decimal point
+    /// Return given number rounded to 'round_digits' precision after the
+    /// decimal point, using default rounding mode
+    ///
+    /// Default rounding mode is `HalfEven`, but can be configured at compile-time
+    /// by the environment variable: `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`
+    /// (or by patching _build.rs_ )
+    ///
     pub fn round(&self, round_digits: i64) -> BigDecimal {
         self.with_scale_round(round_digits, Context::default().rounding_mode())
     }
@@ -1779,6 +1785,11 @@ mod bigdecimal_tests {
             ("0.1165085714285714285714285714285714285714", 2, "0.12"),
             ("0.1165085714285714285714285714285714285714", 5, "0.11651"),
             ("0.1165085714285714285714285714285714285714", 8, "0.11650857"),
+            ("-1.5", 0, "-2"),
+            ("-1.2", 0, "-1"),
+            ("-0.68", 0, "-1"),
+            ("-0.5", 0, "0"),
+            ("-0.49", 0, "0"),
         ];
         for &(x, digits, y) in test_cases.iter() {
             let a = BigDecimal::from_str(x).unwrap();
