@@ -1221,6 +1221,19 @@ impl BigDecimalRef<'_> {
         count_decimal_digits_uint(self.digits)
     }
 
+    /// Return the number of trailing zeros in the referenced integer
+    #[allow(dead_code)]
+    fn count_trailing_zeroes(&self) -> usize {
+        if self.digits.is_zero() || self.digits.is_odd() {
+            return 0;
+        }
+
+        let digit_pairs = self.digits.to_radix_le(100);
+        let loc =  digit_pairs.iter().position(|&d| d != 0).unwrap_or(0);
+
+        2 * loc + usize::from(digit_pairs[loc] % 10 == 0)
+    }
+
     /// Split into components
     pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
         (self.sign, self.scale, self.digits)
