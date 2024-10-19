@@ -1319,7 +1319,7 @@ impl BigDecimalRef<'_> {
     pub fn sqrt_abs_with_context(&self, ctx: &Context) -> BigDecimal {
         use Sign::*;
 
-        let (sign, scale, uint) = self.as_parts();
+        let (_, scale, uint) = self.as_parts();
         arithmetic::sqrt::impl_sqrt(uint, scale, ctx)
     }
 

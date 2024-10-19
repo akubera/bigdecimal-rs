@@ -116,8 +116,8 @@ pub(crate) fn addassign_bigdecimal_ref<'a, T: Into<BigDecimalRef<'a>>>(
 }
 
 /// Add BigDecimal references which have the same scale (integer addition)
-fn add_aligned_bigdecimal_ref_ref<'a, 'b>(
-    lhs: BigDecimalRef<'a>, rhs: BigDecimalRef<'b>
+fn add_aligned_bigdecimal_ref_ref(
+    lhs: BigDecimalRef, rhs: BigDecimalRef
 ) -> BigDecimal {
     debug_assert!(!lhs.is_zero() && !rhs.is_zero());
     debug_assert_eq!(lhs.scale, rhs.scale);
@@ -130,7 +130,7 @@ fn add_aligned_bigdecimal_ref_ref<'a, 'b>(
 }
 
 fn add_unaligned_bigdecimal_ref_ref(
-    lhs: BigDecimalRef, rhs: BigDecimalRef, ctx: Option<&Context>,
+    lhs: BigDecimalRef, rhs: BigDecimalRef, _ctx: Option<&Context>,
 ) -> BigDecimal {
     debug_assert!(!lhs.is_zero() && !rhs.is_zero());
     debug_assert!(lhs.scale >= rhs.scale);
@@ -138,7 +138,7 @@ fn add_unaligned_bigdecimal_ref_ref(
     let scale_diff = (lhs.scale - rhs.scale) as u64;
 
     let shifted_rhs_digits = rhs.digits * ten_to_the_uint(scale_diff);
-    let shifted_rhs_int = BigInt::from_biguint(rhs.sign, shifted_rhs_digits).into();
+    let shifted_rhs_int = BigInt::from_biguint(rhs.sign, shifted_rhs_digits);
     let shifted_rhs = BigDecimal::new(shifted_rhs_int, lhs.scale);
 
     shifted_rhs + lhs
