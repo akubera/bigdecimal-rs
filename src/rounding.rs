@@ -273,6 +273,9 @@ pub(crate) struct InsigData {
     /// This is only useful if relevant for the rounding mode, it
     /// may be 'wrong' in these cases.
     pub trailing_zeros: bool,
+
+    /// rounding-mode and sign
+    pub rounding_data: NonDigitRoundingData
 }
 
 impl InsigData {
@@ -285,22 +288,23 @@ impl InsigData {
         Self {
             digit: insig_digit,
             trailing_zeros: rounder.mode.needs_trailing_zeros(insig_digit) && calc_trailing_zeros(),
+            rounding_data: rounder,
         }
     }
 
     /// Build from slice of insignificant little-endian digits
-    pub fn from_digit_slice(mode: RoundingMode, digits: &[u8]) -> Self {
+    pub fn from_digit_slice(rounder: NonDigitRoundingData, digits: &[u8]) -> Self {
         match digits.split_last() {
             Some((&d0, trailing)) => {
-                Self {
-                    digit: d0,
-                    trailing_zeros: mode.needs_trailing_zeros(d0) && trailing.iter().all(Zero::is_zero),
-                }
+                Self::from_digit_and_lazy_trailing_zeros(
+                    rounder, d0, || trailing.iter().all(Zero::is_zero)
+                )
             }
             None => {
                 Self {
                     digit: 0,
                     trailing_zeros: true,
+                    rounding_data: rounder,
                 }
             }
         }
@@ -308,7 +312,7 @@ impl InsigData {
 
     /// from sum of overlapping digits, (a is longer than b)
     pub fn from_overlapping_digits_backward_sum(
-        mode: RoundingMode,
+        rounder: NonDigitRoundingData,
         mut a_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
         mut b_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
         carry: &mut u8,
@@ -331,6 +335,7 @@ impl InsigData {
                 return Self {
                     digit: 0,
                     trailing_zeros: true,
+                    rounding_data: rounder,
                 };
             }
         };
@@ -353,13 +358,14 @@ impl InsigData {
         // if the last 'sum' value isn't zero, or if any remaining
         // digit is not zero, then it's not trailing zeros
         let trailing_zeros = sum == 0
-                             && mode.needs_trailing_zeros(insig_digit)
+                             && rounder.mode.needs_trailing_zeros(insig_digit)
                              && a_digits.all(Zero::is_zero)
                              && b_digits.all(Zero::is_zero);
 
         Self {
             digit: insig_digit,
             trailing_zeros: trailing_zeros,
+            rounding_data: rounder,
         }
     }
 }
