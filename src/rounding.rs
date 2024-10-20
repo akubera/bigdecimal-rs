@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 
 use crate::*;
-use crate::arithmetic::{add_carry, store_carry};
+use crate::arithmetic::{add_carry, store_carry, extend_adding_with_carry};
 use stdlib;
 
 
@@ -367,6 +367,36 @@ impl InsigData {
             trailing_zeros: trailing_zeros,
             rounding_data: rounder,
         }
+    }
+
+    pub fn round_digit(&self, digit: u8) -> u8 {
+        self.rounding_data.round_pair((digit, self.digit), self.trailing_zeros)
+    }
+
+    pub fn round_digit_with_carry(&self, digit: u8, carry: &mut u8) -> u8 {
+        self.rounding_data.round_pair_with_carry((digit, self.digit), self.trailing_zeros, carry)
+    }
+
+    pub fn round_slice_into(&self, dest: &mut Vec<u8>, digits: &[u8]) {
+        let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
+        let digits = rest.iter().copied();
+        let mut carry = 0;
+        let r0 = self.round_digit_with_carry(d0, &mut carry);
+        dest.push(r0);
+        extend_adding_with_carry(dest, digits, &mut carry);
+        if !carry.is_zero() {
+            dest.push(carry);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn round_slice_into_with_carry(&self, dest: &mut Vec<u8>, digits: &[u8], carry: &mut u8) {
+        let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
+        let digits = rest.iter().copied();
+        let r0 = self.round_digit_with_carry(d0, carry);
+        dest.push(r0);
+
+        extend_adding_with_carry(dest, digits, carry);
     }
 }
 

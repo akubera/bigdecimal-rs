@@ -162,7 +162,6 @@ pub(crate) fn store_carry(n: u8, carry: &mut u8) -> u8 {
 ///
 /// If carry overflows, it is NOT pushed into the destination vector.
 ///
-#[allow(dead_code)]
 pub(crate) fn extend_adding_with_carry<D: Iterator<Item=u8>>(
     dest: &mut Vec<u8>,
     mut digits: D,
