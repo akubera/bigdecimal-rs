@@ -761,11 +761,7 @@ impl BigDecimal {
             return self.clone();
         }
 
-        let uint = self.int_val.magnitude();
-        let result = arithmetic::cbrt::impl_cbrt_uint_scale(uint, self.scale, ctx);
-
-        // always copy sign
-        result.take_with_sign(self.sign())
+        arithmetic::cbrt::impl_cbrt_int_scale(&self.int_val, self.scale, ctx)
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
