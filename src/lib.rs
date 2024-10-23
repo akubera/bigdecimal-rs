@@ -856,6 +856,41 @@ impl BigDecimal {
     //////////////////////////
     // Formatting methods
 
+    /// Create string of decimal in standard decimal notation.
+    ///
+    /// Unlike standard formatter, this never prints the number in
+    /// scientific notation.
+    ///
+    /// # Panics
+    /// If the magnitude of the exponent is _very_ large, this may
+    /// cause out-of-memory errors, or overflowing panics.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "123.45678".parse().unwrap();
+    /// assert_eq!(&n.to_plain_string(), "123.45678");
+    ///
+    /// let n: BigDecimal = "1e-10".parse().unwrap();
+    /// assert_eq!(&n.to_plain_string(), "0.0000000001");
+    /// ```
+    pub fn to_plain_string(&self) -> String {
+        let mut output = String::new();
+        self.write_plain_string(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write decimal value in decimal notation to the writer object.
+    ///
+    /// # Panics
+    /// If the exponent is very large or very small, the number of
+    /// this will print that many trailing or leading zeros.
+    /// If exabytes, this will likely panic.
+    ///
+    pub fn write_plain_string<W: fmt::Write>(&self, wtr: &mut W) -> fmt::Result {
+        write!(wtr, "{}", impl_fmt::FullScaleFormatter(self.to_ref()))
+    }
+
     /// Create string of this bigdecimal in scientific notation
     ///
     /// ```
@@ -2038,6 +2073,28 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
         }
+    }
+
+    mod to_plain_string {
+        use super::*;
+
+        macro_rules! impl_test {
+            ($name:ident: $input:literal => $expected:literal) => {
+                #[test]
+                fn $name() {
+                    let n: BigDecimal = $input.parse().unwrap();
+                    let s = n.to_plain_string();
+                    assert_eq!(&s, $expected);
+                }
+            };
+        }
+
+        impl_test!(case_zero: "0" => "0");
+        impl_test!(case_1en18: "1e-18" => "0.000000000000000001");
+        impl_test!(case_n72e4: "-72e4" => "-720000");
+        impl_test!(case_95517338e30: "95517338e30" => "95517338000000000000000000000000000000");
+        impl_test!(case_29478en30: "29478e-30" => "0.000000000000000000000000029478");
+        impl_test!(case_30740d4897: "30740.4897" => "30740.4897");
     }
 
     #[test]

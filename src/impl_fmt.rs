@@ -120,6 +120,39 @@ fn dynamically_format_decimal(
 }
 
 
+pub(crate) struct FullScaleFormatter<'a>(pub BigDecimalRef<'a>);
+
+impl<'a> fmt::Display for FullScaleFormatter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let n = self.0;
+        let non_negative = matches!(n.sign, Sign::Plus | Sign::NoSign);
+
+        let mut digits = n.digits.to_string();
+
+        if n.scale <= 0 {
+            digits.extend(stdlib::iter::repeat('0').take(n.scale.neg() as usize));
+        } else if n.scale < digits.len() as i64 {
+            digits.insert(digits.len() - n.scale as usize, '.');
+        } else {
+            let mut digit_vec = digits.into_bytes();
+
+            let dest_str_size = n.scale as usize + 2;
+            let digit_count = digit_vec.len();
+            let leading_char_idx = dest_str_size - digit_count;
+
+            digit_vec.resize(dest_str_size, b'0');
+            digit_vec.copy_within(0..digit_count, leading_char_idx);
+            fill_slice(&mut digit_vec[..digit_count.min(leading_char_idx)], b'0');
+
+            digit_vec[1] = b'.';
+            digits = String::from_utf8(digit_vec).unwrap();
+        }
+
+        f.pad_integral(non_negative, "", &digits)
+    }
+}
+
+
 fn format_full_scale(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
