@@ -156,3 +156,27 @@ pub(crate) fn store_carry(n: u8, carry: &mut u8) -> u8 {
         n - 10
     }
 }
+
+
+/// Extend destination vector with values in D, adding carry while carry is not zero
+///
+/// If carry overflows, it is NOT pushed into the destination vector.
+///
+#[allow(dead_code)]
+pub(crate) fn extend_adding_with_carry<D: Iterator<Item=u8>>(
+    dest: &mut Vec<u8>,
+    mut digits: D,
+    carry: &mut u8,
+) {
+    while *carry != 0 {
+        match digits.next() {
+            Some(d) => {
+                dest.push(add_carry(d, carry))
+            }
+            None => {
+                return;
+            }
+        }
+    }
+    dest.extend(digits);
+}
