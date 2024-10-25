@@ -219,8 +219,16 @@ fn exp2(x: f64) -> f64 {
 impl BigDecimal {
     /// Creates and initializes a `BigDecimal`.
     ///
+    /// The more explicit method `from_bigint` should be preferred, as new
+    /// may change in the future.
+    ///
     #[inline]
     pub fn new(digits: BigInt, scale: i64) -> BigDecimal {
+        BigDecimal::from_bigint(digits, scale)
+    }
+
+    /// Construct BigDecimal from BigInt and a scale
+    pub fn from_bigint(digits: BigInt, scale: i64) -> BigDecimal {
         BigDecimal {
             int_val: digits,
             scale: scale,
@@ -229,7 +237,8 @@ impl BigDecimal {
 
     /// Construct positive BigDecimal from BigUint and a scale
     pub fn from_biguint(digits: BigUint, scale: i64) -> BigDecimal {
-        BigDecimal::new(BigInt::from_biguint(Sign::Plus, digits), scale)
+        let n = BigInt::from_biguint(Sign::Plus, digits);
+        BigDecimal::from_bigint(n, scale)
     }
 
     /// Make a BigDecimalRef of this value
