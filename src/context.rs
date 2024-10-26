@@ -9,8 +9,6 @@ use arithmetic::store_carry;
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
 include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
-// const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
-include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 
 
 /// Mathematical Context
@@ -119,7 +117,7 @@ impl stdlib::default::Default for Context {
     fn default() -> Self {
         Self {
             precision: NonZeroU64::new(DEFAULT_PRECISION).unwrap(),
-            rounding: DEFAULT_ROUNDING_MODE,
+            rounding: RoundingMode::default(),
         }
     }
 }

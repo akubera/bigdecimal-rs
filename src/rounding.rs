@@ -5,6 +5,8 @@ use crate::*;
 use crate::arithmetic::{add_carry, store_carry, extend_adding_with_carry};
 use stdlib;
 
+// const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
+include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 
 /// Determines how to calculate the last digit of the number
 ///
@@ -225,6 +227,16 @@ impl RoundingMode {
 
 }
 
+/// Return compile-time constant default rounding mode
+///
+/// Defined by RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE at compile time
+///
+impl Default for RoundingMode {
+    fn default() -> Self {
+        DEFAULT_ROUNDING_MODE
+    }
+}
+
 
 /// All non-digit information required to round digits
 ///
@@ -247,6 +259,11 @@ impl NonDigitRoundingData {
     /// round-pair with carry-digits
     pub fn round_pair_with_carry(&self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
         self.mode.round_pair_with_carry(self.sign, pair, trailing_zeros, carry)
+    }
+
+    /// Use sign and default rounding mode
+    pub fn default_with_sign(sign: Sign) -> Self {
+        NonDigitRoundingData { sign, mode: RoundingMode::default() }
     }
 }
 
