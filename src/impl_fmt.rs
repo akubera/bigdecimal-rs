@@ -2,6 +2,7 @@
 //!
 
 use crate::*;
+use rounding::{NonDigitRoundingData, InsigData};
 use stdlib::fmt::Write;
 
 
@@ -130,6 +131,8 @@ fn format_full_scale(
 
     debug_assert_ne!(digits.len(), 0);
 
+    let rounder = NonDigitRoundingData::default_with_sign(this.sign);
+
     if this.scale <= 0 {
         // formatting an integer value (add trailing zeros to the right)
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
@@ -140,10 +143,10 @@ fn format_full_scale(
 
         if scale < digits.len() as u64 {
             // format both integer and fractional digits (always 'trim' to precision)
-            trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
+            trim_ascii_digits(&mut digits, scale, prec, &mut exp, rounder);
         } else {
             // format only fractional digits
-            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, this.sign);
+            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, rounder);
         }
         // never print exp when in this branch
         exp = 0;
@@ -204,7 +207,7 @@ fn trim_ascii_digits(
     scale: u64,
     prec: u64,
     exp: &mut i128,
-    sign: Sign,
+    rounder: NonDigitRoundingData,
 ) {
     debug_assert!(scale < digits.len() as u64);
     // there are both integer and fractional digits
@@ -216,7 +219,7 @@ fn trim_ascii_digits(
         let prec = prec.to_usize()
                        .expect("Precision exceeds maximum usize");
         apply_rounding_to_ascii_digits(
-            digits, exp, integer_digit_count + prec, sign
+            digits, exp, integer_digit_count + prec, rounder
         );
     }
 
@@ -240,7 +243,7 @@ fn shift_or_trim_fractional_digits(
     scale: u64,
     prec: u64,
     exp: &mut i128,
-    sign: Sign,
+    rounder: NonDigitRoundingData,
 ) {
     debug_assert!(scale >= digits.len() as u64);
     // there are no integer digits
@@ -259,7 +262,7 @@ fn shift_or_trim_fractional_digits(
             // precision is at the decimal digit boundary, round one value
             let insig_digit = digits[0] - b'0';
             let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
-            let rounded_value = Context::default().round_pair(sign, 0, insig_digit, trailing_zeros);
+            let rounded_value = rounder.round_pair((0, insig_digit), trailing_zeros);
 
             digits.clear();
             if leading_zeros != 0 {
@@ -276,7 +279,7 @@ fn shift_or_trim_fractional_digits(
                                 .expect("Number of leading zeros exceeds max usize");
             let trailing_zeros = digit_prec.saturating_sub(digits.len());
             if digit_prec < digits.len() {
-                apply_rounding_to_ascii_digits(digits, exp, digit_prec, sign);
+                apply_rounding_to_ascii_digits(digits, exp, digit_prec, rounder);
             }
             digits.extend_from_slice(b"0.");
             digits.resize(digits.len() + leading_zeros, b'0');
@@ -349,7 +352,8 @@ fn format_exponential_bigendian_ascii_digits(
             }
             Ordering::Less => {
                 // round to smaller precision
-                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, sign);
+                let rounder = NonDigitRoundingData::default_with_sign(sign);
+                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, rounder);
             }
             Ordering::Greater => {
                 // increase number of zeros to add to end of digits
@@ -497,7 +501,7 @@ fn apply_rounding_to_ascii_digits(
     ascii_digits: &mut Vec<u8>,
     exp: &mut i128,
     prec: usize,
-    sign: Sign
+    rounder: NonDigitRoundingData,
 ) {
     if ascii_digits.len() < prec {
         return;
@@ -506,12 +510,14 @@ fn apply_rounding_to_ascii_digits(
     // shift exp to align with new length of digits
     *exp += (ascii_digits.len() - prec) as i128;
 
-    // true if all ascii_digits after precision are zeros
-    let trailing_zeros = ascii_digits[prec + 1..].iter().all(|&d| d == b'0');
-
     let sig_digit = ascii_digits[prec - 1] - b'0';
     let insig_digit = ascii_digits[prec] - b'0';
-    let rounded_digit = Context::default().round_pair(sign, sig_digit, insig_digit, trailing_zeros);
+
+    let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
+        rounder, insig_digit, || ascii_digits[prec + 1..].iter().all(|&d| d == b'0')
+    );
+
+    let rounded_digit = insig_data.round_digit(sig_digit);
 
     // remove insignificant digits
     ascii_digits.truncate(prec - 1);

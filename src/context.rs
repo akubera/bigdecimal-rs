@@ -95,6 +95,7 @@ impl Context {
     }
 
     /// Round digits x and y with the rounding mode
+    #[allow(dead_code)]
     pub(crate) fn round_pair(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool) -> u8 {
         self.rounding.round_pair(sign, (x, y), trailing_zeros)
     }
