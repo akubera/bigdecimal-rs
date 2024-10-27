@@ -367,7 +367,7 @@ fn format_ascii_digits_no_integer(
                 digits_ascii_be.copy_within(..sig_digit_count, sig_digit_idx);
 
                 // clear copied values
-                digits_ascii_be[..sig_digit_count.min(sig_digit_idx)].fill(b'0');
+                fill_slice(&mut digits_ascii_be[..sig_digit_count.min(sig_digit_idx)], b'0');
             } else {
                 debug_assert_eq!(sig_digit_count, 1);
             }
@@ -375,6 +375,18 @@ fn format_ascii_digits_no_integer(
             // add decimal point
             digits_ascii_be[1] = b'.';
         }
+    }
+}
+
+#[cfg(rust_1_50)]
+fn fill_slice<T: Clone>(v: &mut [T], value: T) {
+    v.fill(value);
+}
+
+#[cfg(not(rust_1_50))]
+fn fill_slice<T: Clone>(v: &mut [T], value: T) {
+    for i in v.iter_mut() {
+        *i = value.clone();
     }
 }
 
