@@ -431,22 +431,16 @@ fn format_exponential_bigendian_ascii_digits(
     if let Some(prec) = f.precision() {
         // 'prec' is number of digits after the decimal point
         let total_prec = prec + 1;
-        let digit_count = digits.len();
 
-        match total_prec.cmp(&digit_count) {
-            Ordering::Equal => {
-                // digit count is one more than precision - do nothing
-            }
-            Ordering::Less => {
-                // round to smaller precision
-                let rounder = NonDigitRoundingData::default_with_sign(sign);
-                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, rounder);
-            }
-            Ordering::Greater => {
-                // increase number of zeros to add to end of digits
-                extra_trailing_zero_count = total_prec - digit_count;
-            }
+        if total_prec < digits.len() {
+            // round to smaller precision
+            let rounder = NonDigitRoundingData::default_with_sign(sign);
+            let target_scale = NonZeroUsize::new(total_prec).unwrap();
+            let delta_exp = round_ascii_digits(&mut digits, target_scale, rounder);
+            exp += delta_exp as i128;
         }
+
+        extra_trailing_zero_count = total_prec - digits.len();
     }
 
     let needs_decimal_point = digits.len() > 1 || extra_trailing_zero_count > 0;
@@ -651,69 +645,6 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
     }
 
     return write!(out, "e{}", exp);
-}
-
-
-/// Round big-endian digits in ascii
-fn apply_rounding_to_ascii_digits(
-    ascii_digits: &mut Vec<u8>,
-    exp: &mut i128,
-    prec: usize,
-    rounder: NonDigitRoundingData,
-) {
-    if ascii_digits.len() < prec {
-        return;
-    }
-
-    // shift exp to align with new length of digits
-    *exp += (ascii_digits.len() - prec) as i128;
-
-    let sig_digit = ascii_digits[prec - 1] - b'0';
-    let insig_digit = ascii_digits[prec] - b'0';
-
-    let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
-        rounder, insig_digit, || ascii_digits[prec + 1..].iter().all(|&d| d == b'0')
-    );
-
-    let rounded_digit = insig_data.round_digit(sig_digit);
-
-    // remove insignificant digits
-    ascii_digits.truncate(prec - 1);
-
-    // push rounded value
-    if rounded_digit < 10 {
-        ascii_digits.push(rounded_digit + b'0');
-        return
-    }
-
-    debug_assert_eq!(rounded_digit, 10);
-
-    // push zero and carry-the-one
-    ascii_digits.push(b'0');
-
-    // loop through digits in reverse order (skip the 0 we just pushed)
-    let digits = ascii_digits.iter_mut().rev().skip(1);
-    for digit in digits {
-        if *digit < b'9' {
-            // we've carried the one as far as it will go
-            *digit += 1;
-            return;
-        }
-
-        debug_assert_eq!(*digit, b'9');
-
-        // digit was a 9, set to zero and carry the one
-        // to the next digit
-        *digit = b'0';
-    }
-
-    // at this point all digits have become zero
-    // just set significant digit to 1 and increase exponent
-    //
-    // eg: 9999e2 ~> 0000e2 ~> 1000e3
-    //
-    ascii_digits[0] = b'1';
-    *exp += 1;
 }
 
 
