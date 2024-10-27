@@ -171,34 +171,51 @@ fn format_full_scale(
 fn zero_right_pad_integer_ascii_digits(
     digits: &mut Vec<u8>,
     exp: &mut i128,
-    precision: Option<usize>,
+    // number of zeros after the decimal point
+    target_scale: Option<usize>,
 ) {
     debug_assert!(*exp >= 0);
+    debug_assert_ne!(digits.len(), 0);
 
-    let trailing_zero_count = match exp.to_usize() {
+    let integer_zero_count = match exp.to_usize() {
         Some(n) => n,
         None => { return; }
     };
-    let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
+
+    // did not explicitly request precision, so we'll only
+    // implicitly right-pad if less than this threshold.
+    if matches!(target_scale, None) && integer_zero_count > 20 {
+        // no padding
+        return;
+    }
+
+    let fraction_zero_char_count;
+    let decimal_place_idx;
+
+    if let Some(frac_zero_count) = target_scale.and_then(NonZeroUsize::new) {
+        // add one char for '.' if target_scale is not zero
+        fraction_zero_char_count = frac_zero_count.get() + 1;
+        // indicate we'll need to add a decimal point
+        decimal_place_idx = Some(digits.len() + integer_zero_count);
+    } else {
+        fraction_zero_char_count = 0;
+        decimal_place_idx = None;
+    }
+
+    let total_additional_zeros = integer_zero_count.saturating_add(fraction_zero_char_count);
+
+    // no padding if out of bounds
     if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
         return;
     }
 
-    // requested 'prec' digits of precision after decimal point
-    match precision {
-        None if trailing_zero_count > 20 => {
-        }
-        None | Some(0) => {
-            digits.resize(digits.len() + trailing_zero_count, b'0');
-            *exp = 0;
-        }
-        Some(prec) => {
-            digits.resize(digits.len() + trailing_zero_count, b'0');
-            digits.push(b'.');
-            digits.resize(digits.len() + prec, b'0');
-            *exp = 0;
-        }
+    digits.resize(digits.len() + total_additional_zeros, b'0');
+    if let Some(decimal_place_idx) = decimal_place_idx {
+        digits[decimal_place_idx] = b'.';
     }
+
+    // set exp to zero so it won't be written in `format_full_scale`
+    *exp = 0;
 }
 
 
