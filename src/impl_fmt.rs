@@ -140,15 +140,19 @@ fn format_full_scale(
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
         let scale = this.scale as u64;
-        // no-precision behaves the same as precision matching scale (i.e. no padding or rounding)
-        let prec = f.precision().and_then(|prec| prec.to_u64()).unwrap_or(scale);
+
+        // std::fmt 'precision' has same meaning as bigdecimal 'scale'
+        //
+        // interpret 'no-precision' to mean the same as matching the scale
+        // of the deicmal (i.e. no padding or rounding)
+        let target_scale = f.precision().and_then(|prec| prec.to_u64()).unwrap_or(scale);
 
         if scale < digits.len() as u64 {
             // format both integer and fractional digits (always 'trim' to precision)
-            format_ascii_digits_with_integer_and_fraction(&mut digits, scale, prec, rounder);
+            format_ascii_digits_with_integer_and_fraction(&mut digits, scale, target_scale, rounder);
         } else {
             // format only fractional digits
-            format_ascii_digits_no_integer(&mut digits, scale, prec, rounder);
+            format_ascii_digits_no_integer(&mut digits, scale, target_scale, rounder);
         }
     }
 
