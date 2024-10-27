@@ -145,7 +145,7 @@ fn format_full_scale(
 
         if scale < digits.len() as u64 {
             // format both integer and fractional digits (always 'trim' to precision)
-            trim_ascii_digits(&mut digits, scale, prec, &mut exp, rounder);
+            format_ascii_digits_with_integer_and_fraction(&mut digits, scale, prec, rounder);
         } else {
             // format only fractional digits
             shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, rounder);
@@ -201,40 +201,66 @@ fn zero_right_pad_integer_ascii_digits(
     }
 }
 
-/// Fill zeros into utf-8 digits
-fn trim_ascii_digits(
-    digits: &mut Vec<u8>,
+
+/// Insert decimal point into digits_ascii_be, rounding or padding with zeros when necessary
+///
+/// (digits_ascii_be, scale) represents a decimal with both integer and fractional digits.
+///
+fn format_ascii_digits_with_integer_and_fraction(
+    digits_ascii_be: &mut Vec<u8>,
     scale: u64,
-    prec: u64,
-    exp: &mut i128,
+    target_scale: u64,
     rounder: NonDigitRoundingData,
 ) {
-    debug_assert!(scale < digits.len() as u64);
-    // there are both integer and fractional digits
-    let integer_digit_count = (digits.len() as u64 - scale)
-                              .to_usize()
-                              .expect("Number of digits exceeds maximum usize");
+    debug_assert!(scale < digits_ascii_be.len() as u64, "No integer digits");
+    let mut digit_scale = scale;
 
-    if prec < scale {
-        let prec = prec.to_usize()
-                       .expect("Precision exceeds maximum usize");
-        apply_rounding_to_ascii_digits(
-            digits, exp, integer_digit_count + prec, rounder
-        );
+    // decimal has more fractional digits than requested: round (trimming insignificant digits)
+    if target_scale < scale {
+        let digit_count_to_remove = (scale - target_scale)
+                                    .to_usize()
+                                    .expect("Precision exceeds maximum usize");
+
+        let rounding_idx = NonZeroUsize::new(digits_ascii_be.len() - digit_count_to_remove)
+                           .expect("decimal must have integer digits");
+
+        // round and trim the digits at the 'rounding index'
+        let scale_diff = round_ascii_digits(digits_ascii_be, rounding_idx, rounder);
+
+        match scale_diff.checked_sub(digit_scale as usize) {
+            None | Some(0) => {
+                digit_scale -= scale_diff as u64;
+            }
+            Some(zeros_to_add) => {
+                debug_assert_eq!(zeros_to_add, 1);
+                digits_ascii_be.resize(digits_ascii_be.len() + zeros_to_add, b'0');
+                digit_scale = 0;
+            }
+        }
     }
 
-    if prec != 0 {
-        digits.insert(integer_digit_count, b'.');
+    // ignore the decimal point if the target scale is zero
+    if target_scale != 0 {
+        // there are both integer and fractional digits
+        let integer_digit_count = (digits_ascii_be.len() as u64 - digit_scale)
+                                  .to_usize()
+                                  .expect("Number of digits exceeds maximum usize");
+
+
+        digits_ascii_be.insert(integer_digit_count, b'.');
     }
 
-    if scale < prec {
-        let trailing_zero_count = (prec - scale)
+    if digit_scale < target_scale {
+        let trailing_zero_count = (target_scale - digit_scale)
                                   .to_usize()
                                   .expect("Too Big");
 
         // precision required beyond scale
-        digits.resize(digits.len() + trailing_zero_count, b'0');
+        digits_ascii_be.resize(digits_ascii_be.len() + trailing_zero_count, b'0');
+        digit_scale += trailing_zero_count as u64;
     }
+
+    debug_assert_eq!(digit_scale, target_scale);
 }
 
 
