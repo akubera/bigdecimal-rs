@@ -2,7 +2,9 @@
 //!
 
 use crate::*;
+use rounding::{NonDigitRoundingData, InsigData};
 use stdlib::fmt::Write;
+use stdlib::num::NonZeroUsize;
 
 
 // const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD} or 5;
@@ -125,28 +127,33 @@ fn format_full_scale(
     use stdlib::cmp::Ordering::*;
 
     let mut digits = abs_int.into_bytes();
-    let mut exp = (this.scale as i128).neg();
+    let mut exp = 0;
     let non_negative = matches!(this.sign, Sign::Plus | Sign::NoSign);
 
     debug_assert_ne!(digits.len(), 0);
 
+    let rounder = NonDigitRoundingData::default_with_sign(this.sign);
+
     if this.scale <= 0 {
-        // formatting an integer value (add trailing zeros to the right)
+        exp = (this.scale as i128).neg();
+        // format an integer value by adding trailing zeros to the right
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
         let scale = this.scale as u64;
-        // no-precision behaves the same as precision matching scale (i.e. no padding or rounding)
-        let prec = f.precision().and_then(|prec| prec.to_u64()).unwrap_or(scale);
+
+        // std::fmt 'precision' has same meaning as bigdecimal 'scale'
+        //
+        // interpret 'no-precision' to mean the same as matching the scale
+        // of the deicmal (i.e. no padding or rounding)
+        let target_scale = f.precision().and_then(|prec| prec.to_u64()).unwrap_or(scale);
 
         if scale < digits.len() as u64 {
             // format both integer and fractional digits (always 'trim' to precision)
-            trim_ascii_digits(&mut digits, scale, prec, &mut exp, this.sign);
+            format_ascii_digits_with_integer_and_fraction(&mut digits, scale, target_scale, rounder);
         } else {
             // format only fractional digits
-            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, this.sign);
+            format_ascii_digits_no_integer(&mut digits, scale, target_scale, rounder);
         }
-        // never print exp when in this branch
-        exp = 0;
     }
 
     // move digits back into String form
@@ -168,122 +175,205 @@ fn format_full_scale(
 fn zero_right_pad_integer_ascii_digits(
     digits: &mut Vec<u8>,
     exp: &mut i128,
-    precision: Option<usize>,
+    // number of zeros after the decimal point
+    target_scale: Option<usize>,
 ) {
     debug_assert!(*exp >= 0);
+    debug_assert_ne!(digits.len(), 0);
 
-    let trailing_zero_count = match exp.to_usize() {
+    let integer_zero_count = match exp.to_usize() {
         Some(n) => n,
         None => { return; }
     };
-    let total_additional_zeros = trailing_zero_count.saturating_add(precision.unwrap_or(0));
+
+    // did not explicitly request precision, so we'll only
+    // implicitly right-pad if less than this threshold.
+    if matches!(target_scale, None) && integer_zero_count > 20 {
+        // no padding
+        return;
+    }
+
+    let fraction_zero_char_count;
+    let decimal_place_idx;
+
+    if let Some(frac_zero_count) = target_scale.and_then(NonZeroUsize::new) {
+        // add one char for '.' if target_scale is not zero
+        fraction_zero_char_count = frac_zero_count.get() + 1;
+        // indicate we'll need to add a decimal point
+        decimal_place_idx = Some(digits.len() + integer_zero_count);
+    } else {
+        fraction_zero_char_count = 0;
+        decimal_place_idx = None;
+    }
+
+    let total_additional_zeros = integer_zero_count.saturating_add(fraction_zero_char_count);
+
+    // no padding if out of bounds
     if total_additional_zeros > FMT_MAX_INTEGER_PADDING {
         return;
     }
 
-    // requested 'prec' digits of precision after decimal point
-    match precision {
-        None if trailing_zero_count > 20 => {
-        }
-        None | Some(0) => {
-            digits.resize(digits.len() + trailing_zero_count, b'0');
-            *exp = 0;
-        }
-        Some(prec) => {
-            digits.resize(digits.len() + trailing_zero_count, b'0');
-            digits.push(b'.');
-            digits.resize(digits.len() + prec, b'0');
-            *exp = 0;
-        }
+    digits.resize(digits.len() + total_additional_zeros, b'0');
+    if let Some(decimal_place_idx) = decimal_place_idx {
+        digits[decimal_place_idx] = b'.';
     }
+
+    // set exp to zero so it won't be written in `format_full_scale`
+    *exp = 0;
 }
 
-/// Fill zeros into utf-8 digits
-fn trim_ascii_digits(
-    digits: &mut Vec<u8>,
+
+/// Insert decimal point into digits_ascii_be, rounding or padding with zeros when necessary
+///
+/// (digits_ascii_be, scale) represents a decimal with both integer and fractional digits.
+///
+fn format_ascii_digits_with_integer_and_fraction(
+    digits_ascii_be: &mut Vec<u8>,
     scale: u64,
-    prec: u64,
-    exp: &mut i128,
-    sign: Sign,
+    target_scale: u64,
+    rounder: NonDigitRoundingData,
 ) {
-    debug_assert!(scale < digits.len() as u64);
-    // there are both integer and fractional digits
-    let integer_digit_count = (digits.len() as u64 - scale)
-                              .to_usize()
-                              .expect("Number of digits exceeds maximum usize");
+    debug_assert!(scale < digits_ascii_be.len() as u64, "No integer digits");
+    let mut digit_scale = scale;
 
-    if prec < scale {
-        let prec = prec.to_usize()
-                       .expect("Precision exceeds maximum usize");
-        apply_rounding_to_ascii_digits(
-            digits, exp, integer_digit_count + prec, sign
-        );
+    // decimal has more fractional digits than requested: round (trimming insignificant digits)
+    if target_scale < scale {
+        let digit_count_to_remove = (scale - target_scale)
+                                    .to_usize()
+                                    .expect("Precision exceeds maximum usize");
+
+        let rounding_idx = NonZeroUsize::new(digits_ascii_be.len() - digit_count_to_remove)
+                           .expect("decimal must have integer digits");
+
+        // round and trim the digits at the 'rounding index'
+        let scale_diff = round_ascii_digits(digits_ascii_be, rounding_idx, rounder);
+
+        match scale_diff.checked_sub(digit_scale as usize) {
+            None | Some(0) => {
+                digit_scale -= scale_diff as u64;
+            }
+            Some(zeros_to_add) => {
+                debug_assert_eq!(zeros_to_add, 1);
+                digits_ascii_be.resize(digits_ascii_be.len() + zeros_to_add, b'0');
+                digit_scale = 0;
+            }
+        }
     }
 
-    if prec != 0 {
-        digits.insert(integer_digit_count, b'.');
+    // ignore the decimal point if the target scale is zero
+    if target_scale != 0 {
+        // there are both integer and fractional digits
+        let integer_digit_count = (digits_ascii_be.len() as u64 - digit_scale)
+                                  .to_usize()
+                                  .expect("Number of digits exceeds maximum usize");
+
+
+        digits_ascii_be.insert(integer_digit_count, b'.');
     }
 
-    if scale < prec {
-        let trailing_zero_count = (prec - scale)
+    if digit_scale < target_scale {
+        let trailing_zero_count = (target_scale - digit_scale)
                                   .to_usize()
                                   .expect("Too Big");
 
         // precision required beyond scale
-        digits.resize(digits.len() + trailing_zero_count, b'0');
+        digits_ascii_be.resize(digits_ascii_be.len() + trailing_zero_count, b'0');
+        digit_scale += trailing_zero_count as u64;
     }
+
+    debug_assert_eq!(digit_scale, target_scale);
 }
 
 
-fn shift_or_trim_fractional_digits(
-    digits: &mut Vec<u8>,
+/// Insert decimal point into digits_ascii_be, rounding or padding with zeros when necessary
+///
+/// (digits_ascii_be, scale) represents a decimal with only fractional digits.
+///
+fn format_ascii_digits_no_integer(
+    digits_ascii_be: &mut Vec<u8>,
     scale: u64,
-    prec: u64,
-    exp: &mut i128,
-    sign: Sign,
+    target_scale: u64,
+    rounder: NonDigitRoundingData,
 ) {
-    debug_assert!(scale >= digits.len() as u64);
-    // there are no integer digits
-    let leading_zeros = scale - digits.len() as u64;
+    use stdlib::cmp::Ordering::*;
 
-    match prec.checked_sub(leading_zeros) {
-        None => {
-            digits.clear();
-            digits.push(b'0');
-            if prec > 0 {
-                digits.push(b'.');
-                digits.resize(2 + prec as usize, b'0');
+    debug_assert!(scale >= digits_ascii_be.len() as u64);
+    let leading_zeros = scale - digits_ascii_be.len() as u64;
+
+    match arithmetic::diff(target_scale, leading_zeros) {
+        // handle rounding point before the start of digits
+        (Less, intermediate_zeros) | (Equal, intermediate_zeros)  => {
+            // get insignificant digit
+            let (insig_digit, trailing_digits) = if intermediate_zeros > 0 {
+                (0, digits_ascii_be.as_slice())
+            } else {
+                (digits_ascii_be[0] - b'0', &digits_ascii_be[1..])
+            };
+
+            let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
+                rounder, insig_digit, || trailing_digits.iter().all(|&d| d == b'0')
+            );
+
+            let rounded_digit = insig_data.round_digit(0);
+            debug_assert_ne!(rounded_digit, 10);
+
+            digits_ascii_be.clear();
+
+            if target_scale > 0 {
+                digits_ascii_be.resize(target_scale as usize + 1, b'0');
+            }
+
+            digits_ascii_be.push(rounded_digit + b'0');
+
+            if target_scale > 0 {
+                digits_ascii_be[1] = b'.';
             }
         }
-        Some(0) => {
-            // precision is at the decimal digit boundary, round one value
-            let insig_digit = digits[0] - b'0';
-            let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
-            let rounded_value = Context::default().round_pair(sign, 0, insig_digit, trailing_zeros);
+        (Greater, sig_digit_count) => {
+            let significant_digit_count = sig_digit_count
+                                          .to_usize()
+                                          .and_then(NonZeroUsize::new)
+                                          .expect("Request overflow in sig_digit_count");
 
-            digits.clear();
-            if leading_zeros != 0 {
-                digits.push(b'0');
-                digits.push(b'.');
-                digits.resize(1 + leading_zeros as usize, b'0');
-            }
-            digits.push(rounded_value + b'0');
-        }
-        Some(digit_prec) => {
-            let digit_prec = digit_prec as usize;
-            let leading_zeros = leading_zeros
-                                .to_usize()
-                                .expect("Number of leading zeros exceeds max usize");
-            let trailing_zeros = digit_prec.saturating_sub(digits.len());
-            if digit_prec < digits.len() {
-                apply_rounding_to_ascii_digits(digits, exp, digit_prec, sign);
-            }
-            digits.extend_from_slice(b"0.");
-            digits.resize(digits.len() + leading_zeros, b'0');
-            digits.rotate_right(leading_zeros + 2);
+            let mut digit_scale = scale;
 
-            // add any extra trailing zeros
-            digits.resize(digits.len() + trailing_zeros, b'0');
+            // if 'digits_ascii_be' has more digits than requested, round
+            if significant_digit_count.get() < digits_ascii_be.len() {
+                let removed_digit_count = round_ascii_digits(
+                    digits_ascii_be, significant_digit_count, rounder
+                );
+
+                digit_scale -= removed_digit_count as u64;
+            }
+
+            // number of zeros to keep after the significant digits
+            let trailing_zeros = target_scale - digit_scale;
+
+            // expected length is target scale (number of digits after decimal point) + "0."
+            let dest_len = target_scale as usize + 2;
+
+            // number of significant digits is whatever is left in the digit vector
+            let sig_digit_count = digits_ascii_be.len();
+
+            // index where to store significant digits
+            let sig_digit_idx = dest_len - trailing_zeros as usize - sig_digit_count as usize;
+
+            // fill output with zeros
+            digits_ascii_be.resize(dest_len, b'0');
+
+            // very likely case where there are digits after the decimal point
+            if digit_scale != 0 {
+                // copy significant digits to their index location
+                digits_ascii_be.copy_within(..sig_digit_count, sig_digit_idx);
+
+                // clear copied values
+                digits_ascii_be[..sig_digit_count.min(sig_digit_idx)].fill(b'0');
+            } else {
+                debug_assert_eq!(sig_digit_count, 1);
+            }
+
+            // add decimal point
+            digits_ascii_be[1] = b'.';
         }
     }
 }
@@ -341,21 +431,16 @@ fn format_exponential_bigendian_ascii_digits(
     if let Some(prec) = f.precision() {
         // 'prec' is number of digits after the decimal point
         let total_prec = prec + 1;
-        let digit_count = digits.len();
 
-        match total_prec.cmp(&digit_count) {
-            Ordering::Equal => {
-                // digit count is one more than precision - do nothing
-            }
-            Ordering::Less => {
-                // round to smaller precision
-                apply_rounding_to_ascii_digits(&mut digits, &mut exp, total_prec, sign);
-            }
-            Ordering::Greater => {
-                // increase number of zeros to add to end of digits
-                extra_trailing_zero_count = total_prec - digit_count;
-            }
+        if total_prec < digits.len() {
+            // round to smaller precision
+            let rounder = NonDigitRoundingData::default_with_sign(sign);
+            let target_scale = NonZeroUsize::new(total_prec).unwrap();
+            let delta_exp = round_ascii_digits(&mut digits, target_scale, rounder);
+            exp += delta_exp as i128;
         }
+
+        extra_trailing_zero_count = total_prec - digits.len();
     }
 
     let needs_decimal_point = digits.len() > 1 || extra_trailing_zero_count > 0;
@@ -420,6 +505,77 @@ fn format_exponential_bigendian_ascii_digits(
     let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &abs_int)
+}
+
+
+/// Round big-endian ascii digits to given significant digit count,
+/// updating the scale appropriately
+///
+/// Returns the number of digits removed; this should be treated as the
+/// change in the decimal's scale, and should be subtracted from the scale
+/// when appropriate.
+///
+fn round_ascii_digits(
+    // bigendian ascii digits
+    digits_ascii_be: &mut Vec<u8>,
+    // number of significant digits to keep
+    significant_digit_count: NonZeroUsize,
+    // how to round
+    rounder: NonDigitRoundingData,
+) -> usize {
+    debug_assert!(significant_digit_count.get() < digits_ascii_be.len());
+
+    let (sig_digits, insig_digits) = digits_ascii_be.split_at(significant_digit_count.get());
+    let (&insig_digit, trailing_digits) = insig_digits.split_first().unwrap_or((&b'0', &[]));
+
+    let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
+        rounder, insig_digit - b'0', || trailing_digits.iter().all(|&d| d == b'0')
+    );
+
+    let rounding_digit_pos = significant_digit_count.get() - 1;
+    let sig_digit = sig_digits[rounding_digit_pos] - b'0';
+    let rounded_digit = insig_data.round_digit(sig_digit);
+
+    // record how many digits to remove (changes the 'scale')
+    let mut removed_digit_count = insig_digits.len();
+
+    // discard insignificant digits (and rounding digit)
+    digits_ascii_be.truncate(rounding_digit_pos);
+
+    if rounded_digit < 10 {
+        // simple case: no carrying/overflow, push rounded digit
+        digits_ascii_be.push(rounded_digit + b'0');
+        return removed_digit_count;
+    }
+
+    // handle carrying the 1
+    debug_assert!(rounded_digit == 10);
+
+    // carry the one past trailing 9's: replace them with zeros
+    let next_non_nine_rev_pos = digits_ascii_be.iter().rev().position(|&d| d != b'9');
+    match next_non_nine_rev_pos {
+        // number of nines to remove
+        Some(backwards_nine_count) => {
+            let digits_to_trim = backwards_nine_count + 1;
+            let idx = digits_ascii_be.len() - digits_to_trim;
+            // increment least significant non-nine zero
+            digits_ascii_be[idx] += 1;
+            // remove trailing nines
+            digits_ascii_be.truncate(idx + 1);
+            // count truncation
+            removed_digit_count += digits_to_trim;
+        }
+        // all nines! overflow to 1.000
+        None => {
+            digits_ascii_be.clear();
+            digits_ascii_be.push(b'1');
+            // count digit clearning
+            removed_digit_count += significant_digit_count.get();
+        }
+    }
+
+    // return the number of removed digits
+    return removed_digit_count;
 }
 
 
@@ -489,67 +645,6 @@ pub(crate) fn write_engineering_notation<W: Write>(n: &BigDecimal, out: &mut W) 
     }
 
     return write!(out, "e{}", exp);
-}
-
-
-/// Round big-endian digits in ascii
-fn apply_rounding_to_ascii_digits(
-    ascii_digits: &mut Vec<u8>,
-    exp: &mut i128,
-    prec: usize,
-    sign: Sign
-) {
-    if ascii_digits.len() < prec {
-        return;
-    }
-
-    // shift exp to align with new length of digits
-    *exp += (ascii_digits.len() - prec) as i128;
-
-    // true if all ascii_digits after precision are zeros
-    let trailing_zeros = ascii_digits[prec + 1..].iter().all(|&d| d == b'0');
-
-    let sig_digit = ascii_digits[prec - 1] - b'0';
-    let insig_digit = ascii_digits[prec] - b'0';
-    let rounded_digit = Context::default().round_pair(sign, sig_digit, insig_digit, trailing_zeros);
-
-    // remove insignificant digits
-    ascii_digits.truncate(prec - 1);
-
-    // push rounded value
-    if rounded_digit < 10 {
-        ascii_digits.push(rounded_digit + b'0');
-        return
-    }
-
-    debug_assert_eq!(rounded_digit, 10);
-
-    // push zero and carry-the-one
-    ascii_digits.push(b'0');
-
-    // loop through digits in reverse order (skip the 0 we just pushed)
-    let digits = ascii_digits.iter_mut().rev().skip(1);
-    for digit in digits {
-        if *digit < b'9' {
-            // we've carried the one as far as it will go
-            *digit += 1;
-            return;
-        }
-
-        debug_assert_eq!(*digit, b'9');
-
-        // digit was a 9, set to zero and carry the one
-        // to the next digit
-        *digit = b'0';
-    }
-
-    // at this point all digits have become zero
-    // just set significant digit to 1 and increase exponent
-    //
-    // eg: 9999e2 ~> 0000e2 ~> 1000e3
-    //
-    ascii_digits[0] = b'1';
-    *exp += 1;
 }
 
 
@@ -721,6 +816,32 @@ mod test {
             impl_case!(fmt_p05d1:  "{:+05.7}" => "+123456.0000000");
         }
 
+        mod dec_d099995 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                ".099995".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:  "{}" => "0.099995");
+            impl_case!(fmt_d0:  "{:.0}" => "0");
+            impl_case!(fmt_d1:  "{:.1}" => "0.1");
+            impl_case!(fmt_d3:  "{:.3}" => "0.100");
+        }
+
+        mod dec_d9999999 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                ".9999999".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:  "{}" => "0.9999999");
+            impl_case!(fmt_d0:  "{:.0}" => "1");
+            impl_case!(fmt_d1:  "{:.1}" => "1.0");
+            impl_case!(fmt_d3:  "{:.3}" => "1.000");
+        }
+
         mod dec_9999999 {
             use super::*;
 
@@ -774,9 +895,29 @@ mod test {
             impl_case!(fmt_d0:        "{:.0}" => "-90037660");
             impl_case!(fmt_d3:        "{:.3}" => "-90037659.690");
             impl_case!(fmt_d4:        "{:.4}" => "-90037659.6905");
-            impl_case!(fmt_14d4:      "{:14.4}" => "-90037659.6905");
+            impl_case!(fmt_14d4:    "{:14.4}" => "-90037659.6905");
             impl_case!(fmt_15d4:    "{:15.4}" => " -90037659.6905");
             impl_case!(fmt_l17d5:  "{:<17.5}" => "-90037659.69050  ");
+        }
+
+        mod dec_0d0002394899999500 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0.0002394899999500".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:    "{}" => "0.0002394899999500");
+            impl_case!(fmt_d0:      "{:.0}" => "0");
+            impl_case!(fmt_d1:      "{:.1}" => "0.0");
+            impl_case!(fmt_d3:      "{:.3}" => "0.000");
+            impl_case!(fmt_d4:      "{:.4}" => "0.0002");
+            impl_case!(fmt_d5:      "{:.5}" => "0.00024");
+            impl_case!(fmt_d10:    "{:.10}" => "0.0002394900");
+            impl_case!(fmt_d13:    "{:.13}" => "0.0002394900000");
+            impl_case!(fmt_d14:    "{:.14}" => "0.00023948999995");
+            impl_case!(fmt_d20:    "{:.20}" => "0.00023948999995000000");
+
         }
 
         mod dec_1764031078en13 {
@@ -848,6 +989,8 @@ mod test {
 
             impl_case!(fmt_default: "{}" => "0.00003102564500");
             impl_case!(fmt_d0:   "{:.0}" => "0");
+            impl_case!(fmt_d1:   "{:.1}" => "0.0");
+            impl_case!(fmt_d2:   "{:.2}" => "0.00");
             impl_case!(fmt_d4:   "{:.4}" => "0.0000");
             impl_case!(fmt_d5:   "{:.5}" => "0.00003");
             impl_case!(fmt_d10:  "{:.10}" => "0.0000310256");
@@ -924,6 +1067,36 @@ mod test {
 
             impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
             impl_case!(fmt_d1: "{:.1}" => "13400476439814628800e+2502");
+        }
+
+        mod dec_d9999 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0.9999".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "0.9999");
+            impl_case!(fmt_d0:        "{:.0}" => "1");
+            impl_case!(fmt_d1:        "{:.1}" => "1.0");
+            impl_case!(fmt_d2:        "{:.2}" => "1.00");
+            impl_case!(fmt_d3:        "{:.3}" => "1.000");
+            impl_case!(fmt_d4:        "{:.4}" => "0.9999");
+            impl_case!(fmt_d6:        "{:.6}" => "0.999900");
+        }
+
+        mod dec_9d99 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "9.99".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "9.99");
+            impl_case!(fmt_d0:        "{:.0}" => "10");
+            impl_case!(fmt_d1:        "{:.1}" => "10.0");
+            impl_case!(fmt_d2:        "{:.2}" => "9.99");
+            impl_case!(fmt_d3:        "{:.3}" => "9.990");
         }
     }
 
