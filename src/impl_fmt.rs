@@ -126,7 +126,7 @@ fn format_full_scale(
     use stdlib::cmp::Ordering::*;
 
     let mut digits = abs_int.into_bytes();
-    let mut exp = (this.scale as i128).neg();
+    let mut exp = 0;
     let non_negative = matches!(this.sign, Sign::Plus | Sign::NoSign);
 
     debug_assert_ne!(digits.len(), 0);
@@ -134,7 +134,8 @@ fn format_full_scale(
     let rounder = NonDigitRoundingData::default_with_sign(this.sign);
 
     if this.scale <= 0 {
-        // formatting an integer value (add trailing zeros to the right)
+        exp = (this.scale as i128).neg();
+        // format an integer value by adding trailing zeros to the right
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
         let scale = this.scale as u64;
@@ -148,8 +149,6 @@ fn format_full_scale(
             // format only fractional digits
             shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, rounder);
         }
-        // never print exp when in this branch
-        exp = 0;
     }
 
     // move digits back into String form
