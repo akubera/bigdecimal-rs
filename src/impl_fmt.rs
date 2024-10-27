@@ -148,7 +148,7 @@ fn format_full_scale(
             format_ascii_digits_with_integer_and_fraction(&mut digits, scale, prec, rounder);
         } else {
             // format only fractional digits
-            shift_or_trim_fractional_digits(&mut digits, scale, prec, &mut exp, rounder);
+            format_ascii_digits_no_integer(&mut digits, scale, prec, rounder);
         }
     }
 
@@ -264,55 +264,95 @@ fn format_ascii_digits_with_integer_and_fraction(
 }
 
 
-fn shift_or_trim_fractional_digits(
-    digits: &mut Vec<u8>,
+/// Insert decimal point into digits_ascii_be, rounding or padding with zeros when necessary
+///
+/// (digits_ascii_be, scale) represents a decimal with only fractional digits.
+///
+fn format_ascii_digits_no_integer(
+    digits_ascii_be: &mut Vec<u8>,
     scale: u64,
-    prec: u64,
-    exp: &mut i128,
+    target_scale: u64,
     rounder: NonDigitRoundingData,
 ) {
-    debug_assert!(scale >= digits.len() as u64);
-    // there are no integer digits
-    let leading_zeros = scale - digits.len() as u64;
+    use stdlib::cmp::Ordering::*;
 
-    match prec.checked_sub(leading_zeros) {
-        None => {
-            digits.clear();
-            digits.push(b'0');
-            if prec > 0 {
-                digits.push(b'.');
-                digits.resize(2 + prec as usize, b'0');
+    debug_assert!(scale >= digits_ascii_be.len() as u64);
+    let leading_zeros = scale - digits_ascii_be.len() as u64;
+
+    match arithmetic::diff(target_scale, leading_zeros) {
+        // handle rounding point before the start of digits
+        (Less, intermediate_zeros) | (Equal, intermediate_zeros)  => {
+            // get insignificant digit
+            let (insig_digit, trailing_digits) = if intermediate_zeros > 0 {
+                (0, digits_ascii_be.as_slice())
+            } else {
+                (digits_ascii_be[0] - b'0', &digits_ascii_be[1..])
+            };
+
+            let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
+                rounder, insig_digit, || trailing_digits.iter().all(|&d| d == b'0')
+            );
+
+            let rounded_digit = insig_data.round_digit(0);
+            debug_assert_ne!(rounded_digit, 10);
+
+            digits_ascii_be.clear();
+
+            if target_scale > 0 {
+                digits_ascii_be.resize(target_scale as usize + 1, b'0');
+            }
+
+            digits_ascii_be.push(rounded_digit + b'0');
+
+            if target_scale > 0 {
+                digits_ascii_be[1] = b'.';
             }
         }
-        Some(0) => {
-            // precision is at the decimal digit boundary, round one value
-            let insig_digit = digits[0] - b'0';
-            let trailing_zeros = digits[1..].iter().all(|&d| d == b'0');
-            let rounded_value = rounder.round_pair((0, insig_digit), trailing_zeros);
+        (Greater, sig_digit_count) => {
+            let significant_digit_count = sig_digit_count
+                                          .to_usize()
+                                          .and_then(NonZeroUsize::new)
+                                          .expect("Request overflow in sig_digit_count");
 
-            digits.clear();
-            if leading_zeros != 0 {
-                digits.push(b'0');
-                digits.push(b'.');
-                digits.resize(1 + leading_zeros as usize, b'0');
-            }
-            digits.push(rounded_value + b'0');
-        }
-        Some(digit_prec) => {
-            let digit_prec = digit_prec as usize;
-            let leading_zeros = leading_zeros
-                                .to_usize()
-                                .expect("Number of leading zeros exceeds max usize");
-            let trailing_zeros = digit_prec.saturating_sub(digits.len());
-            if digit_prec < digits.len() {
-                apply_rounding_to_ascii_digits(digits, exp, digit_prec, rounder);
-            }
-            digits.extend_from_slice(b"0.");
-            digits.resize(digits.len() + leading_zeros, b'0');
-            digits.rotate_right(leading_zeros + 2);
+            let mut digit_scale = scale;
 
-            // add any extra trailing zeros
-            digits.resize(digits.len() + trailing_zeros, b'0');
+            // if 'digits_ascii_be' has more digits than requested, round
+            if significant_digit_count.get() < digits_ascii_be.len() {
+                let removed_digit_count = round_ascii_digits(
+                    digits_ascii_be, significant_digit_count, rounder
+                );
+
+                digit_scale -= removed_digit_count as u64;
+            }
+
+            // number of zeros to keep after the significant digits
+            let trailing_zeros = target_scale - digit_scale;
+
+            // expected length is target scale (number of digits after decimal point) + "0."
+            let dest_len = target_scale as usize + 2;
+
+            // number of significant digits is whatever is left in the digit vector
+            let sig_digit_count = digits_ascii_be.len();
+
+            // index where to store significant digits
+            let sig_digit_idx = dest_len - trailing_zeros as usize - sig_digit_count as usize;
+
+            // fill output with zeros
+            digits_ascii_be.resize(dest_len, b'0');
+
+            // very likely case where there are digits after the decimal point
+            if digit_scale != 0 {
+                // copy significant digits to their index location
+                digits_ascii_be.copy_within(..sig_digit_count, sig_digit_idx);
+
+                // clear copied values
+                digits_ascii_be[..sig_digit_count.min(sig_digit_idx)].fill(b'0');
+            } else {
+                debug_assert_eq!(sig_digit_count, 1);
+            }
+
+            // add decimal point
+            digits_ascii_be[1] = b'.';
         }
     }
 }
