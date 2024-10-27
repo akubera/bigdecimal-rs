@@ -2,9 +2,11 @@
 #![allow(dead_code)]
 
 use crate::*;
-use crate::arithmetic::{add_carry, store_carry};
+use crate::arithmetic::{add_carry, store_carry, extend_adding_with_carry};
 use stdlib;
 
+// const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
+include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 
 /// Determines how to calculate the last digit of the number
 ///
@@ -225,6 +227,16 @@ impl RoundingMode {
 
 }
 
+/// Return compile-time constant default rounding mode
+///
+/// Defined by RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE at compile time
+///
+impl Default for RoundingMode {
+    fn default() -> Self {
+        DEFAULT_ROUNDING_MODE
+    }
+}
+
 
 /// All non-digit information required to round digits
 ///
@@ -247,6 +259,11 @@ impl NonDigitRoundingData {
     /// round-pair with carry-digits
     pub fn round_pair_with_carry(&self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
         self.mode.round_pair_with_carry(self.sign, pair, trailing_zeros, carry)
+    }
+
+    /// Use sign and default rounding mode
+    pub fn default_with_sign(sign: Sign) -> Self {
+        NonDigitRoundingData { sign, mode: RoundingMode::default() }
     }
 }
 
@@ -273,22 +290,38 @@ pub(crate) struct InsigData {
     /// This is only useful if relevant for the rounding mode, it
     /// may be 'wrong' in these cases.
     pub trailing_zeros: bool,
+
+    /// rounding-mode and sign
+    pub rounding_data: NonDigitRoundingData
 }
 
 impl InsigData {
+    /// Build from insig data and lazily calcuated trailing-zeros callable
+    pub fn from_digit_and_lazy_trailing_zeros(
+        rounder: NonDigitRoundingData,
+        insig_digit: u8,
+        calc_trailing_zeros: impl FnOnce() -> bool
+    ) -> Self {
+        Self {
+            digit: insig_digit,
+            trailing_zeros: rounder.mode.needs_trailing_zeros(insig_digit) && calc_trailing_zeros(),
+            rounding_data: rounder,
+        }
+    }
+
     /// Build from slice of insignificant little-endian digits
-    pub fn from_digit_slice(mode: RoundingMode, digits: &[u8]) -> Self {
+    pub fn from_digit_slice(rounder: NonDigitRoundingData, digits: &[u8]) -> Self {
         match digits.split_last() {
             Some((&d0, trailing)) => {
-                Self {
-                    digit: d0,
-                    trailing_zeros: mode.needs_trailing_zeros(d0) && trailing.iter().all(Zero::is_zero),
-                }
+                Self::from_digit_and_lazy_trailing_zeros(
+                    rounder, d0, || trailing.iter().all(Zero::is_zero)
+                )
             }
             None => {
                 Self {
                     digit: 0,
                     trailing_zeros: true,
+                    rounding_data: rounder,
                 }
             }
         }
@@ -296,7 +329,7 @@ impl InsigData {
 
     /// from sum of overlapping digits, (a is longer than b)
     pub fn from_overlapping_digits_backward_sum(
-        mode: RoundingMode,
+        rounder: NonDigitRoundingData,
         mut a_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
         mut b_digits: stdlib::iter::Rev<stdlib::slice::Iter<u8>>,
         carry: &mut u8,
@@ -319,6 +352,7 @@ impl InsigData {
                 return Self {
                     digit: 0,
                     trailing_zeros: true,
+                    rounding_data: rounder,
                 };
             }
         };
@@ -341,14 +375,45 @@ impl InsigData {
         // if the last 'sum' value isn't zero, or if any remaining
         // digit is not zero, then it's not trailing zeros
         let trailing_zeros = sum == 0
-                             && mode.needs_trailing_zeros(insig_digit)
+                             && rounder.mode.needs_trailing_zeros(insig_digit)
                              && a_digits.all(Zero::is_zero)
                              && b_digits.all(Zero::is_zero);
 
         Self {
             digit: insig_digit,
             trailing_zeros: trailing_zeros,
+            rounding_data: rounder,
         }
+    }
+
+    pub fn round_digit(&self, digit: u8) -> u8 {
+        self.rounding_data.round_pair((digit, self.digit), self.trailing_zeros)
+    }
+
+    pub fn round_digit_with_carry(&self, digit: u8, carry: &mut u8) -> u8 {
+        self.rounding_data.round_pair_with_carry((digit, self.digit), self.trailing_zeros, carry)
+    }
+
+    pub fn round_slice_into(&self, dest: &mut Vec<u8>, digits: &[u8]) {
+        let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
+        let digits = rest.iter().copied();
+        let mut carry = 0;
+        let r0 = self.round_digit_with_carry(d0, &mut carry);
+        dest.push(r0);
+        extend_adding_with_carry(dest, digits, &mut carry);
+        if !carry.is_zero() {
+            dest.push(carry);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn round_slice_into_with_carry(&self, dest: &mut Vec<u8>, digits: &[u8], carry: &mut u8) {
+        let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
+        let digits = rest.iter().copied();
+        let r0 = self.round_digit_with_carry(d0, carry);
+        dest.push(r0);
+
+        extend_adding_with_carry(dest, digits, carry);
     }
 }
 

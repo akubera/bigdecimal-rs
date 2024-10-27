@@ -9,8 +9,6 @@ use arithmetic::store_carry;
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
 include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
-// const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
-include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 
 
 /// Mathematical Context
@@ -85,6 +83,17 @@ impl Context {
         self.rounding
     }
 
+    /// Round decimal to precision in this context, using rounding-mode
+    pub fn round_decimal(&self, n: BigDecimal) -> BigDecimal {
+        n.with_precision_round(self.precision(), self.rounding_mode())
+    }
+
+    /// Round decimal to precision in this context, using rounding-mode
+    pub fn round_decimal_ref<'a, D: Into<BigDecimalRef<'a>>>(&self, n: D) -> BigDecimal {
+        let d = n.into().to_owned();
+        d.with_precision_round(self.precision(), self.rounding_mode())
+    }
+
     /// Round digits x and y with the rounding mode
     pub(crate) fn round_pair(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool) -> u8 {
         self.rounding.round_pair(sign, (x, y), trailing_zeros)
@@ -108,7 +117,7 @@ impl stdlib::default::Default for Context {
     fn default() -> Self {
         Self {
             precision: NonZeroU64::new(DEFAULT_PRECISION).unwrap(),
-            rounding: DEFAULT_ROUNDING_MODE,
+            rounding: RoundingMode::default(),
         }
     }
 }
@@ -172,5 +181,49 @@ mod test_context {
 
         let sum = ctx.with_prec(27).unwrap().with_rounding_mode(RoundingMode::Up).add_refs(&a, neg_b);
         assert_eq!(sum, "209682.134972197165534775309".parse().unwrap());
+    }
+
+    mod round_decimal_ref {
+        use super::*;
+
+        #[test]
+        fn case_bigint_1234567_prec3() {
+            let ctx = Context::default().with_prec(3).unwrap();
+            let i = BigInt::from(1234567);
+            let d = ctx.round_decimal_ref(&i);
+            assert_eq!(d.int_val, 123.into());
+            assert_eq!(d.scale, -4);
+        }
+
+        #[test]
+        fn case_bigint_1234500_prec4_halfup() {
+            let ctx = Context::default()
+                              .with_prec(4).unwrap()
+                              .with_rounding_mode(RoundingMode::HalfUp);
+            let i = BigInt::from(1234500);
+            let d = ctx.round_decimal_ref(&i);
+            assert_eq!(d.int_val, 1235.into());
+            assert_eq!(d.scale, -3);
+        }
+
+        #[test]
+        fn case_bigint_1234500_prec4_halfeven() {
+            let ctx = Context::default()
+                              .with_prec(4).unwrap()
+                              .with_rounding_mode(RoundingMode::HalfEven);
+            let i = BigInt::from(1234500);
+            let d = ctx.round_decimal_ref(&i);
+            assert_eq!(d.int_val, 1234.into());
+            assert_eq!(d.scale, -3);
+        }
+
+        #[test]
+        fn case_bigint_1234567_prec10() {
+            let ctx = Context::default().with_prec(10).unwrap();
+            let i = BigInt::from(1234567);
+            let d = ctx.round_decimal_ref(&i);
+            assert_eq!(d.int_val, 1234567000.into());
+            assert_eq!(d.scale, 3);
+        }
     }
 }
