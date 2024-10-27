@@ -721,6 +721,32 @@ mod test {
             impl_case!(fmt_p05d1:  "{:+05.7}" => "+123456.0000000");
         }
 
+        mod dec_d099995 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                ".099995".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:  "{}" => "0.099995");
+            impl_case!(fmt_d0:  "{:.0}" => "0");
+            impl_case!(fmt_d1:  "{:.1}" => "0.1");
+            impl_case!(fmt_d3:  "{:.3}" => "0.100");
+        }
+
+        mod dec_d9999999 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                ".9999999".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:  "{}" => "0.9999999");
+            impl_case!(fmt_d0:  "{:.0}" => "1");
+            impl_case!(fmt_d1:  "{:.1}" => "1.0");
+            impl_case!(fmt_d3:  "{:.3}" => "1.000");
+        }
+
         mod dec_9999999 {
             use super::*;
 
@@ -774,9 +800,29 @@ mod test {
             impl_case!(fmt_d0:        "{:.0}" => "-90037660");
             impl_case!(fmt_d3:        "{:.3}" => "-90037659.690");
             impl_case!(fmt_d4:        "{:.4}" => "-90037659.6905");
-            impl_case!(fmt_14d4:      "{:14.4}" => "-90037659.6905");
+            impl_case!(fmt_14d4:    "{:14.4}" => "-90037659.6905");
             impl_case!(fmt_15d4:    "{:15.4}" => " -90037659.6905");
             impl_case!(fmt_l17d5:  "{:<17.5}" => "-90037659.69050  ");
+        }
+
+        mod dec_0d0002394899999500 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0.0002394899999500".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:    "{}" => "0.0002394899999500");
+            impl_case!(fmt_d0:      "{:.0}" => "0");
+            impl_case!(fmt_d1:      "{:.1}" => "0.0");
+            impl_case!(fmt_d3:      "{:.3}" => "0.000");
+            impl_case!(fmt_d4:      "{:.4}" => "0.0002");
+            impl_case!(fmt_d5:      "{:.5}" => "0.00024");
+            impl_case!(fmt_d10:    "{:.10}" => "0.0002394900");
+            impl_case!(fmt_d13:    "{:.13}" => "0.0002394900000");
+            impl_case!(fmt_d14:    "{:.14}" => "0.00023948999995");
+            impl_case!(fmt_d20:    "{:.20}" => "0.00023948999995000000");
+
         }
 
         mod dec_1764031078en13 {
@@ -848,6 +894,8 @@ mod test {
 
             impl_case!(fmt_default: "{}" => "0.00003102564500");
             impl_case!(fmt_d0:   "{:.0}" => "0");
+            impl_case!(fmt_d1:   "{:.1}" => "0.0");
+            impl_case!(fmt_d2:   "{:.2}" => "0.00");
             impl_case!(fmt_d4:   "{:.4}" => "0.0000");
             impl_case!(fmt_d5:   "{:.5}" => "0.00003");
             impl_case!(fmt_d10:  "{:.10}" => "0.0000310256");
@@ -924,6 +972,36 @@ mod test {
 
             impl_case!(fmt_default: "{}" => "13400476439814628800e+2502");
             impl_case!(fmt_d1: "{:.1}" => "13400476439814628800e+2502");
+        }
+
+        mod dec_d9999 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0.9999".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "0.9999");
+            impl_case!(fmt_d0:        "{:.0}" => "1");
+            impl_case!(fmt_d1:        "{:.1}" => "1.0");
+            impl_case!(fmt_d2:        "{:.2}" => "1.00");
+            impl_case!(fmt_d3:        "{:.3}" => "1.000");
+            impl_case!(fmt_d4:        "{:.4}" => "0.9999");
+            impl_case!(fmt_d6:        "{:.6}" => "0.999900");
+        }
+
+        mod dec_9d99 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "9.99".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:      "{}" => "9.99");
+            impl_case!(fmt_d0:        "{:.0}" => "10");
+            impl_case!(fmt_d1:        "{:.1}" => "10.0");
+            impl_case!(fmt_d2:        "{:.2}" => "9.99");
+            impl_case!(fmt_d3:        "{:.3}" => "9.990");
         }
     }
 
