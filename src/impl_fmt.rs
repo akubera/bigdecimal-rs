@@ -4,6 +4,7 @@
 use crate::*;
 use rounding::{NonDigitRoundingData, InsigData};
 use stdlib::fmt::Write;
+use stdlib::num::NonZeroUsize;
 
 
 // const EXPONENTIAL_FORMAT_LEADING_ZERO_THRESHOLD: usize = ${RUST_BIGDECIMAL_FMT_EXPONENTIAL_LOWER_THRESHOLD} or 5;
@@ -423,6 +424,77 @@ fn format_exponential_bigendian_ascii_digits(
     let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
     //pad_integral does the right thing although we have a decimal
     f.pad_integral(non_negative, "", &abs_int)
+}
+
+
+/// Round big-endian ascii digits to given significant digit count,
+/// updating the scale appropriately
+///
+/// Returns the number of digits removed; this should be treated as the
+/// change in the decimal's scale, and should be subtracted from the scale
+/// when appropriate.
+///
+fn round_ascii_digits(
+    // bigendian ascii digits
+    digits_ascii_be: &mut Vec<u8>,
+    // number of significant digits to keep
+    significant_digit_count: NonZeroUsize,
+    // how to round
+    rounder: NonDigitRoundingData,
+) -> usize {
+    debug_assert!(significant_digit_count.get() < digits_ascii_be.len());
+
+    let (sig_digits, insig_digits) = digits_ascii_be.split_at(significant_digit_count.get());
+    let (&insig_digit, trailing_digits) = insig_digits.split_first().unwrap_or((&b'0', &[]));
+
+    let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(
+        rounder, insig_digit - b'0', || trailing_digits.iter().all(|&d| d == b'0')
+    );
+
+    let rounding_digit_pos = significant_digit_count.get() - 1;
+    let sig_digit = sig_digits[rounding_digit_pos] - b'0';
+    let rounded_digit = insig_data.round_digit(sig_digit);
+
+    // record how many digits to remove (changes the 'scale')
+    let mut removed_digit_count = insig_digits.len();
+
+    // discard insignificant digits (and rounding digit)
+    digits_ascii_be.truncate(rounding_digit_pos);
+
+    if rounded_digit < 10 {
+        // simple case: no carrying/overflow, push rounded digit
+        digits_ascii_be.push(rounded_digit + b'0');
+        return removed_digit_count;
+    }
+
+    // handle carrying the 1
+    debug_assert!(rounded_digit == 10);
+
+    // carry the one past trailing 9's: replace them with zeros
+    let next_non_nine_rev_pos = digits_ascii_be.iter().rev().position(|&d| d != b'9');
+    match next_non_nine_rev_pos {
+        // number of nines to remove
+        Some(backwards_nine_count) => {
+            let digits_to_trim = backwards_nine_count + 1;
+            let idx = digits_ascii_be.len() - digits_to_trim;
+            // increment least significant non-nine zero
+            digits_ascii_be[idx] += 1;
+            // remove trailing nines
+            digits_ascii_be.truncate(idx + 1);
+            // count truncation
+            removed_digit_count += digits_to_trim;
+        }
+        // all nines! overflow to 1.000
+        None => {
+            digits_ascii_be.clear();
+            digits_ascii_be.push(b'1');
+            // count digit clearning
+            removed_digit_count += significant_digit_count.get();
+        }
+    }
+
+    // return the number of removed digits
+    return removed_digit_count;
 }
 
 
