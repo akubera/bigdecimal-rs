@@ -356,7 +356,7 @@ fn format_ascii_digits_no_integer(
             let sig_digit_count = digits_ascii_be.len();
 
             // index where to store significant digits
-            let sig_digit_idx = dest_len - trailing_zeros as usize - sig_digit_count as usize;
+            let sig_digit_idx = dest_len - trailing_zeros as usize - sig_digit_count;
 
             // fill output with zeros
             digits_ascii_be.resize(dest_len, b'0');

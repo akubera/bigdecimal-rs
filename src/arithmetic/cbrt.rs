@@ -38,7 +38,7 @@ pub(crate) fn impl_cbrt_uint_scale(
     let required_precision = 3 * required_precision;
 
     // number of extra zeros to add to end of integer_digits
-    let mut exp_shift = required_precision.saturating_sub(integer_digit_count as u64);
+    let mut exp_shift = required_precision.saturating_sub(integer_digit_count);
 
     // effective scale after multiplying by 10^exp_shift
     // (we've added that many trailing zeros after)
@@ -65,7 +65,7 @@ pub(crate) fn impl_cbrt_uint_scale(
 
     let result_digits = integer_digits.nth_root(3);
     let result_digits_count = count_decimal_digits_uint(&result_digits);
-    debug_assert!(result_digits_count >= precision.get() + 1);
+    debug_assert!(result_digits_count > precision.get());
 
     let digits_to_trim = result_digits_count - precision.get();
     debug_assert_ne!(digits_to_trim, 0);

@@ -250,6 +250,7 @@ macro_rules! impl_div_for_primitive {
             type Output = BigDecimal;
 
             #[cfg(rustc_1_70)]  // Option::is_some_and
+            #[allow(clippy::incompatible_msrv)]
             fn div(self, denom: $t) -> BigDecimal {
                 if denom.is_one() {
                     self

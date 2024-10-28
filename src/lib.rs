@@ -511,6 +511,7 @@ impl BigDecimal {
 
     /// Return this BigDecimal with the given precision, rounding if needed
     #[cfg(rustc_1_46)]  // Option::zip
+    #[allow(clippy::incompatible_msrv)]
     pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
         let digit_count = self.digits();
         let new_prec = prec.get().to_i64();
