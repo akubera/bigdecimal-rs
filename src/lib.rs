@@ -761,11 +761,7 @@ impl BigDecimal {
             return self.clone();
         }
 
-        let uint = self.int_val.magnitude();
-        let result = arithmetic::cbrt::impl_cbrt_uint_scale(uint, self.scale, ctx);
-
-        // always copy sign
-        result.take_with_sign(self.sign())
+        arithmetic::cbrt::impl_cbrt_int_scale(&self.int_val, self.scale, ctx)
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
@@ -1221,6 +1217,19 @@ impl BigDecimalRef<'_> {
         count_decimal_digits_uint(self.digits)
     }
 
+    /// Return the number of trailing zeros in the referenced integer
+    #[allow(dead_code)]
+    fn count_trailing_zeroes(&self) -> usize {
+        if self.digits.is_zero() || self.digits.is_odd() {
+            return 0;
+        }
+
+        let digit_pairs = self.digits.to_radix_le(100);
+        let loc =  digit_pairs.iter().position(|&d| d != 0).unwrap_or(0);
+
+        2 * loc + usize::from(digit_pairs[loc] % 10 == 0)
+    }
+
     /// Split into components
     pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
         (self.sign, self.scale, self.digits)
@@ -1309,6 +1318,53 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
         }
     }
 }
+
+
+/// pair i64 'scale' with some other value
+#[derive(Clone, Copy)]
+struct WithScale<T> {
+    pub value: T,
+    pub scale: i64,
+}
+
+impl<T: fmt::Debug> fmt::Debug for WithScale<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(scale={} {:?})", self.scale, self.value)
+    }
+}
+
+impl<T> From<(T, i64)> for WithScale<T> {
+    fn from(pair: (T, i64)) -> Self {
+        Self { value: pair.0, scale: pair.1 }
+    }
+}
+
+impl<'a> From<WithScale<&'a BigInt>> for BigDecimalRef<'a> {
+    fn from(obj: WithScale<&'a BigInt>) -> Self {
+        Self {
+            scale: obj.scale,
+            sign: obj.value.sign(),
+            digits: obj.value.magnitude(),
+        }
+    }
+}
+
+impl<'a> From<WithScale<&'a BigUint>> for BigDecimalRef<'a> {
+    fn from(obj: WithScale<&'a BigUint>) -> Self {
+        Self {
+            scale: obj.scale,
+            sign: Sign::Plus,
+            digits: obj.value,
+        }
+    }
+}
+
+impl<T: Zero> WithScale<&T> {
+    fn is_zero(&self) -> bool {
+        self.value.is_zero()
+    }
+}
+
 
 #[rustfmt::skip]
 #[cfg(test)]

@@ -62,6 +62,18 @@ pub(crate) fn ten_to_the_uint(pow: u64) -> BigUint {
     }
 }
 
+pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
+    where T: MulAssign<u64> + MulAssign<BigUint>,
+          P: ToPrimitive
+{
+    let pow = pow.to_u64().expect("exponent overflow error");
+    if pow < 20 {
+        *n *= 10u64.pow(pow as u32);
+    } else {
+        *n *= ten_to_the_uint(pow);
+    }
+
+}
 
 /// Return number of decimal digits in integer
 pub(crate) fn count_decimal_digits(int: &BigInt) -> u64 {
