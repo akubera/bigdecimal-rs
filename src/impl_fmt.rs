@@ -107,8 +107,9 @@ fn dynamically_format_decimal(
     let trailing_zero_threshold = trailing_zero_threshold as u64;
 
     // use exponential form if decimal point is outside
-    // the upper and lower thresholds of the decimal
-    if leading_zero_threshold < leading_zero_count {
+    // the upper and lower thresholds of the decimal,
+    // and precision was not requested
+    if matches!(f.precision(), None) && leading_zero_threshold < leading_zero_count {
         format_exponential(this, f, abs_int, "E")
     } else if trailing_zero_threshold < trailing_zeros {
         // non-scientific notation
