@@ -91,7 +91,7 @@ use self::stdlib::Vec;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
-pub use num_traits::{FromPrimitive, Num, One, Signed, ToPrimitive, Zero};
+pub use num_traits::{FromPrimitive, Num, One, Pow, Signed, ToPrimitive, Zero};
 
 use stdlib::f64::consts::LOG2_10;
 
@@ -219,12 +219,26 @@ fn exp2(x: f64) -> f64 {
 impl BigDecimal {
     /// Creates and initializes a `BigDecimal`.
     ///
+    /// The more explicit method `from_bigint` should be preferred, as new
+    /// may change in the future.
+    ///
     #[inline]
     pub fn new(digits: BigInt, scale: i64) -> BigDecimal {
+        BigDecimal::from_bigint(digits, scale)
+    }
+
+    /// Construct BigDecimal from BigInt and a scale
+    pub fn from_bigint(digits: BigInt, scale: i64) -> BigDecimal {
         BigDecimal {
             int_val: digits,
             scale: scale,
         }
+    }
+
+    /// Construct positive BigDecimal from BigUint and a scale
+    pub fn from_biguint(digits: BigUint, scale: i64) -> BigDecimal {
+        let n = BigInt::from_biguint(Sign::Plus, digits);
+        BigDecimal::from_bigint(n, scale)
     }
 
     /// Make a BigDecimalRef of this value
@@ -428,6 +442,13 @@ impl BigDecimal {
         }
     }
 
+    /// set scale only if new_scale is greater than current
+    pub(crate) fn extend_scale_to(&mut self, new_scale: i64) {
+        if new_scale > self.scale {
+            self.set_scale(new_scale)
+        }
+    }
+
     /// Take and return bigdecimal with the given sign
     ///
     /// The Sign value `NoSign` is ignored: only use Plus & Minus
@@ -490,6 +511,7 @@ impl BigDecimal {
 
     /// Return this BigDecimal with the given precision, rounding if needed
     #[cfg(rustc_1_46)]  // Option::zip
+    #[allow(clippy::incompatible_msrv)]
     pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
         let digit_count = self.digits();
         let new_prec = prec.get().to_i64();
@@ -740,11 +762,7 @@ impl BigDecimal {
             return self.clone();
         }
 
-        let uint = self.int_val.magnitude();
-        let result = arithmetic::cbrt::impl_cbrt_uint_scale(uint, self.scale, ctx);
-
-        // always copy sign
-        result.take_with_sign(self.sign())
+        arithmetic::cbrt::impl_cbrt_int_scale(&self.int_val, self.scale, ctx)
     }
 
     /// Compute the reciprical of the number: x<sup>-1</sup>
@@ -766,96 +784,15 @@ impl BigDecimal {
         result.take_with_sign(self.sign())
     }
 
-    /// Return number rounded to round_digits precision after the decimal point
+    /// Return given number rounded to 'round_digits' precision after the
+    /// decimal point, using default rounding mode
+    ///
+    /// Default rounding mode is `HalfEven`, but can be configured at compile-time
+    /// by the environment variable: `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`
+    /// (or by patching _build.rs_ )
+    ///
     pub fn round(&self, round_digits: i64) -> BigDecimal {
-        // we have fewer digits than we need, no rounding
-        if round_digits >= self.scale {
-            return self.with_scale(round_digits);
-        }
-
-        let (sign, double_digits) = self.int_val.to_radix_le(100);
-
-        let last_is_double_digit = *double_digits.last().unwrap() >= 10;
-        let digit_count = (double_digits.len() - 1) * 2 + 1 + last_is_double_digit as usize;
-
-        // relevant digit positions: each "pos" is position of 10^{pos}
-        let least_significant_pos = -self.scale;
-        let most_sig_digit_pos = digit_count as i64 + least_significant_pos - 1;
-        let rounding_pos = -round_digits;
-
-        // digits are too small, round to zero
-        if rounding_pos > most_sig_digit_pos + 1 {
-            return BigDecimal::zero();
-        }
-
-        // highest digit is next to rounding point
-        if rounding_pos == most_sig_digit_pos + 1 {
-            let (&last_double_digit, remaining) = double_digits.split_last().unwrap();
-
-            let mut trailing_zeros = remaining.iter().all(|&d| d == 0);
-
-            let last_digit = if last_is_double_digit {
-                let (high, low) = num_integer::div_rem(last_double_digit, 10);
-                trailing_zeros &= low == 0;
-                high
-            } else {
-                last_double_digit
-            };
-
-            if last_digit > 5 || (last_digit == 5 && !trailing_zeros) {
-                return BigDecimal::new(BigInt::one(), round_digits);
-            }
-
-            return BigDecimal::zero();
-        }
-
-        let double_digits_to_remove = self.scale - round_digits;
-        debug_assert!(double_digits_to_remove > 0);
-
-        let (rounding_idx, rounding_offset) = num_integer::div_rem(double_digits_to_remove as usize, 2);
-        debug_assert!(rounding_idx <= double_digits.len());
-
-        let (low_digits, high_digits) = double_digits.as_slice().split_at(rounding_idx);
-        debug_assert!(high_digits.len() > 0);
-
-        let mut unrounded_uint = num_bigint::BigUint::from_radix_le(high_digits, 100).unwrap();
-
-        let rounded_uint;
-        if rounding_offset == 0 {
-            let high_digit = high_digits[0] % 10;
-            let (&top, rest) = low_digits.split_last().unwrap_or((&0u8, &[]));
-            let (low_digit, lower_digit) = num_integer::div_rem(top, 10);
-            let trailing_zeros = lower_digit == 0 && rest.iter().all(|&d| d == 0);
-
-            let rounding = if low_digit < 5 {
-                0
-            } else if low_digit > 5 || !trailing_zeros {
-                1
-            } else {
-                high_digit % 2
-            };
-
-            rounded_uint = unrounded_uint + rounding;
-        } else {
-            let (high_digit, low_digit) = num_integer::div_rem(high_digits[0], 10);
-
-            let trailing_zeros = low_digits.iter().all(|&d| d == 0);
-
-            let rounding = if low_digit < 5 {
-                0
-            } else if low_digit > 5 || !trailing_zeros {
-                1
-            } else {
-                high_digit % 2
-            };
-
-            // shift unrounded_uint down,
-            unrounded_uint /= num_bigint::BigUint::from_u8(10).unwrap();
-            rounded_uint = unrounded_uint + rounding;
-        }
-
-        let rounded_int = num_bigint::BigInt::from_biguint(sign,  rounded_uint);
-        BigDecimal::new(rounded_int, round_digits)
+        self.with_scale_round(round_digits, Context::default().rounding_mode())
     }
 
     /// Return true if this number has zero fractional part (is equal
@@ -1241,10 +1178,22 @@ impl BigDecimalRef<'_> {
     pub fn to_owned_with_scale(&self, scale: i64) -> BigDecimal {
         use stdlib::cmp::Ordering::*;
 
-        let digits = match scale.cmp(&self.scale) {
-            Equal => self.digits.clone(),
-            Greater => self.digits * ten_to_the_uint((scale - self.scale) as u64),
-            Less => self.digits / ten_to_the_uint((self.scale - scale) as u64)
+        let digits = match arithmetic::diff(self.scale, scale) {
+            (Equal, _) => self.digits.clone(),
+            (Less, scale_diff) => {
+                if scale_diff < 20 {
+                    self.digits * ten_to_the_u64(scale_diff as u8)
+                } else {
+                    self.digits * ten_to_the_uint(scale_diff)
+                }
+            }
+            (Greater, scale_diff) => {
+                if scale_diff < 20 {
+                    self.digits / ten_to_the_u64(scale_diff as u8)
+                } else {
+                    self.digits / ten_to_the_uint(scale_diff)
+                }
+            }
         };
 
         BigDecimal {
@@ -1269,6 +1218,19 @@ impl BigDecimalRef<'_> {
         count_decimal_digits_uint(self.digits)
     }
 
+    /// Return the number of trailing zeros in the referenced integer
+    #[allow(dead_code)]
+    fn count_trailing_zeroes(&self) -> usize {
+        if self.digits.is_zero() || self.digits.is_odd() {
+            return 0;
+        }
+
+        let digit_pairs = self.digits.to_radix_le(100);
+        let loc =  digit_pairs.iter().position(|&d| d != 0).unwrap_or(0);
+
+        2 * loc + usize::from(digit_pairs[loc] % 10 == 0)
+    }
+
     /// Split into components
     pub(crate) fn as_parts(&self) -> (Sign, i64, &BigUint) {
         (self.sign, self.scale, self.digits)
@@ -1283,6 +1245,14 @@ impl BigDecimalRef<'_> {
         }
     }
 
+    /// Create BigDecimal from this reference, rounding to precision and
+    /// with rounding-mode of the given context
+    ///
+    ///
+    pub fn round_with_context(&self, ctx: &Context) -> BigDecimal {
+        ctx.round_decimal_ref(*self)
+    }
+
     /// Take square root of this number
     pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
         use Sign::*;
@@ -1294,6 +1264,26 @@ impl BigDecimalRef<'_> {
             NoSign => Some(Zero::zero()),
             Plus => Some(arithmetic::sqrt::impl_sqrt(uint, scale, ctx)),
         }
+    }
+
+    /// Take square root of absolute-value of the number
+    pub fn sqrt_abs_with_context(&self, ctx: &Context) -> BigDecimal {
+        use Sign::*;
+
+        let (_, scale, uint) = self.as_parts();
+        arithmetic::sqrt::impl_sqrt(uint, scale, ctx)
+    }
+
+    /// Take square root, copying sign of the initial decimal
+    pub fn sqrt_copysign_with_context(&self, ctx: &Context) -> BigDecimal {
+        use Sign::*;
+
+        let (sign, scale, uint) = self.as_parts();
+        let mut result = arithmetic::sqrt::impl_sqrt(uint, scale, ctx);
+        if sign == Minus {
+            result.int_val = result.int_val.neg();
+        }
+        result
     }
 
     /// Return if the referenced decimal is zero
@@ -1330,6 +1320,53 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
     }
 }
 
+
+/// pair i64 'scale' with some other value
+#[derive(Clone, Copy)]
+struct WithScale<T> {
+    pub value: T,
+    pub scale: i64,
+}
+
+impl<T: fmt::Debug> fmt::Debug for WithScale<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(scale={} {:?})", self.scale, self.value)
+    }
+}
+
+impl<T> From<(T, i64)> for WithScale<T> {
+    fn from(pair: (T, i64)) -> Self {
+        Self { value: pair.0, scale: pair.1 }
+    }
+}
+
+impl<'a> From<WithScale<&'a BigInt>> for BigDecimalRef<'a> {
+    fn from(obj: WithScale<&'a BigInt>) -> Self {
+        Self {
+            scale: obj.scale,
+            sign: obj.value.sign(),
+            digits: obj.value.magnitude(),
+        }
+    }
+}
+
+impl<'a> From<WithScale<&'a BigUint>> for BigDecimalRef<'a> {
+    fn from(obj: WithScale<&'a BigUint>) -> Self {
+        Self {
+            scale: obj.scale,
+            sign: Sign::Plus,
+            digits: obj.value,
+        }
+    }
+}
+
+impl<T: Zero> WithScale<&T> {
+    fn is_zero(&self) -> bool {
+        self.value.is_zero()
+    }
+}
+
+
 #[rustfmt::skip]
 #[cfg(test)]
 #[allow(non_snake_case)]
@@ -1338,6 +1375,33 @@ mod bigdecimal_tests {
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
+
+
+    mod from_biguint {
+        use super::*;
+        use num_bigint::BigUint;
+        use num_bigint::Sign;
+
+        macro_rules! impl_case {
+            ($name:ident; $i:literal; $scale:literal) => {
+                impl_case!($name; $i.into(); $scale; Plus);
+            };
+            ($name:ident; $i:expr; $scale:literal; $sign:ident) => {
+                #[test]
+                fn $name() {
+                    let i: BigUint = $i;
+                    let d = BigDecimal::from_biguint(i.clone(), $scale);
+                    assert_eq!(d.int_val.magnitude(), &i);
+                    assert_eq!(d.scale, $scale);
+                    assert_eq!(d.sign(), Sign::$sign);
+                }
+            };
+        }
+
+        impl_case!(case_0en3; BigUint::zero(); 3; NoSign);
+        impl_case!(case_30e2; 30u8; -2);
+        impl_case!(case_7446124798en5; 7446124798u128; 5);
+    }
 
     #[test]
     fn test_fractional_digit_count() {
@@ -1827,6 +1891,11 @@ mod bigdecimal_tests {
             ("0.1165085714285714285714285714285714285714", 2, "0.12"),
             ("0.1165085714285714285714285714285714285714", 5, "0.11651"),
             ("0.1165085714285714285714285714285714285714", 8, "0.11650857"),
+            ("-1.5", 0, "-2"),
+            ("-1.2", 0, "-1"),
+            ("-0.68", 0, "-1"),
+            ("-0.5", 0, "0"),
+            ("-0.49", 0, "0"),
         ];
         for &(x, digits, y) in test_cases.iter() {
             let a = BigDecimal::from_str(x).unwrap();

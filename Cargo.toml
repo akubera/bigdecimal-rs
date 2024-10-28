@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.4.5"
+version = "0.4.6"
 authors = ["Andrew Kubera"]
 description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
@@ -53,3 +53,6 @@ std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
 # BENCH: [[bench]]
 # BENCH: name = "arithmetic"
 # BENCH: harness = false
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(no_track_caller)'] }

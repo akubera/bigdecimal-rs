@@ -46,7 +46,7 @@ impl Add<BigDecimal> for &'_ BigDecimal {
 impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for &'_ BigDecimal {
     type Output = BigDecimal;
     fn add(self, rhs: T) -> BigDecimal {
-        arithmetic::addition::add_bigdecimal_refs(self, rhs)
+        arithmetic::addition::add_bigdecimal_refs(self, rhs, None)
     }
 }
 
@@ -72,7 +72,7 @@ impl Add<BigDecimal> for BigDecimalRef<'_> {
 impl<'a, T: Into<BigDecimalRef<'a>>> Add<T> for BigDecimalRef<'_> {
     type Output = BigDecimal;
     fn add(self, rhs: T) -> BigDecimal {
-        arithmetic::addition::add_bigdecimal_refs(self, rhs)
+        arithmetic::addition::add_bigdecimal_refs(self, rhs, None)
     }
 }
 

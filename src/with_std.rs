@@ -13,6 +13,7 @@ mod stdlib {
         num,
         ops,
         iter,
+        slice,
         str,
         string,
         i8,

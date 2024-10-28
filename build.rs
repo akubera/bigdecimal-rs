@@ -15,6 +15,9 @@ fn main() {
     let ac = autocfg::new();
     ac.emit_rustc_version(1, 70);
 
+    // slice::fill
+    ac.emit_rustc_version(1, 50);
+
     // Option::zip
     ac.emit_rustc_version(1, 46);
 

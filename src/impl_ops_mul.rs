@@ -213,72 +213,70 @@ impl MulAssign<BigInt> for BigDecimal {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod bigdecimal_tests {
-    use crate::{stdlib, BigDecimal, ToString, FromStr, TryFrom};
+    use super::*;
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
 
-    /// Test multiplication of two bigdecimals
-    #[test]
-    fn test_mul() {
+    macro_rules! impl_test {
+        ($name:ident; $a:literal * $b:literal => $expected:literal) => {
+            #[test]
+            fn $name() {
+                let mut a: BigDecimal = $a.parse().unwrap();
+                let b: BigDecimal = $b.parse().unwrap();
+                let expected = $expected.parse().unwrap();
 
-        let vals = vec![
-            ("2", "1", "2"),
-            ("12.34", "1.234", "15.22756"),
-            ("2e1", "1", "20"),
-            ("3", ".333333", "0.999999"),
-            ("2389472934723", "209481029831", "500549251119075878721813"),
-            ("1e-450", "1e500", ".1e51"),
-            ("-995052931372975485719.533153137", "4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("995052931372975485719.533153137", "-4.523087321", "-4500711297616988541501.836966993116075977"),
-            ("-8.37664968", "-1.9086963714056968482094712882596748", "15.988480848752691653730876239769592670324064"),
-            ("-8.37664968", "0", "0"),
-        ];
+                let prod = a.clone() * b.clone();
+                assert_eq!(prod, expected);
+                assert_eq!(prod.scale, expected.scale);
 
-        for &(x, y, z) in vals.iter() {
+                assert_eq!(a.clone() * &b, expected);
+                assert_eq!(&a * b.clone(), expected);
+                assert_eq!(&a * &b, expected);
 
-            let mut a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
+                a *= b;
+                assert_eq!(a, expected);
+                assert_eq!(a.scale, expected.scale);
+            }
+        };
+        ($name:ident; $bigt:ty; $a:literal * $b:literal => $expected:literal) => {
+            #[test]
+            fn $name() {
+                let a: BigDecimal = $a.parse().unwrap();
+                let b: $bigt = $b.parse().unwrap();
+                let c = $expected.parse().unwrap();
 
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&a * &b, c);
+                let prod = a.clone() * b.clone();
+                assert_eq!(prod, c);
+                assert_eq!(prod.scale, c.scale);
 
-            a *= b;
-            assert_eq!(a, c);
-        }
+                assert_eq!(b.clone() * a.clone(), c);
+                assert_eq!(a.clone() * &b, c);
+                assert_eq!(b.clone() * &a, c);
+                assert_eq!(&a * b.clone(), c);
+                assert_eq!(&b * a.clone(), c);
+                assert_eq!(&a * &b, c);
+                assert_eq!(&b * &a, c);
+            }
+        };
     }
 
-    /// Test multiplication between big decimal and big integer
-    #[test]
-    fn test_mul_bigint() {
-        let vals = vec![
-            ("2", "1", "2"),
-            ("8.561", "10", "85.61"),
-            ("1.0000", "638655273892892437", "638655273892892437"),
-            ("10000", "638655273892892437", "6386552738928924370000"),
-            (".0005", "368408638655273892892437473", "184204319327636946446218.7365"),
-            ("9e-1", "368408638655273892892437473", "331567774789746503603193725.7"),
-            ("-1.175470587012343730098", "577575785", "-678923347.038065234601180476930"),
-            ("-1.175470587012343730098", "-76527768352678", "89956140788267.069799533723307502444"),
-            ("-1.175470587012343730098", "0", "0"),
-        ];
+    impl_test!(case_2_1; "2" * "1" => "2");
+    impl_test!(case_12d34_1d234; "12.34" * "1.234" => "15.22756");
+    impl_test!(case_2e1_1; "2e1" * "1" => "2e1");
+    impl_test!(case_3_d333333; "3" * ".333333" => "0.999999");
+    impl_test!(case_2389472934723_209481029831; "2389472934723" * "209481029831" => "500549251119075878721813");
+    impl_test!(case_1ed450_1e500; "1e-450" * "1e500" => "0.1e51");
+    impl_test!(case_n995052931ddd_4d523087321; "-995052931372975485719.533153137" * "4.523087321" => "-4500711297616988541501.836966993116075977");
+    impl_test!(case_995052931ddd_n4d523087321; "995052931372975485719.533153137" * "-4.523087321" => "-4500711297616988541501.836966993116075977");
+    impl_test!(case_n8d37664968_n4d523087321; "-8.37664968" * "-1.9086963714056968482094712882596748" => "15.988480848752691653730876239769592670324064");
+    impl_test!(case_n8d37664968_0; "-8.37664968" * "0" => "0.00000000");
 
-        for &(x, y, z) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = num_bigint::BigInt::from_str(y).unwrap();
-            let c = BigDecimal::from_str(z).unwrap();
+    impl_test!(case_8d561_10; BigInt; "8.561" * "10" => "85.610");
 
-            assert_eq!(a.clone() * b.clone(), c);
-            assert_eq!(b.clone() * a.clone(), c);
-            assert_eq!(a.clone() * &b, c);
-            assert_eq!(b.clone() * &a, c);
-            assert_eq!(&a * b.clone(), c);
-            assert_eq!(&b * a.clone(), c);
-            assert_eq!(&a * &b, c);
-            assert_eq!(&b * &a, c);
-        }
-    }
+    // Test multiplication between big decimal and big integer
+    impl_test!(case_10000_638655273892892437; BigInt; "10000" * "638655273892892437" => "6386552738928924370000");
+    impl_test!(case_1en10_n9056180052657301; BigInt; "1e-10" * "-9056180052657301" => "-905618.0052657301");
+    impl_test!(case_n9en1_n368408638655273892892437473; BigInt; "-9e-1" * "-368408638655273892892437473" => "331567774789746503603193725.7");
+    impl_test!(case_n1d175470587012343730098_577575785; BigInt; "-1.175470587012343730098" * "577575785" => "-678923347.038065234601180476930");
 }

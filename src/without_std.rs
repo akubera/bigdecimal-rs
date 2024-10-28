@@ -24,6 +24,7 @@ mod stdlib {
         num,
         ops,
         iter,
+        slice,
         str,
         i8,
         f32,
