@@ -1628,37 +1628,40 @@ mod bigdecimal_tests {
         assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
-    #[test]
-    fn test_equal() {
-        let vals = vec![
-            ("2", ".2e1"),
-            ("0e1", "0.0"),
-            ("0e0", "0.0"),
-            ("0e-0", "0.0"),
-            ("-0901300e-3", "-901.3"),
-            ("-0.901300e+3", "-901.3"),
-            ("-0e-1", "-0.0"),
-            ("2123121e1231", "212.3121e1235"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
-        }
-    }
+    mod equals {
+        use super::*;
 
-    #[test]
-    fn test_not_equal() {
-        let vals = vec![
-            ("2", ".2e2"),
-            ("1e45", "1e-900"),
-            ("1e+900", "1e-900"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert!(a != b, "{} == {}", a, b);
+        macro_rules! impl_case {
+            ($name:ident: $input_a:literal == $input_b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $input_a.parse().unwrap();
+                    let b: BigDecimal = $input_b.parse().unwrap();
+                    assert_eq!(&a, &b);
+                    assert_eq!(a.clone(), b.clone());
+                }
+            };
+            ($name:ident: $input_a:literal != $input_b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $input_a.parse().unwrap();
+                    let b: BigDecimal = $input_b.parse().unwrap();
+                    assert_ne!(&a, &b);
+                    assert_ne!(a.clone(), b.clone());
+                }
+            };
         }
+
+        impl_case!(case_2: "2" == ".2e1");
+        impl_case!(case_0e1: "0e1" == "0.0");
+        impl_case!(case_n0: "-0" == "0.0");
+        impl_case!(case_n901d3: "-901.3" == "-0.901300e+3");
+        impl_case!(case_n0901300en3: "-901.3" == "-0901300e-3");
+        impl_case!(case_2123121e1231: "2123121e1231" == "212.3121e1235");
+
+        impl_case!(case_ne_2: "2" != ".2e2");
+        impl_case!(case_ne_1e45: "1e45" != "1e-900");
+        impl_case!(case_ne_1e900: "1e+900" != "1e-900");
     }
 
     #[test]
