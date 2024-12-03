@@ -167,7 +167,7 @@ This is how this crate formats BigDecimals:
         - `123.456` => `BigDecimal("123456e-3")`
         - `-1e10000` => `BigDecimal("-1e10000")`
 
-There is a [formatting-example](examples/formatting-example.rs) script in the
+There is a [formatting-example](examples/formatting-examples.rs) script in the
 `examples/` directory that demonstrates the formatting options and comparison
 with Rust's standard floating point Display.
 
