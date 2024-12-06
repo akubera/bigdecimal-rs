@@ -1,8 +1,9 @@
 //! Code for num_traits
 
-use num_traits::{Num, FromPrimitive, ToPrimitive, AsPrimitive};
+use num_traits::{Zero, Num, Signed, FromPrimitive, ToPrimitive, AsPrimitive};
 use num_bigint::{BigInt, Sign, ToBigInt};
 
+use crate::stdlib;
 use stdlib::str::FromStr;
 use stdlib::string::{String, ToString};
 use stdlib::convert::TryFrom;
@@ -130,7 +131,45 @@ impl ToPrimitive for BigDecimal {
     }
 
     fn to_f64(&self) -> Option<f64> {
-        self.int_val.to_f64().map(|x| x * powi(10f64, self.scale.neg().as_()))
+        if self.int_val.is_zero() {
+            return Some(0.0);
+        }
+        if self.scale == 0 {
+            return self.int_val.to_f64();
+        }
+
+        // borrow bigint value
+        let (mut int_cow, mut scale) = self.as_bigint_and_scale();
+
+        // approximate number of base-10 digits
+        let digit_count = ((int_cow.bits() + 1) as f64 * stdlib::f64::consts::LOG10_2).floor() as u64;
+        let digits_to_remove = digit_count.saturating_sub(25);
+
+        let ten_to_19 = 10u64.pow(19);
+        let iter_count = digits_to_remove / 19;
+        for _ in 0..iter_count {
+            *int_cow.to_mut() /= ten_to_19;
+            scale -= 19;
+        }
+
+        match scale.to_i32().and_then(|x| x.checked_neg()) {
+            Some(pow) if -1 < pow  => {
+                let f = int_cow.to_f64()?;
+                (f * powi(10.0, pow)).into()
+            }
+            Some(exp) => {
+                let s = format!("{}e{}", int_cow, exp);
+                s.parse().ok()
+            }
+            None => {
+                let result = if self.is_negative() {
+                    stdlib::f64::INFINITY
+                } else {
+                    stdlib::f64::NEG_INFINITY
+                };
+                result.into()
+            }
+        }
     }
 }
 
