@@ -1559,23 +1559,6 @@ mod bigdecimal_tests {
     }
 
     #[test]
-    fn test_to_f64() {
-        let vals = vec![
-            ("12.34", 12.34),
-            ("3.14", 3.14),
-            ("50", 50.),
-            ("50000", 50000.),
-            ("0.001", 0.001),
-        ];
-        for (s, ans) in vals {
-            let diff = BigDecimal::from_str(s).unwrap().to_f64().unwrap() - ans;
-            let diff = diff.abs();
-
-            assert!(diff < 1e-10);
-        }
-    }
-
-    #[test]
     fn test_from_i8() {
         let vals = vec![
             ("0", 0),

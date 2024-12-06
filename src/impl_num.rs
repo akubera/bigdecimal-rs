@@ -227,4 +227,83 @@ mod test {
 
         }
     }
+
+    mod to_f64 {
+        use super::*;
+        use paste::paste;
+        use crate::stdlib;
+
+
+        macro_rules! impl_case {
+            ($name:ident: $f:expr) => {
+                #[test]
+                fn $name() {
+                    let f: f64 = $f;
+                    let s = format!("{}", f);
+                    let n: BigDecimal = s.parse().unwrap();
+                    let result = n.to_f64().unwrap();
+                    assert_eq!(result, f, "src='{}'", s);
+                }
+            };
+            ($name:ident: $src:literal => $expected:expr) => {
+                #[test]
+                fn $name() {
+                    let n: BigDecimal = $src.parse().unwrap();
+                    assert_eq!(n.to_f64().unwrap(), $expected);
+                }
+            };
+        }
+
+        impl_case!(case_zero: 0.0);
+        impl_case!(case_neg_zero: -0.0);
+        impl_case!(case_875en6: 0.000875);
+        impl_case!(case_f64_min: stdlib::f64::MIN);
+        impl_case!(case_f64_max: stdlib::f64::MAX);
+        impl_case!(case_f64_min_pos: stdlib::f64::MIN_POSITIVE);
+        impl_case!(case_pi: stdlib::f64::consts::PI);
+        impl_case!(case_neg_e: -stdlib::f64::consts::E);
+        impl_case!(case_1en500: 1e-500);
+        impl_case!(case_3en310: 3e-310);
+        impl_case!(case_0d001: 0.001);
+
+        impl_case!(case_pos2_224en320: 2.224e-320);
+        impl_case!(case_neg2_224en320: -2.224e-320);
+
+        impl_case!(case_12d34: "12.34" => 12.34);
+        impl_case!(case_0d14: "0.14" => 0.14);
+        impl_case!(case_3d14: "3.14" => 3.14);
+        impl_case!(case_54e23: "54e23" => 54e23);
+        impl_case!(case_n54e23: "-54e23" => -54e23);
+        impl_case!(case_12en78: "12e-78" => 12e-78);
+        impl_case!(case_n12en78: "-12e-78" => -1.2e-77);
+        impl_case!(case_n1en320: "-1e-320" => -1e-320);
+        impl_case!(case_1d0001en920: "1.0001e-920" => 0.0);
+        impl_case!(case_50000d0000: "50000.0000" => 50000.0);
+
+        impl_case!(case_13100e4: "13100e4" => 131000000.0);
+
+        impl_case!(case_44223e9999: "44223e9999" => f64::INFINITY);
+        impl_case!(case_neg44223e9999: "-44223e9999" => -f64::INFINITY);
+    }
+}
+
+
+#[cfg(all(test, property_tests))]
+mod proptests {
+    use super::*;
+    use paste::paste;
+    use proptest::prelude::*;
+    use proptest::num::f64::{NORMAL as NormalF64, SUBNORMAL as SubnormalF64};
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(20_000))]
+
+        #[test]
+        fn to_f64_roundtrip(f in NormalF64 | SubnormalF64) {
+            let d = BigDecimal::from_f64(f).unwrap();
+            let v = d.to_f64();
+            prop_assert!(v.is_some());
+            prop_assert_eq!(f, v.unwrap());
+        }
+    }
 }
