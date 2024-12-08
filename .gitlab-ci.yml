@@ -389,6 +389,8 @@ cargo-publish:
     - master
   allow_failure: true
   cache: []
+  # disable downloading artifacts
+  dependencies: []
   variables:
     CARGO_HOME: /usr/local/cargo
   script:

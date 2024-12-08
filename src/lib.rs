@@ -43,11 +43,14 @@
 #![allow(clippy::style)]
 #![allow(clippy::excessive_precision)]
 #![allow(clippy::unreadable_literal)]
+#![allow(clippy::unusual_byte_groupings)]
+#![allow(clippy::needless_late_init)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::approx_constant)]
+#![allow(clippy::wrong_self_convention)]
 #![cfg_attr(test, allow(clippy::useless_vec))]
 #![allow(unused_imports)]
 
@@ -88,6 +91,7 @@ use self::stdlib::str::FromStr;
 use self::stdlib::string::{String, ToString};
 use self::stdlib::fmt;
 use self::stdlib::Vec;
+use self::stdlib::borrow::Cow;
 
 use num_bigint::{BigInt, BigUint, ParseBigIntError, Sign};
 use num_integer::Integer as IntegerTrait;
@@ -572,6 +576,24 @@ impl BigDecimal {
         (self.int_val.clone(), self.scale)
     }
 
+    /// Take BigDecimal and split into `num::BigInt` of digits, and the scale
+    ///
+    /// Scale is number of digits after the decimal point, can be negative.
+    ///
+    pub fn into_bigint_and_scale(self) -> (BigInt, i64) {
+        (self.int_val, self.scale)
+    }
+
+
+    /// Return digits as borrowed Cow of integer digits, and its scale
+    ///
+    /// Scale is number of digits after the decimal point, can be negative.
+    ///
+    pub fn as_bigint_and_scale(&self) -> (Cow<'_, BigInt>, i64) {
+        let cow_int = Cow::Borrowed(&self.int_val);
+        (cow_int, self.scale)
+    }
+
     /// Convert into the internal big integer value and an exponent. Note that a positive
     /// exponent indicates a negative power of 10.
     ///
@@ -855,6 +877,41 @@ impl BigDecimal {
 
     //////////////////////////
     // Formatting methods
+
+    /// Create string of decimal in standard decimal notation.
+    ///
+    /// Unlike standard formatter, this never prints the number in
+    /// scientific notation.
+    ///
+    /// # Panics
+    /// If the magnitude of the exponent is _very_ large, this may
+    /// cause out-of-memory errors, or overflowing panics.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bigdecimal::BigDecimal;
+    /// let n: BigDecimal = "123.45678".parse().unwrap();
+    /// assert_eq!(&n.to_plain_string(), "123.45678");
+    ///
+    /// let n: BigDecimal = "1e-10".parse().unwrap();
+    /// assert_eq!(&n.to_plain_string(), "0.0000000001");
+    /// ```
+    pub fn to_plain_string(&self) -> String {
+        let mut output = String::new();
+        self.write_plain_string(&mut output).expect("Could not write to string");
+        output
+    }
+
+    /// Write decimal value in decimal notation to the writer object.
+    ///
+    /// # Panics
+    /// If the exponent is very large or very small, the number of
+    /// this will print that many trailing or leading zeros.
+    /// If exabytes, this will likely panic.
+    ///
+    pub fn write_plain_string<W: fmt::Write>(&self, wtr: &mut W) -> fmt::Result {
+        write!(wtr, "{}", impl_fmt::FullScaleFormatter(self.to_ref()))
+    }
 
     /// Create string of this bigdecimal in scientific notation
     ///
@@ -1202,6 +1259,12 @@ impl BigDecimalRef<'_> {
         }
     }
 
+    /// Borrow digits as Cow
+    pub(crate) fn to_cow_biguint_and_scale(&self) -> (Cow<'_, BigUint>, i64) {
+        let cow_int = Cow::Borrowed(self.digits);
+        (cow_int, self.scale)
+    }
+
     /// Sign of decimal
     pub fn sign(&self) -> Sign {
         self.sign
@@ -1478,13 +1541,14 @@ mod bigdecimal_tests {
             ("-170141183460469231731687303715884105728", -170141183460469231731687303715884105728),
             ("12.34", 12),
             ("3.14", 3),
+            ("-123.90", -123),
             ("50", 50),
             ("0.001", 0),
         ];
         for (s, ans) in vals {
-            let calculated = BigDecimal::from_str(s).unwrap().to_i128().unwrap();
+            let calculated = BigDecimal::from_str(s).unwrap().to_i128();
 
-            assert_eq!(ans, calculated);
+            assert_eq!(Some(ans), calculated);
         }
     }
 
@@ -1501,23 +1565,6 @@ mod bigdecimal_tests {
             let calculated = BigDecimal::from_str(s).unwrap().to_u128().unwrap();
 
             assert_eq!(ans, calculated);
-        }
-    }
-
-    #[test]
-    fn test_to_f64() {
-        let vals = vec![
-            ("12.34", 12.34),
-            ("3.14", 3.14),
-            ("50", 50.),
-            ("50000", 50000.),
-            ("0.001", 0.001),
-        ];
-        for (s, ans) in vals {
-            let diff = BigDecimal::from_str(s).unwrap().to_f64().unwrap() - ans;
-            let diff = diff.abs();
-
-            assert!(diff < 1e-10);
         }
     }
 
@@ -1593,37 +1640,40 @@ mod bigdecimal_tests {
         assert!(BigDecimal::try_from(f64::NAN).is_err());
     }
 
-    #[test]
-    fn test_equal() {
-        let vals = vec![
-            ("2", ".2e1"),
-            ("0e1", "0.0"),
-            ("0e0", "0.0"),
-            ("0e-0", "0.0"),
-            ("-0901300e-3", "-901.3"),
-            ("-0.901300e+3", "-901.3"),
-            ("-0e-1", "-0.0"),
-            ("2123121e1231", "212.3121e1235"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert_eq!(a, b);
-        }
-    }
+    mod equals {
+        use super::*;
 
-    #[test]
-    fn test_not_equal() {
-        let vals = vec![
-            ("2", ".2e2"),
-            ("1e45", "1e-900"),
-            ("1e+900", "1e-900"),
-        ];
-        for &(x, y) in vals.iter() {
-            let a = BigDecimal::from_str(x).unwrap();
-            let b = BigDecimal::from_str(y).unwrap();
-            assert!(a != b, "{} == {}", a, b);
+        macro_rules! impl_case {
+            ($name:ident: $input_a:literal == $input_b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $input_a.parse().unwrap();
+                    let b: BigDecimal = $input_b.parse().unwrap();
+                    assert_eq!(&a, &b);
+                    assert_eq!(a.clone(), b.clone());
+                }
+            };
+            ($name:ident: $input_a:literal != $input_b:literal) => {
+                #[test]
+                fn $name() {
+                    let a: BigDecimal = $input_a.parse().unwrap();
+                    let b: BigDecimal = $input_b.parse().unwrap();
+                    assert_ne!(&a, &b);
+                    assert_ne!(a.clone(), b.clone());
+                }
+            };
         }
+
+        impl_case!(case_2: "2" == ".2e1");
+        impl_case!(case_0e1: "0e1" == "0.0");
+        impl_case!(case_n0: "-0" == "0.0");
+        impl_case!(case_n901d3: "-901.3" == "-0.901300e+3");
+        impl_case!(case_n0901300en3: "-901.3" == "-0901300e-3");
+        impl_case!(case_2123121e1231: "2123121e1231" == "212.3121e1235");
+
+        impl_case!(case_ne_2: "2" != ".2e2");
+        impl_case!(case_ne_1e45: "1e45" != "1e-900");
+        impl_case!(case_ne_1e900: "1e+900" != "1e-900");
     }
 
     #[test]
@@ -1937,12 +1987,12 @@ mod bigdecimal_tests {
         ];
 
         for s in true_vals {
-            let d = BigDecimal::from_str(&s).unwrap();
+            let d = BigDecimal::from_str(s).unwrap();
             assert!(d.is_integer());
         }
 
         for s in false_vals {
-            let d = BigDecimal::from_str(&s).unwrap();
+            let d = BigDecimal::from_str(s).unwrap();
             assert!(!d.is_integer());
         }
     }
@@ -2038,6 +2088,28 @@ mod bigdecimal_tests {
             let b = BigDecimal::from_str(y).unwrap();
             assert_eq!(a, b);
         }
+    }
+
+    mod to_plain_string {
+        use super::*;
+
+        macro_rules! impl_test {
+            ($name:ident: $input:literal => $expected:literal) => {
+                #[test]
+                fn $name() {
+                    let n: BigDecimal = $input.parse().unwrap();
+                    let s = n.to_plain_string();
+                    assert_eq!(&s, $expected);
+                }
+            };
+        }
+
+        impl_test!(case_zero: "0" => "0");
+        impl_test!(case_1en18: "1e-18" => "0.000000000000000001");
+        impl_test!(case_n72e4: "-72e4" => "-720000");
+        impl_test!(case_95517338e30: "95517338e30" => "95517338000000000000000000000000000000");
+        impl_test!(case_29478en30: "29478e-30" => "0.000000000000000000000000029478");
+        impl_test!(case_30740d4897: "30740.4897" => "30740.4897");
     }
 
     #[test]

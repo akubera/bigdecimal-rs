@@ -46,11 +46,16 @@ pub(crate) fn impl_cbrt_uint_scale(
 
     let (mut new_scale, remainder) = shifted_scale.div_rem(&3);
 
-    if remainder > 0 {
-        new_scale += 1;
-        exp_shift += (3 - remainder) as u64;
-    } else if remainder < 0 {
-        exp_shift += remainder.neg() as u64;
+    match remainder.cmp(&0) {
+        Ordering::Greater => {
+            new_scale += 1;
+            exp_shift += (3 - remainder) as u64;
+        }
+        Ordering::Less => {
+            exp_shift += remainder.neg() as u64;
+        }
+        Ordering::Equal => {
+        }
     }
 
     // clone-on-write copy of digits

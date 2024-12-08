@@ -449,7 +449,7 @@ impl Neg for BigDecimal {
     }
 }
 
-impl<'a> Neg for &'a BigDecimal {
+impl Neg for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]

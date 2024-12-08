@@ -296,7 +296,7 @@ pub(crate) struct InsigData {
 }
 
 impl InsigData {
-    /// Build from insig data and lazily calcuated trailing-zeros callable
+    /// Build from insig data and lazily calculated trailing-zeros callable
     pub fn from_digit_and_lazy_trailing_zeros(
         rounder: NonDigitRoundingData,
         insig_digit: u8,

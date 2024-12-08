@@ -136,6 +136,20 @@ pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
     }
 }
 
+/// Return absolute difference between two numbers
+#[cfg(rustc_1_60)]
+#[allow(clippy::incompatible_msrv)]
+#[allow(dead_code)]
+pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
+    x.abs_diff(y)
+}
+
+#[cfg(not(rustc_1_60))]
+#[allow(dead_code)]
+pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
+    (x as i128 - y as i128).to_u64().unwrap_or(0)
+}
+
 
 /// Add carry to given number, returning trimmed value and storing overflow back in carry
 ///

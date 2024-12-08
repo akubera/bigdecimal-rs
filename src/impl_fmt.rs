@@ -107,14 +107,48 @@ fn dynamically_format_decimal(
     let trailing_zero_threshold = trailing_zero_threshold as u64;
 
     // use exponential form if decimal point is outside
-    // the upper and lower thresholds of the decimal
-    if leading_zero_threshold < leading_zero_count {
+    // the upper and lower thresholds of the decimal,
+    // and precision was not requested
+    if f.precision().is_none() && leading_zero_threshold < leading_zero_count {
         format_exponential(this, f, abs_int, "E")
     } else if trailing_zero_threshold < trailing_zeros {
         // non-scientific notation
         format_dotless_exponential(f, abs_int, this.sign, this.scale, "e")
     } else {
         format_full_scale(this, f, abs_int)
+    }
+}
+
+
+pub(crate) struct FullScaleFormatter<'a>(pub BigDecimalRef<'a>);
+
+impl fmt::Display for FullScaleFormatter<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let n = self.0;
+        let non_negative = matches!(n.sign, Sign::Plus | Sign::NoSign);
+
+        let mut digits = n.digits.to_string();
+
+        if n.scale <= 0 {
+            digits.extend(stdlib::iter::repeat('0').take(n.scale.neg() as usize));
+        } else if n.scale < digits.len() as i64 {
+            digits.insert(digits.len() - n.scale as usize, '.');
+        } else {
+            let mut digit_vec = digits.into_bytes();
+
+            let dest_str_size = n.scale as usize + 2;
+            let digit_count = digit_vec.len();
+            let leading_char_idx = dest_str_size - digit_count;
+
+            digit_vec.resize(dest_str_size, b'0');
+            digit_vec.copy_within(0..digit_count, leading_char_idx);
+            fill_slice(&mut digit_vec[..digit_count.min(leading_char_idx)], b'0');
+
+            digit_vec[1] = b'.';
+            digits = String::from_utf8(digit_vec).unwrap();
+        }
+
+        f.pad_integral(non_negative, "", &digits)
     }
 }
 
@@ -188,7 +222,7 @@ fn zero_right_pad_integer_ascii_digits(
 
     // did not explicitly request precision, so we'll only
     // implicitly right-pad if less than this threshold.
-    if matches!(target_scale, None) && integer_zero_count > 20 {
+    if target_scale.is_none() && integer_zero_count > 20 {
         // no padding
         return;
     }
@@ -253,7 +287,6 @@ fn format_ascii_digits_with_integer_and_fraction(
                 digit_scale -= scale_diff as u64;
             }
             Some(zeros_to_add) => {
-                debug_assert_eq!(zeros_to_add, 1);
                 digits_ascii_be.resize(digits_ascii_be.len() + zeros_to_add, b'0');
                 digit_scale = 0;
             }
@@ -862,6 +895,7 @@ mod test {
             }
 
             impl_case!(fmt_default:  "{}" => "9999999");
+            impl_case!(fmt_d1:  "{:.1}" => "9999999.0");
             impl_case!(fmt_d8:  "{:.8}" => "9999999.00000000");
 
             impl_case!(fmt_e:  "{:e}" => "9.999999e+6");
@@ -891,6 +925,21 @@ mod test {
             impl_case!(fmt_8d3:      "{:8.3}" => "19073.972");
             impl_case!(fmt_10d3:    "{:10.3}" => " 19073.972");
             impl_case!(fmt_010d3:  "{:010.3}" => "019073.972");
+        }
+
+        mod dec_10950633712399d557 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "10950633712399.557".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:  "{}" => "10950633712399.557");
+            impl_case!(fmt_d0:    "{:.0}" => "10950633712400");
+            impl_case!(fmt_d1:    "{:.1}" => "10950633712399.6");
+            impl_case!(fmt_d2:    "{:.2}" => "10950633712399.56");
+            impl_case!(fmt_d3:    "{:.3}" => "10950633712399.557");
+            impl_case!(fmt_d4:    "{:.4}" => "10950633712399.5570");
         }
 
         mod dec_n90037659d6902 {
@@ -981,15 +1030,20 @@ mod test {
                 "491326e-12".parse().unwrap()
             }
 
-            impl_case!(fmt_default:        "{}" => "4.91326E-7");
-            impl_case!(fmt_d0:          "{:.0}" => "5E-7");
-            impl_case!(fmt_d1:          "{:.1}" => "4.9E-7");
-            impl_case!(fmt_d3:          "{:.3}" => "4.913E-7");
-            impl_case!(fmt_d5:          "{:.5}" => "4.91326E-7");
-            impl_case!(fmt_d6:          "{:.6}" => "4.913260E-7");
+            impl_case!(fmt_default:     "{}" => "4.91326E-7");
+            impl_case!(fmt_d0:       "{:.0}" => "0");
+            impl_case!(fmt_d1:       "{:.1}" => "0.0");
+            impl_case!(fmt_d3:       "{:.3}" => "0.000");
+            impl_case!(fmt_d5:       "{:.5}" => "0.00000");
+            impl_case!(fmt_d6:       "{:.7}" => "0.0000005");
+            impl_case!(fmt_d9:       "{:.9}" => "0.000000491");
+            impl_case!(fmt_d20:     "{:.20}" => "0.00000049132600000000");
 
-            impl_case!(fmt_d9:          "{:.9}" => "4.913260000E-7");
-            impl_case!(fmt_d20:        "{:.20}" => "4.91326000000000000000E-7");
+            impl_case!(fmt_d0e:     "{:.0E}" => "5E-7");
+            impl_case!(fmt_d1e:     "{:.1E}" => "4.9E-7");
+            impl_case!(fmt_d3e:     "{:.3E}" => "4.913E-7");
+            impl_case!(fmt_d5e:     "{:.5E}" => "4.91326E-7");
+            impl_case!(fmt_d6e:     "{:.6E}" => "4.913260E-7");
         }
 
         mod dec_0d00003102564500 {
@@ -1024,8 +1078,12 @@ mod test {
             }
 
             impl_case!(fmt_default: "{}" => "1E-10000");
-            impl_case!(fmt_d1: "{:.1}" => "1.0E-10000");
-            impl_case!(fmt_d4: "{:.4}" => "1.0000E-10000");
+            impl_case!(fmt_d:    "{:.0}" => "0");
+            impl_case!(fmt_d1:   "{:.1}" => "0.0");
+            impl_case!(fmt_d4:   "{:.4}" => "0.0000");
+
+            impl_case!(fmt_d1E: "{:.1E}" => "1.0E-10000");
+            impl_case!(fmt_d4E: "{:.4E}" => "1.0000E-10000");
         }
 
         mod dec_1e100000 {
@@ -1320,6 +1378,8 @@ mod proptests {
     use super::*;
     use paste::paste;
     use proptest::prelude::*;
+    use proptest::num::f64::NORMAL as NormalF64;
+
 
     macro_rules! impl_parsing_test {
         ($t:ty) => {
@@ -1362,6 +1422,18 @@ mod proptests {
 
     impl_parsing_test!(from-float f32);
     impl_parsing_test!(from-float f64);
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(32_000))]
+
+        #[test]
+        fn float_formatting(f in NormalF64, prec in 0..21usize) {
+            let d = BigDecimal::from_f64(f).unwrap();
+            let f_fmt = format!("{f:.prec$}");
+            let d_fmt = format!("{d:.prec$}").replace("+", "");
+            prop_assert_eq!(f_fmt, d_fmt);
+        }
+    }
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]

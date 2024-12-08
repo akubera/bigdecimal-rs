@@ -17,7 +17,7 @@ impl Rem<BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> Rem<&'a BigDecimal> for BigDecimal {
+impl Rem<&BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -35,7 +35,7 @@ impl<'a> Rem<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> Rem<BigDecimal> for &'a BigDecimal {
+impl Rem<BigDecimal> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -55,7 +55,7 @@ impl<'a> Rem<BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Rem<&'b BigDecimal> for &'a BigDecimal {
+impl Rem<&BigDecimal> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]

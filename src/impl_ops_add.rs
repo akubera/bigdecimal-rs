@@ -95,7 +95,7 @@ impl Add<BigDecimal> for BigInt {
     }
 }
 
-impl<'a> Add<&'a BigDecimal> for BigInt {
+impl Add<&BigDecimal> for BigInt {
     type Output = BigDecimal;
 
     fn add(self, rhs: &BigDecimal) -> BigDecimal {
@@ -103,7 +103,7 @@ impl<'a> Add<&'a BigDecimal> for BigInt {
     }
 }
 
-impl<'a> Add<BigDecimalRef<'a>> for BigInt {
+impl Add<BigDecimalRef<'_>> for BigInt {
     type Output = BigDecimal;
 
     fn add(self, rhs: BigDecimalRef<'_>) -> BigDecimal {
@@ -121,7 +121,7 @@ impl Add<BigDecimal> for &BigInt {
     }
 }
 
-impl<'a> Add<&'a BigDecimal> for &BigInt {
+impl Add<&BigDecimal> for &BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -130,7 +130,7 @@ impl<'a> Add<&'a BigDecimal> for &BigInt {
     }
 }
 
-impl<'a> Add<BigDecimalRef<'a>> for &BigInt {
+impl Add<BigDecimalRef<'_>> for &BigInt {
     type Output = BigDecimal;
 
     #[inline]
