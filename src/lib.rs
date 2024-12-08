@@ -1256,6 +1256,12 @@ impl BigDecimalRef<'_> {
         }
     }
 
+    /// Borrow digits as Cow
+    pub(crate) fn to_cow_biguint_and_scale(&self) -> (Cow<'_, BigUint>, i64) {
+        let cow_int = Cow::Borrowed(self.digits);
+        (cow_int, self.scale)
+    }
+
     /// Sign of decimal
     pub fn sign(&self) -> Sign {
         self.sign
@@ -1532,13 +1538,14 @@ mod bigdecimal_tests {
             ("-170141183460469231731687303715884105728", -170141183460469231731687303715884105728),
             ("12.34", 12),
             ("3.14", 3),
+            ("-123.90", -123),
             ("50", 50),
             ("0.001", 0),
         ];
         for (s, ans) in vals {
-            let calculated = BigDecimal::from_str(s).unwrap().to_i128().unwrap();
+            let calculated = BigDecimal::from_str(s).unwrap().to_i128();
 
-            assert_eq!(ans, calculated);
+            assert_eq!(Some(ans), calculated);
         }
     }
 

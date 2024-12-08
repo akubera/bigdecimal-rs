@@ -11,8 +11,10 @@ use stdlib::str::FromStr;
 use stdlib::string::{String, ToString};
 use stdlib::convert::TryFrom;
 use stdlib::ops::Neg;
+use stdlib::cmp::Ordering;
 
 use crate::BigDecimal;
+use crate::BigDecimalRef;
 use crate::ParseBigDecimalError;
 
 #[cfg(not(feature = "std"))]
@@ -105,44 +107,87 @@ impl Num for BigDecimal {
     }
 }
 
+
 impl ToPrimitive for BigDecimal {
     fn to_i64(&self) -> Option<i64> {
+        self.to_ref().to_i64()
+    }
+    fn to_i128(&self) -> Option<i128> {
+        self.to_ref().to_i128()
+    }
+    fn to_u64(&self) -> Option<u64> {
+        self.to_ref().to_u64()
+    }
+    fn to_u128(&self) -> Option<u128> {
+        self.to_ref().to_u128()
+    }
+    fn to_f64(&self) -> Option<f64> {
+        self.to_ref().to_f64()
+    }
+}
+
+impl<'a> ToPrimitive for BigDecimalRef<'a> {
+    fn to_i64(&self) -> Option<i64> {
         match self.sign() {
-            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i64(),
+            Sign::Plus if self.scale == 0 => self.digits.to_i64(),
+            Sign::Minus if self.scale == 0 => {
+                self.digits.to_u64().and_then(
+                    |d| match d.cmp(&(i64::MAX as u64 + 1)) {
+                        Ordering::Less => Some((d as i64).neg()),
+                        Ordering::Equal => Some(i64::MIN),
+                        Ordering::Greater => None,
+                    }
+                )
+            }
+            Sign::Plus | Sign::Minus => self.to_owned_with_scale(0).int_val.to_i64(),
             Sign::NoSign => Some(0),
         }
     }
     fn to_i128(&self) -> Option<i128> {
         match self.sign() {
-            Sign::Minus | Sign::Plus => self.with_scale(0).int_val.to_i128(),
+            Sign::Plus if self.scale == 0 => self.digits.to_i128(),
+            Sign::Minus if self.scale == 0 => {
+                self.digits.to_u128().and_then(
+                    |d| match d.cmp(&(i128::MAX as u128 + 1)) {
+                        Ordering::Less => Some((d as i128).neg()),
+                        Ordering::Equal => Some(i128::MIN),
+                        Ordering::Greater => None,
+                    }
+                )
+            }
+            Sign::Plus | Sign::Minus => self.to_owned_with_scale(0).int_val.to_i128(),
             Sign::NoSign => Some(0),
         }
     }
     fn to_u64(&self) -> Option<u64> {
         match self.sign() {
-            Sign::Plus => self.with_scale(0).int_val.to_u64(),
+            Sign::Plus if self.scale == 0 => self.digits.to_u64(),
+            Sign::Plus => self.to_owned_with_scale(0).int_val.to_u64(),
             Sign::NoSign => Some(0),
             Sign::Minus => None,
         }
     }
     fn to_u128(&self) -> Option<u128> {
         match self.sign() {
-            Sign::Plus => self.with_scale(0).int_val.to_u128(),
+            Sign::Plus if self.scale == 0 => self.digits.to_u128(),
+            Sign::Plus => self.to_owned_with_scale(0).int_val.to_u128(),
             Sign::NoSign => Some(0),
             Sign::Minus => None,
         }
     }
 
     fn to_f64(&self) -> Option<f64> {
-        if self.int_val.is_zero() {
+        let copy_sign_to_float = |f: f64| if self.sign == Sign::Minus { f.neg() } else { f };
+
+        if self.digits.is_zero() {
             return Some(0.0);
         }
         if self.scale == 0 {
-            return self.int_val.to_f64();
+            return self.digits.to_f64().map(copy_sign_to_float);
         }
 
-        // borrow bigint value
-        let (mut int_cow, mut scale) = self.as_bigint_and_scale();
+        // borrow bugint value
+        let (mut int_cow, mut scale) = self.to_cow_biguint_and_scale();
 
         // approximate number of base-10 digits
         let digit_count = ((int_cow.bits() + 1) as f64 * stdlib::f64::consts::LOG10_2).floor() as u64;
@@ -162,7 +207,7 @@ impl ToPrimitive for BigDecimal {
         match scale.to_i32().and_then(|x| x.checked_neg()) {
             Some(pow) if 0 <= pow => {
                 // 'simple' integer case
-                let f = int_cow.to_f64()?;
+                let f = int_cow.to_f64().map(copy_sign_to_float)?;
                 (f * powi(10.0, pow)).into()
             }
             Some(exp) => {
@@ -170,7 +215,7 @@ impl ToPrimitive for BigDecimal {
                 #[cfg(not(feature = "std"))]
                 {
                     let s = format!("{}e{}", int_cow, exp);
-                    s.parse().ok()
+                    s.parse().map(copy_sign_to_float).ok()
                 }
 
                 #[cfg(feature = "std")]
@@ -186,12 +231,12 @@ impl ToPrimitive for BigDecimal {
                     write!(&mut buf[..], "{}e{}", int_cow, exp).ok()?;
                     let i = buf.iter().position(|&c| c == 0)?;
                     let s = stdlib::str::from_utf8(&buf[..i]).ok()?;
-                    s.parse().ok()
+                    s.parse().map(copy_sign_to_float).ok()
                 }
             }
             None => {
                 // exponenent too big for i32: return appropriate infinity
-                let result = if self.is_negative() {
+                let result = if self.sign != Sign::Minus {
                     stdlib::f64::INFINITY
                 } else {
                     stdlib::f64::NEG_INFINITY
@@ -312,7 +357,7 @@ mod test {
         impl_case!(case_13100e4: "13100e4" => 131000000.0);
 
         impl_case!(case_44223e9999: "44223e9999" => f64::INFINITY);
-        impl_case!(case_neg44223e9999: "-44223e9999" => -f64::INFINITY);
+        impl_case!(case_neg44223e9999: "-44223e9999" => f64::NEG_INFINITY);
     }
 }
 
