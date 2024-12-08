@@ -146,8 +146,12 @@ impl ToPrimitive for BigDecimal {
 
         // approximate number of base-10 digits
         let digit_count = ((int_cow.bits() + 1) as f64 * stdlib::f64::consts::LOG10_2).floor() as u64;
-        let digits_to_remove = digit_count.saturating_sub(25);
 
+        // trim trailing digits, 19 at a time, leaving about 25
+        // which should be more than accurate enough for direct
+        // conversion to f64
+        const N: u64 = 25;
+        let digits_to_remove = digit_count.saturating_sub(N);
         let ten_to_19 = 10u64.pow(19);
         let iter_count = digits_to_remove / 19;
         for _ in 0..iter_count {
@@ -156,15 +160,37 @@ impl ToPrimitive for BigDecimal {
         }
 
         match scale.to_i32().and_then(|x| x.checked_neg()) {
-            Some(pow) if -1 < pow  => {
+            Some(pow) if 0 <= pow => {
+                // 'simple' integer case
                 let f = int_cow.to_f64()?;
                 (f * powi(10.0, pow)).into()
             }
             Some(exp) => {
-                let s = format!("{}e{}", int_cow, exp);
-                s.parse().ok()
+                // format decimal as floating point and let the default parser generate the f64
+                #[cfg(not(feature = "std"))]
+                {
+                    let s = format!("{}e{}", int_cow, exp);
+                    s.parse().ok()
+                }
+
+                #[cfg(feature = "std")]
+                {
+                    use std::io::Write;
+
+                    // save allocation of a String by using local buffer of bytes
+                    // since we know the size will be small
+                    //
+                    //   ~ 1 '-' + (N+19) digits + 1 'e' + 11 i32 digits = 32 + N
+                    // (plus a little extra for safety)
+                    let mut buf = [0u8; 50 + N as usize];
+                    write!(&mut buf[..], "{}e{}", int_cow, exp).ok()?;
+                    let i = buf.iter().position(|&c| c == 0)?;
+                    let s = stdlib::str::from_utf8(&buf[..i]).ok()?;
+                    s.parse().ok()
+                }
             }
             None => {
+                // exponenent too big for i32: return appropriate infinity
                 let result = if self.is_negative() {
                     stdlib::f64::INFINITY
                 } else {
