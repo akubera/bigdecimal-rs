@@ -3,6 +3,9 @@
 use num_traits::{Zero, Num, Signed, FromPrimitive, ToPrimitive, AsPrimitive};
 use num_bigint::{BigInt, Sign, ToBigInt};
 
+#[cfg(not(feature = "std"))]
+use num_traits::float::FloatCore;
+
 use crate::stdlib;
 use stdlib::str::FromStr;
 use stdlib::string::{String, ToString};
@@ -14,8 +17,8 @@ use crate::ParseBigDecimalError;
 
 #[cfg(not(feature = "std"))]
 // f64::powi is only available in std, no_std must use libm
-fn powi(x: f64, n: f64) -> f64 {
-    libm::pow(x, n)
+fn powi(x: f64, n: i32) -> f64 {
+    libm::pow(x, n as f64)
 }
 
 #[cfg(feature = "std")]
