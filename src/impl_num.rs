@@ -126,7 +126,7 @@ impl ToPrimitive for BigDecimal {
     }
 }
 
-impl<'a> ToPrimitive for BigDecimalRef<'a> {
+impl ToPrimitive for BigDecimalRef<'_> {
     fn to_i64(&self) -> Option<i64> {
         match self.sign() {
             Sign::Plus if self.scale == 0 => self.digits.to_i64(),
@@ -237,9 +237,9 @@ impl<'a> ToPrimitive for BigDecimalRef<'a> {
             None => {
                 // exponenent too big for i32: return appropriate infinity
                 let result = if self.sign != Sign::Minus {
-                    stdlib::f64::INFINITY
+                    f64::INFINITY
                 } else {
-                    stdlib::f64::NEG_INFINITY
+                    f64::NEG_INFINITY
                 };
                 result.into()
             }
@@ -331,9 +331,9 @@ mod test {
         impl_case!(case_zero: 0.0);
         impl_case!(case_neg_zero: -0.0);
         impl_case!(case_875en6: 0.000875);
-        impl_case!(case_f64_min: stdlib::f64::MIN);
-        impl_case!(case_f64_max: stdlib::f64::MAX);
-        impl_case!(case_f64_min_pos: stdlib::f64::MIN_POSITIVE);
+        impl_case!(case_f64_min: f64::MIN);
+        impl_case!(case_f64_max: f64::MAX);
+        impl_case!(case_f64_min_pos: f64::MIN_POSITIVE);
         impl_case!(case_pi: stdlib::f64::consts::PI);
         impl_case!(case_neg_e: -stdlib::f64::consts::E);
         impl_case!(case_1en500: 1e-500);

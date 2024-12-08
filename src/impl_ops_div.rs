@@ -56,7 +56,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
 
 forward_ref_val_binop!(impl Div for BigDecimal, div);
 
-impl<'a, 'b> Div<&'b BigDecimal> for &'a BigDecimal {
+impl Div<&BigDecimal> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]

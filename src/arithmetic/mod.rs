@@ -145,6 +145,7 @@ pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
 }
 
 #[cfg(not(rustc_1_60))]
+#[allow(dead_code)]
 pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
     (x as i128 - y as i128).to_u64().unwrap_or(0)
 }

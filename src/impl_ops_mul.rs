@@ -42,7 +42,7 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> Mul<BigDecimal> for &'a BigDecimal {
+impl Mul<BigDecimal> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -51,7 +51,7 @@ impl<'a> Mul<BigDecimal> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Mul<&'b BigDecimal> for &'a BigDecimal {
+impl Mul<&BigDecimal> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -77,7 +77,7 @@ impl Mul<BigInt> for BigDecimal {
     }
 }
 
-impl<'a> Mul<&'a BigInt> for BigDecimal {
+impl Mul<&BigInt> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -87,7 +87,7 @@ impl<'a> Mul<&'a BigInt> for BigDecimal {
     }
 }
 
-impl<'a> Mul<BigInt> for &'a BigDecimal {
+impl Mul<BigInt> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -97,7 +97,7 @@ impl<'a> Mul<BigInt> for &'a BigDecimal {
     }
 }
 
-impl<'a, 'b> Mul<&'a BigInt> for &'b BigDecimal {
+impl Mul<&BigInt> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
@@ -128,7 +128,7 @@ impl Mul<BigDecimal> for BigInt {
     }
 }
 
-impl<'a> Mul<BigDecimal> for &'a BigInt {
+impl Mul<BigDecimal> for &BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -147,7 +147,7 @@ impl<'a> Mul<BigDecimal> for &'a BigInt {
     }
 }
 
-impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
+impl Mul<&BigDecimal> for &BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -163,7 +163,7 @@ impl<'a, 'b> Mul<&'a BigDecimal> for &'b BigInt {
     }
 }
 
-impl<'a> Mul<&'a BigDecimal> for BigInt {
+impl Mul<&BigDecimal> for BigInt {
     type Output = BigDecimal;
 
     #[inline]
@@ -181,7 +181,7 @@ impl<'a> Mul<&'a BigDecimal> for BigInt {
 
 forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
-impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
+impl MulAssign<&BigDecimal> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: &BigDecimal) {
         if rhs.is_one() {
@@ -192,7 +192,7 @@ impl<'a> MulAssign<&'a BigDecimal> for BigDecimal {
     }
 }
 
-impl<'a> MulAssign<&'a BigInt> for BigDecimal {
+impl MulAssign<&BigInt> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: &BigInt) {
         if rhs.is_one() {

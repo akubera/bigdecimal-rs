@@ -22,7 +22,7 @@ mod tests {
             fn $name() {
                 let dec = BigDecimal::from_str($input).unwrap();
                 assert_eq!(dec.int_val, $int.into());
-                assert_eq!(dec.scale, -$exp);
+                assert_eq!(dec.scale, -($exp));
             }
         };
     }

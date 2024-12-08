@@ -109,7 +109,7 @@ fn dynamically_format_decimal(
     // use exponential form if decimal point is outside
     // the upper and lower thresholds of the decimal,
     // and precision was not requested
-    if matches!(f.precision(), None) && leading_zero_threshold < leading_zero_count {
+    if f.precision().is_none() && leading_zero_threshold < leading_zero_count {
         format_exponential(this, f, abs_int, "E")
     } else if trailing_zero_threshold < trailing_zeros {
         // non-scientific notation
@@ -122,7 +122,7 @@ fn dynamically_format_decimal(
 
 pub(crate) struct FullScaleFormatter<'a>(pub BigDecimalRef<'a>);
 
-impl<'a> fmt::Display for FullScaleFormatter<'a> {
+impl fmt::Display for FullScaleFormatter<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let n = self.0;
         let non_negative = matches!(n.sign, Sign::Plus | Sign::NoSign);
@@ -222,7 +222,7 @@ fn zero_right_pad_integer_ascii_digits(
 
     // did not explicitly request precision, so we'll only
     // implicitly right-pad if less than this threshold.
-    if matches!(target_scale, None) && integer_zero_count > 20 {
+    if target_scale.is_none() && integer_zero_count > 20 {
         // no padding
         return;
     }

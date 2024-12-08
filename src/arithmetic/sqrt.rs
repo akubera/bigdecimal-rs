@@ -5,7 +5,7 @@ use crate::*;
 
 pub(crate) fn impl_sqrt(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
     // Calculate the number of digits and the difference compared to the scale
-    let num_digits = count_decimal_digits_uint(&n);
+    let num_digits = count_decimal_digits_uint(n);
     let scale_diff = BigInt::from(num_digits) - scale;
 
     // Calculate the number of wanted digits and the exponent we need to raise the original value to

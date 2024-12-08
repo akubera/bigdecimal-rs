@@ -16,7 +16,6 @@ mod stdlib {
         slice,
         str,
         string,
-        i8,
         f32,
         f64,
     };

@@ -43,11 +43,14 @@
 #![allow(clippy::style)]
 #![allow(clippy::excessive_precision)]
 #![allow(clippy::unreadable_literal)]
+#![allow(clippy::unusual_byte_groupings)]
+#![allow(clippy::needless_late_init)]
 #![allow(clippy::needless_return)]
 #![allow(clippy::suspicious_arithmetic_impl)]
 #![allow(clippy::suspicious_op_assign_impl)]
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::approx_constant)]
+#![allow(clippy::wrong_self_convention)]
 #![cfg_attr(test, allow(clippy::useless_vec))]
 #![allow(unused_imports)]
 
@@ -1984,12 +1987,12 @@ mod bigdecimal_tests {
         ];
 
         for s in true_vals {
-            let d = BigDecimal::from_str(&s).unwrap();
+            let d = BigDecimal::from_str(s).unwrap();
             assert!(d.is_integer());
         }
 
         for s in false_vals {
-            let d = BigDecimal::from_str(&s).unwrap();
+            let d = BigDecimal::from_str(s).unwrap();
             assert!(!d.is_integer());
         }
     }
