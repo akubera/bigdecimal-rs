@@ -44,8 +44,8 @@ impl fmt::LowerExp for BigDecimal {
 
 impl fmt::LowerExp for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let abs_int = self.digits.to_str_radix(10);
-        format_exponential(*self, f, abs_int, "e")
+        let (abs_int, scale) = get_abs_int_scale(*self);
+        format_exponential(*self, f, abs_int, scale, "e")
     }
 }
 
@@ -58,8 +58,8 @@ impl fmt::UpperExp for BigDecimal {
 
 impl fmt::UpperExp for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let abs_int = self.digits.to_str_radix(10);
-        format_exponential(*self, f, abs_int, "E")
+        let (abs_int, scale) = get_abs_int_scale(*self);
+        format_exponential(*self, f, abs_int, scale, "E")
     }
 }
 
@@ -77,6 +77,15 @@ impl fmt::Debug for BigDecimal {
     }
 }
 
+fn get_abs_int_scale(this: BigDecimalRef) -> (String, i64) {
+    // Acquire the absolute integer as a decimal string
+    let abs_int = this.digits.to_str_radix(10);
+    // Special-case 0: no zero-padding should be done.
+    let scale = if this.is_zero() { 0 } else { this.scale };
+
+    (abs_int, scale)
+}
+
 
 fn dynamically_format_decimal(
     this: BigDecimalRef,
@@ -84,17 +93,16 @@ fn dynamically_format_decimal(
     leading_zero_threshold: usize,
     trailing_zero_threshold: usize,
 ) -> fmt::Result {
-    // Acquire the absolute integer as a decimal string
-    let abs_int = this.digits.to_str_radix(10);
+    let (abs_int, scale) = get_abs_int_scale(this);
 
     // number of zeros between most significant digit and decimal point
-    let leading_zero_count = this.scale
+    let leading_zero_count = scale
                                  .to_u64()
                                  .and_then(|scale| scale.checked_sub(abs_int.len() as u64))
                                  .unwrap_or(0);
 
     // number of zeros between least significant digit and decimal point
-    let trailing_zero_count = this.scale
+    let trailing_zero_count = scale
                                   .checked_neg()
                                   .and_then(|d| d.to_u64());
 
@@ -110,12 +118,12 @@ fn dynamically_format_decimal(
     // the upper and lower thresholds of the decimal,
     // and precision was not requested
     if f.precision().is_none() && leading_zero_threshold < leading_zero_count {
-        format_exponential(this, f, abs_int, "E")
+        format_exponential(this, f, abs_int, scale, "E")
     } else if trailing_zero_threshold < trailing_zeros {
         // non-scientific notation
-        format_dotless_exponential(f, abs_int, this.sign, this.scale, "e")
+        format_dotless_exponential(f, abs_int, this.sign, scale, "e")
     } else {
-        format_full_scale(this, f, abs_int)
+        format_full_scale(this, f, abs_int, scale)
     }
 }
 
@@ -157,6 +165,7 @@ fn format_full_scale(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
     abs_int: String,
+    scale: i64,
 ) -> fmt::Result {
     use stdlib::cmp::Ordering::*;
 
@@ -168,12 +177,12 @@ fn format_full_scale(
 
     let rounder = NonDigitRoundingData::default_with_sign(this.sign);
 
-    if this.scale <= 0 {
-        exp = (this.scale as i128).neg();
+    if scale <= 0 {
+        exp = (scale as i128).neg();
         // format an integer value by adding trailing zeros to the right
         zero_right_pad_integer_ascii_digits(&mut digits, &mut exp, f.precision());
     } else {
-        let scale = this.scale as u64;
+        let scale = scale as u64;
 
         // std::fmt 'precision' has same meaning as bigdecimal 'scale'
         //
@@ -446,6 +455,7 @@ fn format_exponential(
     this: BigDecimalRef,
     f: &mut fmt::Formatter,
     abs_int: String,
+    scale: i64,
     e_symbol: &str,
 ) -> fmt::Result {
     // Steps:
@@ -454,7 +464,7 @@ fn format_exponential(
     //  3. Place decimal point after a single digit of the number, or omit if there is only a single digit
     //  4. Append `E{exponent}` and format the resulting string based on some `Formatter` flags
 
-    let exp = (this.scale as i128).neg();
+    let exp = (scale as i128).neg();
     let digits = abs_int.into_bytes();
 
     format_exponential_bigendian_ascii_digits(
@@ -1167,6 +1177,51 @@ mod test {
             impl_case!(fmt_d1:        "{:.1}" => "10.0");
             impl_case!(fmt_d2:        "{:.2}" => "9.99");
             impl_case!(fmt_d3:        "{:.3}" => "9.990");
+        }
+
+        mod dec_0 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "0");
+            impl_case!(fmt_d0:          "{:.0}" => "0");
+            impl_case!(fmt_d1:          "{:.1}" => "0.0");
+
+            impl_case!(fmt_e:      "{:e}" => "0e+0");
+            impl_case!(fmt_E:      "{:E}" => "0E+0");
+        }
+
+        mod dec_0e15 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0e15".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "0");
+            impl_case!(fmt_d0:          "{:.0}" => "0");
+            impl_case!(fmt_d1:          "{:.1}" => "0.0");
+
+            impl_case!(fmt_e:      "{:e}" => "0e+0");
+            impl_case!(fmt_E:      "{:E}" => "0E+0");
+        }
+
+        mod dec_0en15 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "0e-15".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "0");
+            impl_case!(fmt_d0:          "{:.0}" => "0");
+            impl_case!(fmt_d1:          "{:.1}" => "0.0");
+
+            impl_case!(fmt_e:      "{:e}" => "0e+0");
+            impl_case!(fmt_E:      "{:E}" => "0E+0");
         }
     }
 
