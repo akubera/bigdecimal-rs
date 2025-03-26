@@ -1177,6 +1177,7 @@ mod test {
             impl_case!(fmt_d1:        "{:.1}" => "10.0");
             impl_case!(fmt_d2:        "{:.2}" => "9.99");
             impl_case!(fmt_d3:        "{:.3}" => "9.990");
+            impl_case!(fmt_10d3:    "{:10.3}" => "     9.990");
         }
 
         mod dec_0 {
@@ -1204,9 +1205,14 @@ mod test {
             impl_case!(fmt_default:        "{}" => "0");
             impl_case!(fmt_d0:          "{:.0}" => "0");
             impl_case!(fmt_d1:          "{:.1}" => "0.0");
+            impl_case!(fmt_5d1:        "{:5.1}" => "  0.0");
+            impl_case!(fmt_010d1:    "{:010.1}" => "00000000.0");
 
             impl_case!(fmt_e:      "{:e}" => "0e+0");
             impl_case!(fmt_E:      "{:E}" => "0E+0");
+
+            impl_case!(fmt_d2e:        "{:.2e}" => "0.00e+0");
+            impl_case!(fmt_8d2e:      "{:8.2e}" => " 0.00e+0");
         }
 
         mod dec_0en15 {
@@ -1218,6 +1224,22 @@ mod test {
 
             impl_case!(fmt_default:        "{}" => "0");
             impl_case!(fmt_d0:          "{:.0}" => "0");
+            impl_case!(fmt_d1:          "{:.1}" => "0.0");
+            impl_case!(fmt_6d2:        "{:6.2}" => "  0.00");
+            impl_case!(fmt_010d1:    "{:010.1}" => "00000000.0");
+
+            impl_case!(fmt_e:      "{:e}" => "0e+0");
+            impl_case!(fmt_E:      "{:E}" => "0E+0");
+        }
+
+        mod dec_n0e6 {
+            use super::*;
+
+            fn test_input() -> BigDecimal {
+                "-0e6".parse().unwrap()
+            }
+
+            impl_case!(fmt_default:        "{}" => "0");
             impl_case!(fmt_d1:          "{:.1}" => "0.0");
 
             impl_case!(fmt_e:      "{:e}" => "0e+0");
