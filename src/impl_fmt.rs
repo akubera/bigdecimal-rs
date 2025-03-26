@@ -45,7 +45,7 @@ impl fmt::LowerExp for BigDecimal {
 impl fmt::LowerExp for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (abs_int, scale) = get_abs_int_scale(*self);
-        format_exponential(*self, f, abs_int, scale, "e")
+        format_exponential(f, abs_int, self.sign, scale, "e")
     }
 }
 
@@ -59,7 +59,7 @@ impl fmt::UpperExp for BigDecimal {
 impl fmt::UpperExp for BigDecimalRef<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (abs_int, scale) = get_abs_int_scale(*self);
-        format_exponential(*self, f, abs_int, scale, "E")
+        format_exponential(f, abs_int, self.sign, scale, "E")
     }
 }
 
@@ -118,12 +118,12 @@ fn dynamically_format_decimal(
     // the upper and lower thresholds of the decimal,
     // and precision was not requested
     if f.precision().is_none() && leading_zero_threshold < leading_zero_count {
-        format_exponential(this, f, abs_int, scale, "E")
+        format_exponential(f, abs_int, this.sign, scale, "E")
     } else if trailing_zero_threshold < trailing_zeros {
         // non-scientific notation
         format_dotless_exponential(f, abs_int, this.sign, scale, "e")
     } else {
-        format_full_scale(this, f, abs_int, scale)
+        format_full_scale(f, abs_int, this.sign, scale)
     }
 }
 
@@ -162,20 +162,20 @@ impl fmt::Display for FullScaleFormatter<'_> {
 
 
 fn format_full_scale(
-    this: BigDecimalRef,
     f: &mut fmt::Formatter,
     abs_int: String,
+    sign: Sign,
     scale: i64,
 ) -> fmt::Result {
     use stdlib::cmp::Ordering::*;
 
     let mut digits = abs_int.into_bytes();
     let mut exp = 0;
-    let non_negative = matches!(this.sign, Sign::Plus | Sign::NoSign);
+    let non_negative = matches!(sign, Sign::Plus | Sign::NoSign);
 
     debug_assert_ne!(digits.len(), 0);
 
-    let rounder = NonDigitRoundingData::default_with_sign(this.sign);
+    let rounder = NonDigitRoundingData::default_with_sign(sign);
 
     if scale <= 0 {
         exp = (scale as i128).neg();
@@ -452,9 +452,9 @@ fn format_dotless_exponential(
 }
 
 fn format_exponential(
-    this: BigDecimalRef,
     f: &mut fmt::Formatter,
     abs_int: String,
+    sign: Sign,
     scale: i64,
     e_symbol: &str,
 ) -> fmt::Result {
@@ -468,7 +468,7 @@ fn format_exponential(
     let digits = abs_int.into_bytes();
 
     format_exponential_bigendian_ascii_digits(
-        digits, this.sign, exp, f, e_symbol
+        digits, sign, exp, f, e_symbol
     )
 }
 
