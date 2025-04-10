@@ -17,6 +17,10 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     // of precision.
     // "Proof": https://github.com/akubera/bigdecimal-rs/issues/147#issuecomment-2793431202
     const MARGIN_PER_MUL: u64 = 2;
+    // Despite the math, we still find some rare errors due to rounding (e.g. if the
+    // final number ends with 499). We were not able to find any counter example
+    // with 2 extra digits (it's easy with 0 and 1), so add 4, just in case.
+    const MARGIN_EXTRA: u64 = 4;
 
     fn trim_precision(bd: BigDecimal, ctx: &Context, margin: u64) -> BigDecimal {
         let prec = ctx.precision().get() + margin;
@@ -31,7 +35,7 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     // Count the number of multiplications we're going to perform, one per "1" binary digit
     // in exp, and the number of times we can divide exp by 2.
     let mut n = exp.abs() as u64;
-    let mut margin = MARGIN_PER_MUL * (n.count_ones() + n.ilog2() - 1) as u64;
+    let mut margin = MARGIN_EXTRA + MARGIN_PER_MUL * (n.count_ones() + n.ilog2() - 1) as u64;
 
     let mut bd_y: BigDecimal = 1.into();
     let mut bd_x = if exp >= 0 {
@@ -50,7 +54,7 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
         margin -= MARGIN_PER_MUL;
         n /= 2;
     }
-    debug_assert_eq!(margin, 0);
+    debug_assert_eq!(margin, MARGIN_EXTRA);
 
     return trim_precision(bd_x * bd_y, ctx, 0);
 }
@@ -138,5 +142,7 @@ mod test {
         impl_case!(case_misc_4: "213", 3);
         impl_case!(case_misc_5: "230231922161117176931558813276752514640713895736833715766118029160058800614672948775360067838593459582429649254051804908512884180898236823e903", -1000151);
         impl_case!(case_misc_6: "9.4215159218712961e-123", i32::MIN);
+        // This test case fails without some extra margin (the number ends with 8.489 and gets rounded to 9 instead of 8)
+        impl_case!(case_misc_7: "-946773878.6364634037017822265625", 4294967295i64);
     }
 }
