@@ -17,10 +17,9 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     // of precision.
     // "Proof": https://github.com/akubera/bigdecimal-rs/issues/147#issuecomment-2793431202
     const MARGIN_PER_MUL: u64 = 2;
-    // Despite the math, we still find some rare errors due to rounding (e.g. if the
-    // final number ends with 499). We were not able to find any counter example
-    // with 2 extra digits (it's easy with 0 and 1), so add 4, just in case.
-    const MARGIN_EXTRA: u64 = 4;
+    // When doing many multiplication, we still introduce additional errors, add 1 more digit
+    // per 10 multiplications.
+    const MUL_PER_MARGIN_EXTRA: u64 = 10;
 
     fn trim_precision(bd: BigDecimal, ctx: &Context, margin: u64) -> BigDecimal {
         let prec = ctx.precision().get() + margin;
@@ -35,7 +34,9 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     // Count the number of multiplications we're going to perform, one per "1" binary digit
     // in exp, and the number of times we can divide exp by 2.
     let mut n = exp.abs() as u64;
-    let mut margin = MARGIN_EXTRA + MARGIN_PER_MUL * (n.count_ones() + n.ilog2() - 1) as u64;
+    let muls = (n.count_ones() + n.ilog2() - 1) as u64;
+    let margin_extra = muls.div_ceil(MUL_PER_MARGIN_EXTRA);
+    let mut margin = margin_extra + MARGIN_PER_MUL * muls;
 
     let mut bd_y: BigDecimal = 1.into();
     let mut bd_x = if exp >= 0 {
@@ -54,7 +55,7 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
         margin -= MARGIN_PER_MUL;
         n /= 2;
     }
-    debug_assert_eq!(margin, MARGIN_EXTRA);
+    debug_assert_eq!(margin, margin_extra);
 
     return trim_precision(bd_x * bd_y, ctx, 0);
 }
