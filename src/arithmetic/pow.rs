@@ -1,6 +1,6 @@
 //! pow implementation
 
-use std::convert::TryInto;
+use stdlib::num::NonZeroU64;
 
 use crate::*;
 
@@ -24,7 +24,7 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     fn trim_precision(bd: BigDecimal, ctx: &Context, margin: u64) -> BigDecimal {
         let prec = ctx.precision().get() + margin;
         if bd.digits() > prec {
-            bd.with_precision_round(prec.try_into().unwrap(), ctx.rounding_mode())
+            bd.with_precision_round(NonZeroU64::new(prec).unwrap(), ctx.rounding_mode())
         } else {
             bd
         }
@@ -34,15 +34,17 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     // Count the number of multiplications we're going to perform, one per "1" binary digit
     // in exp, and the number of times we can divide exp by 2.
     let mut n = exp.abs() as u64;
-    let muls = (n.count_ones() + n.ilog2() - 1) as u64;
-    let margin_extra = muls.div_ceil(MUL_PER_MARGIN_EXTRA);
+    // Note: 63 - n.leading_zeros() == n.ilog2, but that's only available in recent Rust versions.
+    let muls = (n.count_ones() + (63 - n.leading_zeros()) - 1) as u64;
+    // Note: div_ceil would be nice to use here, but only available in recent Rust versions.
+    let margin_extra = (muls + MUL_PER_MARGIN_EXTRA/2) / MUL_PER_MARGIN_EXTRA;
     let mut margin = margin_extra + MARGIN_PER_MUL * muls;
 
     let mut bd_y: BigDecimal = 1.into();
     let mut bd_x = if exp >= 0 {
         bd.clone()
     } else {
-        bd.inverse_with_context(&ctx.with_precision((ctx.precision().get() + margin + MARGIN_PER_MUL).try_into().unwrap()))
+        bd.inverse_with_context(&ctx.with_precision(NonZeroU64::new(ctx.precision().get() + margin + MARGIN_PER_MUL).unwrap()))
     };
 
     while n > 1 {
@@ -65,13 +67,18 @@ mod test {
     use super::*;
     use stdlib::num::NonZeroU64;
 
+    #[cfg(not(feature = "std"))]
+    macro_rules! println {
+        ( $( $x:expr ),* ) => {}
+    }
+
     // Test that the 2 numbers are the same, assuming precision in ctx.
     fn compare(bd: BigDecimal, bd_expected: BigDecimal, ctx: &Context) {
         let bd_expected_round = bd_expected.with_precision_round(ctx.precision(), ctx.rounding_mode());
         println!("100d  0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789");
-        println!("exp   {bd_expected}");
-        println!("val   {bd}");
-        println!("exprd {bd_expected_round}");
+        println!("exp   {}", bd_expected);
+        println!("val   {}", bd);
+        println!("exprd {}", bd_expected_round);
 
         assert_eq!(bd, bd_expected_round);
     }
@@ -85,7 +92,7 @@ mod test {
                 let expected = $expected;
                 let ctx = Context::default();
 
-                println!("Compute {start}**{exp}");
+                println!("Compute {}**{}", start, exp);
 
                 let bd = start.pow_with_context(exp, &ctx);
                 let bd_expected = BigDecimal::from_str(expected).unwrap();
@@ -118,10 +125,10 @@ mod test {
             fn $name() {
                 let start = BigDecimal::from_str($start).unwrap();
                 let exp = $exp.into();
-                let ctx = Context::new(50.try_into().unwrap(), RoundingMode::HalfEven);
-                let ctx_large = Context::new(500.try_into().unwrap(), RoundingMode::HalfEven);
+                let ctx = Context::new(NonZeroU64::new(50).unwrap(), RoundingMode::HalfEven);
+                let ctx_large = Context::new(NonZeroU64::new(500).unwrap(), RoundingMode::HalfEven);
 
-                println!("Compute {start}**{exp}");
+                println!("Compute {}**{}", start, exp);
 
                 let bd = start.pow_with_context(exp, &ctx);
                 let bd_expected = start.pow_with_context(exp, &ctx_large);
