@@ -65,6 +65,13 @@ pub trait RadixType : Copy + Clone + fmt::Debug {
         lo
     }
 
+    /// Perform n += carry, returning overflow in carry
+    fn addassign_carry(n: &mut Self::Base, carry: &mut Self::Base) {
+        let (hi, lo) = Self::expanding_add(*n, *carry);
+        *carry = hi;
+        *n = lo;
+    }
+
     fn add_expand_doublewide(a: Self::Base, b: Self::BaseDouble) -> (Self::Base, Self::Base) {
         let a: Self::BaseDouble = a.into();
         Self::split_wide_digit(a + b)
@@ -95,6 +102,15 @@ pub trait RadixType : Copy + Clone + fmt::Debug {
         let c: Self::BaseDouble = c.into();
         let d: Self::BaseDouble = d.into();
         Self::split_wide_digit(a * b + c + d)
+    }
+
+    /// Perform c += a * b + carry, returning overflow in carry
+    fn carrying_mul_add_inplace(a: Self::Base, b: Self::Base, c: &mut Self::Base, carry: &mut Self::Base) {
+        let a: Self::BaseDouble = a.into();
+        let b: Self::BaseDouble = b.into();
+        let (hi, lo) = Self::split_wide_digit(a * b + (*c).into() + (*carry).into());
+        *c = lo;
+        *carry = hi;
     }
 
     fn add_carry_into_slice(dest: &mut [Self::Base], c: &mut Self::Base) {
