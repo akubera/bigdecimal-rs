@@ -16,6 +16,9 @@ builds/
 
 *venv*/
 .python-version
+notebooks/
 *.ipynb
 
 proptest-regressions
+
+.mise.toml
