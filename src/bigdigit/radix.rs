@@ -153,10 +153,22 @@ pub struct RADIX_u32;
 pub struct RADIX_u64;
 
 
-trait RadixPowerOfTen {}
+trait RadixPowerOfTen {
+    const DIGITS: usize;
+}
 
-impl RadixPowerOfTen for RADIX_10p19_u64 {}
-impl RadixPowerOfTen for RADIX_10p9_u32 {}
+impl RadixPowerOfTen for RADIX_10p19_u64 {
+    const DIGITS: usize = 19;
+}
+impl RadixPowerOfTen for RADIX_10p9_u32 {
+    const DIGITS: usize = 9;
+}
+impl RadixPowerOfTen for RADIX_10_u8 {
+    const DIGITS: usize = 1;
+}
+impl RadixPowerOfTen for RADIX_10p4_i16 {
+    const DIGITS: usize = 4;
+}
 
 
 #[cfg(test)]
@@ -248,6 +260,16 @@ impl RadixType for RADIX_10p19_u64 {
 
     const RADIX: Self::BaseDouble = 10_000_000_000_000_000_000;
 }
+
+
+impl RadixType for RADIX_10_u8 {
+    type Base = u8;
+    type BaseDouble = u8;
+    type SignedBase = i8;
+
+    const RADIX: Self::BaseDouble = 10;
+}
+
 
 
 #[cfg(test)]
