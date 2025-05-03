@@ -1388,7 +1388,7 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
 
 
 /// pair i64 'scale' with some other value
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct WithScale<T> {
     pub value: T,
     pub scale: i64,

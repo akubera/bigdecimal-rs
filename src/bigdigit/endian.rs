@@ -1,8 +1,10 @@
 //! Structs and traits for generic operations on big or little endian ints
 
+use crate::stdlib::fmt;
+
 
 /// Trait to allow generic parameterization of significant digit ordering
-pub(crate) trait Endianness {
+pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// Iterate over digits in vec from least to most significance
     fn into_iter<D>(digits: Vec<D>) -> impl Iterator<Item=D>;
 
@@ -15,11 +17,11 @@ pub(crate) trait Endianness {
 
 
 /// Empty struct indicating most-significant bigdigit first
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub(crate) struct BigEndian {}
 
 /// Empty struct indicating least-significant bigdigit first
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub(crate) struct LittleEndian {}
 
 

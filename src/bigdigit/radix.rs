@@ -8,7 +8,7 @@ use crate::stdlib::fmt;
 
 
 /// All the information needed to specify a bigdecimal's radix, and methods operating on integers
-pub trait RadixType : Copy + Clone + fmt::Debug {
+pub trait RadixType : Copy + Clone + Default + fmt::Debug {
     /// the inner type of values
     type Base
         : 'static
@@ -129,27 +129,27 @@ pub trait RadixType : Copy + Clone + fmt::Debug {
 }
 
 /// Radix=*10* / storage=*u8*
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_10_u8;
 
 /// Radix=*10,000* storage=*i16*
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_10p4_i16;
 
 /// Radix=*1,000,000,000* storage=*u32*
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_10p9_u32;
 
 /// Radix=*10,000,000,000,000,000,000* storage=*u64*
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_10p19_u64;
 
 /// Radix = 2^<sup>32</sup>
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_u32;
 
 /// Radix = 2^<sup>64</sup>
-#[derive(Copy,Clone,Debug)]
+#[derive(Copy,Clone,Debug,Default)]
 pub struct RADIX_u64;
 
 

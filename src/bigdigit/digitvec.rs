@@ -16,7 +16,7 @@ use super::endian::*;
 /// Value of the integer is defined by the radix and endianness
 /// type parameters.
 ///
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct DigitVec<R: RadixType, E: Endianness> {
     pub digits: Vec<R::Base>,
     _radix: PhantomData<R>,
