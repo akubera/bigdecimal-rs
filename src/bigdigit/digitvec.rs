@@ -69,6 +69,28 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
     pub fn from_zero_count(n: usize) -> Self {
         Self::from_vec(vec![Zero::zero(); n])
     }
+
+    /// add value into this vector, overflowing into
+    pub fn add_value(&mut self, n: R::Base) {
+        self.add_value_at(0, n);
+    }
+
+    /// add value into this vector, starting at given index
+    pub fn add_value_at(&mut self, idx: usize, mut n: R::Base) {
+        debug_assert!(idx <= self.digits.len());
+        if n.is_zero() {
+            return;
+        }
+
+        for dest in E::iter_slice_mut(&mut self.digits).skip(idx) {
+            R::addassign_carry(dest, &mut n);
+            if n.is_zero() {
+                return;
+            }
+        }
+
+        E::push_significant_digit(&mut self.digits, n);
+    }
 }
 
 impl<R: RadixType> DigitVec<R, LittleEndian> {
