@@ -173,6 +173,11 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
 }
 
 impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
+    /// Return subslice of digits with the 'n' least significant bigdigits removed
+    pub fn trim_insignificant(&self, n: usize) -> Self {
+        Self::from_slice(&self.digits[n..])
+    }
+
     pub fn find_least_significant_nonzero(&self) -> Option<usize> {
         self.digits.iter().position(|&d| !d.is_zero())
     }
