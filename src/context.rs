@@ -19,7 +19,7 @@ include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
 /// Defaults are defined at compile time, determined by environment
 /// variables:
 ///
-/// | Variable                                |   Descripiton   | default  |
+/// | Variable                                |   Description   | default  |
 /// |-----------------------------------------|-----------------|----------|
 /// | `RUST_BIGDECIMAL_DEFAULT_PRECISION`     | digit precision | 100      |
 /// | `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE` | rounding-mode   | HalfEven |
@@ -152,7 +152,7 @@ mod test_context {
     use super::*;
 
     #[test]
-    fn contstructor_and_setters() {
+    fn constructor_and_setters() {
         let ctx = Context::default();
         let c = ctx.with_prec(44).unwrap();
         assert_eq!(c.precision.get(), 44);

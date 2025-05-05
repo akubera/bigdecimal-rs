@@ -624,7 +624,7 @@ fn round_ascii_digits(
         None => {
             digits_ascii_be.clear();
             digits_ascii_be.push(b'1');
-            // count digit clearning
+            // all 'significant' digits were removed
             removed_digit_count += significant_digit_count.get();
         }
     }
