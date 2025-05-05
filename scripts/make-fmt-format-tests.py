@@ -71,7 +71,7 @@ def main():
 
 def make_test_module_src(dec_str: Decimal, formats: list[str]) -> str:
     """
-    Return Rust module source which tests given decimal aginst given formats
+    Return Rust module source which tests given decimal against given formats
     """
     dec = Decimal(dec_str)
     mod_name = "dec_%s" % gen_name_from_dec(dec_str)
