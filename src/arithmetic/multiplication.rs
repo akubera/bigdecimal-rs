@@ -384,45 +384,7 @@ pub(crate) fn multiply_quad_spread_into_wrapping(
 }
 
 #[cfg(test)]
-mod test_multiply_quad_spread_into {
+mod test {
     use super::*;
-
-    #[test]
-    fn case_25597123371_684026673_1163340730_1823138616() {
-        let a = 2559712337;
-        let b = 684026673;
-        let y = 1163340730;
-        let z = 1823138616;
-
-        let mut result = vec![0; 8];
-
-        multiply_quad_spread_into(&mut result, 2, a, b, y, z);
-        assert_eq!(&result, &[0, 0, 3001179060, 4203670869, 1059648540, 580714756, 0, 0]);
-    }
-
-    #[test]
-    fn case_25597123371_684026673_1163340730_1823138616_wrapping() {
-        let a = 2559712337;
-        let b = 684026673;
-        let y = 1163340730;
-        let z = 1823138616;
-
-        let mut result = vec![0; 8];
-
-        multiply_quad_spread_into_wrapping(&mut result, 6, a, b, y, z);
-        assert_eq!(&result, &[1059648540, 580714756, 0, 0, 0, 0, 3001179060, 4203670869]);
-    }
-
-    #[test]
-    fn case_4294967296() {
-        let a = 4294967295;
-        let b = 4294967295;
-        let y = 4294967295;
-        let z = 4294967295;
-
-        let mut result = vec![0; 6];
-
-        multiply_quad_spread_into(&mut result, 1, a, b, y, z);
-        assert_eq!(&result, &[0, 2, 0, 4294967292, 4294967295, 1]);
-    }
+    include!("multiplication.tests.rs");
 }
