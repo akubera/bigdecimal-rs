@@ -12,6 +12,11 @@ pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
 
+pub(crate) use self::decimal::{
+    count_digits_bigint as count_decimal_digits,
+    count_digits_biguint as count_decimal_digits_uint,
+};
+
 #[cfg(not(feature = "std"))]
 mod funcs {
     // f64::exp2 is only available in std, we have to use an external crate like libm
@@ -29,6 +34,7 @@ mod funcs {
 
 // rexport all funcs into this module
 pub(crate) use self::funcs::*;
+
 
 /// Return 10^pow
 ///
