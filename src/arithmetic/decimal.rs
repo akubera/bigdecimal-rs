@@ -55,23 +55,5 @@ pub fn dec_shift_right_u64(x: u64, n: usize) -> u64 {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    mod dec_shift_right_u32 {
-        use super::*;
-
-        macro_rules! impl_case {
-            ($name:ident: ($n:literal, $s:literal) => $expected:literal) => {
-                #[test]
-                fn $name() {
-                    assert_eq!(dec_shift_right_u32($n, $s), $expected);
-                    assert_eq!(dec_shift_right_u32($n, $s), $expected);
-                }
-            };
-        }
-
-        impl_case!(case_12345_0: (12345, 0) => 12345 );
-        impl_case!(case_12345_2: (12345, 2) => 123 );
-        impl_case!(case_12345_6: (12345, 6) => 0 );
-        impl_case!(case_12345_7: (12345, 7) => 0 );
-    }
+    include!("decimal.tests.rs");
 }
