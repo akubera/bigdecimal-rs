@@ -10,6 +10,11 @@ pub(crate) mod cbrt;
 pub(crate) mod inverse;
 pub(crate) mod decimal;
 
+pub(crate) use self::decimal::{
+    count_decimal_digits_bigint as count_decimal_digits,
+    count_decimal_digits_biguint as count_decimal_digits_uint,
+};
+
 /// Return 10^pow
 ///
 /// Try to calculate this with fewest number of allocations
@@ -75,26 +80,6 @@ pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
         *n *= ten_to_the_uint(pow);
     }
 
-}
-
-/// Return number of decimal digits in integer
-pub(crate) fn count_decimal_digits(int: &BigInt) -> u64 {
-    count_decimal_digits_uint(int.magnitude())
-}
-
-/// Return number of decimal digits in unsigned integer
-pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
-    if uint.is_zero() {
-        return 1;
-    }
-    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
-    // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the_uint(digits);
-    while *uint >= num {
-        num *= 10u8;
-        digits += 1;
-    }
-    digits
 }
 
 

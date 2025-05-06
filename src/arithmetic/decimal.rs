@@ -5,6 +5,8 @@
 //!
 #![allow(dead_code)]
 
+use crate::*;
+
 
 /// Shift u32 right by *n* decimal digits
 pub fn dec_shift_right_u32(x: u32, n: usize) -> u32 {
@@ -127,6 +129,31 @@ pub(crate) fn count_digits_u32(n: u32) -> usize {
 pub(crate) fn count_digits_u64(n: u64) -> usize {
     count_digits!(n:u64)
 }
+
+/// Return number of decimal digits in integer
+pub(crate) fn count_decimal_digits_bigint(int: &BigInt) -> u64 {
+    count_decimal_digits_biguint(int.magnitude())
+}
+
+/// Return number of decimal digits in unsigned integer
+pub(crate) fn count_decimal_digits_biguint(uint: &BigUint) -> u64 {
+    if uint.is_zero() {
+        return 1;
+    }
+    if uint.bits() <= 64 {
+        return count_digits_u64(uint.iter_u64_digits().next().unwrap()) as _;
+    }
+
+    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
+    // guess number of digits based on number of bits in UInt
+    let mut num = ten_to_the_uint(digits);
+    while *uint >= num {
+        num *= 10u8;
+        digits += 1;
+    }
+    digits
+}
+
 
 
 #[cfg(test)]
