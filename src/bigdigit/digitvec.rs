@@ -24,6 +24,11 @@ pub(crate) struct DigitVec<R: RadixType, E: Endianness> {
 }
 
 impl<R: RadixType, E: Endianness> DigitVec<R, E> {
+    /// Create new vector
+    pub fn new() -> Self {
+        Self::from_vec(Vec::new())
+    }
+
     /// Number of bigdigits in the vector
     pub fn len(&self) -> usize {
         self.digits.len()
@@ -42,7 +47,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         self.digits.truncate(n);
     }
 
-    fn as_digit_slice(&self) -> DigitSlice<'_, R, E> {
+    pub fn as_digit_slice(&self) -> DigitSlice<'_, R, E> {
         DigitSlice {
             digits: self.digits.as_slice(),
             _radix: self._radix,
