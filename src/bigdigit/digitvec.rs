@@ -152,7 +152,7 @@ impl From<DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
 /// Operations on the bigdigit values are defined by the
 /// radix and endianness traits.
 ///
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct DigitSlice<'a, R: RadixType, E: Endianness> {
     pub digits: &'a [R::Base],
     _radix: PhantomData<R>,
@@ -164,7 +164,7 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
         self.digits.len()
     }
 
-    pub fn from_slice(d: &'a[R::Base]) -> Self {
+    pub fn from_slice(d: &'a [R::Base]) -> Self {
         Self {
             digits: d,
             _radix: PhantomData {},
