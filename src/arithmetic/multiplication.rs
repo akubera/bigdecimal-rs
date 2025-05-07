@@ -3,8 +3,272 @@
 #![allow(dead_code)]
 
 use num_integer::Integer;
-use num_traits::AsPrimitive;
-use crate::stdlib;
+use num_traits::{Zero, ToPrimitive, AsPrimitive};
+
+use crate::{BigDecimal, BigDecimalRef};
+
+use stdlib::num::NonZeroU64;
+
+use crate::WithScale;
+
+use crate::context::Context;
+use crate::rounding::{NonDigitRoundingData, RoundingMode};
+
+use crate::bigdigit::{
+    radix::{RadixType, RADIX_u64, RADIX_10_u8},
+    endian::{Endianness, LittleEndian, BigEndian},
+    digitvec::{DigitVec, DigitSlice},
+};
+
+type BigDigitVec = DigitVec<RADIX_u64, LittleEndian>;
+type BigDigitVecBe = DigitVec<RADIX_u64, BigEndian>;
+type BigDigitSlice<'a> = DigitSlice<'a, RADIX_u64, LittleEndian>;
+
+type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
+
+use crate::LOG2_10;
+
+
+#[derive(Debug)]
+struct ReducedBigDigitVec<'a> {
+    pub v: &'a mut BigDigitVec,
+    pub skipped: usize,
+}
+
+impl<'a> ReducedBigDigitVec<'a> {
+    fn new(v: &'a mut BigDigitVec, skipped: usize) -> Self {
+        // Self::from(BigDigitVec::new())
+        Self { v, skipped }
+    }
+
+    // fn with_capacity(n: usize) -> Self {
+    //     Self::from(BigDigitVec::with_capacity(n))
+    // }
+
+    fn as_biguint(&self) -> BigUint {
+        let p32: Vec<u32> = self.v.digits.iter()
+            .map(|&d| split_u64(d))
+            .map(|(hi, lo)| [lo as u32, hi as u32])
+            .flatten()
+            .collect();
+
+        BigUint::new(p32) << (64 * self.skipped)
+    }
+}
+
+
+// impl From<BigDigitVec> for ReducedBigDigitVec {
+//     fn from(value: BigDigitVec) -> Self {
+//         Self {
+//             v: value,
+//             skipped: 0,
+//         }
+//     }
+// }
+
+
+pub(crate) fn multiply_decimals_with_context<'a, 'b, A, B>(dest: &mut BigDecimal, a: A, b: B, ctx: &Context)
+where
+    A: Into<BigDecimalRef<'a>>,
+    B: Into<BigDecimalRef<'b>>,
+{
+    let a = a.into();
+    let b = b.into();
+
+    if a.is_zero() || b.is_zero() {
+        *dest = BigDecimal::zero();
+        return;
+    }
+
+    let a_uint = a.digits;
+    let b_uint = b.digits;
+
+    let sign = a.sign() * b.sign();
+    let rounding_data = NonDigitRoundingData {
+        sign: sign,
+        mode: ctx.rounding_mode(),
+    };
+
+    let xv: Vec<u64> = a_uint.iter_u64_digits().collect();
+    let yv: Vec<u64> = b_uint.iter_u64_digits().collect();
+
+    let digit_vec = DigitVec::new();
+    let mut digit_vec_scale = WithScale::from((digit_vec, 0));
+
+    multiply_slices_with_prec_into(
+        &mut digit_vec_scale,
+        BigDigitSlice::from_slice(&xv),
+        BigDigitSlice::from_slice(&yv),
+        ctx.precision(),
+        rounding_data
+    );
+
+    let u32_bigdigits = digit_vec_scale.value.digits.into_iter().map(|d| [d as u32, (d>>32) as u32]).flatten().collect();
+    dest.int_val = BigInt::new(sign, u32_bigdigits);
+    dest.scale = a.scale + b.scale + digit_vec_scale.scale;
+}
+
+
+pub(crate) fn multiply_at_idx_into<R: RadixType>(
+    dest: &mut DigitVec<R, LittleEndian>,
+    a: DigitSlice<R, LittleEndian>,
+    b: DigitSlice<R, LittleEndian>,
+    idx: usize,
+) {
+    for (ia, &da) in a.digits.iter().enumerate() {
+        if da.is_zero() {
+            continue;
+        }
+        let mut carry = Zero::zero();
+        for (&db, result) in b.digits.iter().zip(dest.digits.iter_mut().skip(idx + ia)) {
+            R::carrying_mul_add_inplace(da, db, result, &mut carry);
+        }
+        dest.add_value_at(idx + ia + b.len(), carry);
+    }
+}
+
+
+pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) -> WithScale<BigInt> {
+    let sign = a.sign() * b.sign();
+    // Rounding prec: usize
+    let rounding_data = NonDigitRoundingData {
+        sign: sign,
+        mode: ctx.rounding_mode(),
+    };
+
+    let xv: Vec<u64> = a.iter_u64_digits().collect();
+    let yv: Vec<u64> = b.iter_u64_digits().collect();
+
+    let mut digit_vec_scale = WithScale::default();
+    multiply_slices_with_prec_into(
+        &mut digit_vec_scale,
+        BigDigitSlice::from_slice(&xv),
+        BigDigitSlice::from_slice(&yv),
+        ctx.precision(),
+        rounding_data
+    );
+    digit_vec_scale.scale *= -1;
+    (sign, digit_vec_scale).into()
+}
+
+// pub(crate) fn multiply_with_prec(
+//     non_digit_data: NonDigitRoundingData,
+//     a: BigDigitSlice,
+//     b: BigDigitSlice,
+//     prec: usize,
+// ) {
+//     multiply_big_int_with_ctx
+// }
+
+
+/// optimized calculation of n % 10
+fn mod_ten_uint(n: &BigUint) -> u8 {
+    let mut digits = n.iter_u64_digits();
+    let d0 = digits.next().unwrap_or(0) % 10;
+    let mut acc: u64 = digits.map(|d| d % 10).sum();
+    acc *= 6;
+    acc += d0;
+    (acc % 10) as u8
+}
+
+/// optimized calculation of n % 100
+/// TODO: compare implementations: https://rust.godbolt.org/z/Kcxor1MT5
+fn mod_hundred_uint(n: &BigUint) -> u8 {
+    let mut digits = n.iter_u64_digits();
+
+    let mods_2p64 = [16, 56, 96, 36, 76];
+    let mut acc_v = [ 0,  0,  0,  0,  0];
+    let d0 = digits.next().unwrap_or(0) % 100;
+
+    for (i, d) in digits.enumerate() {
+        acc_v[i % 5] += d % 100;
+    }
+
+    let mut acc = d0;
+    for (&a, m) in acc_v.iter().zip(mods_2p64.iter()) {
+        acc += m * (a % 100);
+    }
+    (acc % 100) as u8
+}
+
+
+
+/// Store `a * b` into dest, to limited precision
+pub(crate) fn multiply_slices_with_prec_into(
+    dest: &mut WithScale<BigDigitVec>,
+    a: BigDigitSlice,
+    b: BigDigitSlice,
+    prec: NonZeroU64,
+    rounding: NonDigitRoundingData
+) {
+    if a.len() < b.len() {
+        // ensure a is the longer of the two digit slices
+        return multiply_slices_with_prec_into(dest, b, a, prec, rounding);
+    }
+    debug_assert_ne!(a.len(), 0);
+    debug_assert_ne!(b.len(), 0);
+
+    // expand 'result' into separate variables
+    let WithScale { value: dest, scale: trimmed_digits } = dest;
+
+    // we need at least this many bigdigits to resolve 'prec' base-10 digits
+    let min_bit_count = prec.get() as f64 * LOG2_10;
+    let min_bigdigit_count = (min_bit_count / 64.0).ceil() as usize;
+
+    // require two extra big digits, for carry safety/rounding
+    let requested_bigdigit_count = min_bigdigit_count + 2;
+
+    // maximum number of big-digits in the output
+    let product_bigdigit_count = a.len() + b.len();
+
+    let a_start;
+    let b_start;
+    let bigdigits_to_trim = product_bigdigit_count.saturating_sub(requested_bigdigit_count);
+    if bigdigits_to_trim == 0 {
+        // we've requested more digits than we have, use the whole thing
+        a_start = 0;
+        b_start = 0;
+    } else {
+        // product has fewer digits than the result requires: skip some
+        // the least significant bigdigits in a and b
+        a_start = bigdigits_to_trim.saturating_sub(b.len() - 1);
+        b_start = b.len().saturating_sub(requested_bigdigit_count);
+    };
+
+    // only multiply the relevant significant digits
+    let a_sig = a.trim_insignificant(a_start);
+    let b_sig = b.trim_insignificant(b_start);
+    debug_assert_ne!(a_sig.len(), 0);
+    debug_assert_ne!(b_sig.len(), 0);
+
+    // fill dest with as many zeros as we will need
+    dest.clear();
+    dest.resize(a_sig.len() + b_sig.len());
+
+    // perform dest = a_sig * b_sig
+    multiply_at_idx_into(dest, a_sig, b_sig, 0);
+
+    // number of ignorable bigdigits in dest
+    let dest_insig_count = dest.len().saturating_sub(requested_bigdigit_count);
+
+    // TODO: don't rely on bigint to do the shifting
+    let unshifted_biguint = dest.as_biguint();
+    let int = unshifted_biguint << (64 * (bigdigits_to_trim - dest_insig_count));
+
+    // split shifted integer into base-10 digits
+    let mut int_digits = SmallDigitVec::from_biguint(&int);
+
+    // round the shifted digits
+    let (rounded_int_digits, trimmed_digit_count) = int_digits.round_at_prec_inplace(prec, rounding);
+    debug_assert!(
+        rounded_int_digits.len() == prec.get() as usize
+        || (trimmed_digit_count == 0 && rounded_int_digits.len() < prec.get() as usize));
+
+    // fill dest with rounded digits
+    rounded_int_digits.fill_vec_u64(dest);
+    *trimmed_digits -= trimmed_digit_count as i64;
+}
+
 
 /// split u64 into high and low bits
 fn split_u64(x: u64) -> (u64, u64) {
