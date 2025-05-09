@@ -2,6 +2,7 @@
 //!
 #![allow(dead_code)]
 
+use num_bigint::{Sign, BigInt, BigUint};
 use num_integer::Integer;
 use num_traits::{Zero, ToPrimitive, AsPrimitive};
 
@@ -29,48 +30,15 @@ type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
 use crate::LOG2_10;
 
 
-#[derive(Debug)]
-struct ReducedBigDigitVec<'a> {
-    pub v: &'a mut BigDigitVec,
-    pub skipped: usize,
-}
-
-impl<'a> ReducedBigDigitVec<'a> {
-    fn new(v: &'a mut BigDigitVec, skipped: usize) -> Self {
-        // Self::from(BigDigitVec::new())
-        Self { v, skipped }
-    }
-
-    // fn with_capacity(n: usize) -> Self {
-    //     Self::from(BigDigitVec::with_capacity(n))
-    // }
-
-    fn as_biguint(&self) -> BigUint {
-        let p32: Vec<u32> = self.v.digits.iter()
-            .map(|&d| split_u64(d))
-            .map(|(hi, lo)| [lo as u32, hi as u32])
-            .flatten()
-            .collect();
-
-        BigUint::new(p32) << (64 * self.skipped)
-    }
-}
-
-
-// impl From<BigDigitVec> for ReducedBigDigitVec {
-//     fn from(value: BigDigitVec) -> Self {
-//         Self {
-//             v: value,
-//             skipped: 0,
-//         }
-//     }
-// }
-
-
-pub(crate) fn multiply_decimals_with_context<'a, 'b, A, B>(dest: &mut BigDecimal, a: A, b: B, ctx: &Context)
+pub(crate) fn multiply_decimals_with_context<'a, A, B>(
+    dest: &mut BigDecimal,
+    a: A,
+    b: B,
+    ctx: &Context,
+)
 where
     A: Into<BigDecimalRef<'a>>,
-    B: Into<BigDecimalRef<'b>>,
+    B: Into<BigDecimalRef<'a>>,
 {
     let a = a.into();
     let b = b.into();
@@ -80,31 +48,30 @@ where
         return;
     }
 
-    let a_uint = a.digits;
-    let b_uint = b.digits;
-
     let sign = a.sign() * b.sign();
     let rounding_data = NonDigitRoundingData {
         sign: sign,
         mode: ctx.rounding_mode(),
     };
 
-    let xv: Vec<u64> = a_uint.iter_u64_digits().collect();
-    let yv: Vec<u64> = b_uint.iter_u64_digits().collect();
+    let a_uint = a.digits;
+    let b_uint = b.digits;
 
-    let digit_vec = DigitVec::new();
+    let a_vec = BigDigitVec::from(a_uint);
+    let b_vec = BigDigitVec::from(b_uint);
+
+    let digit_vec = BigDigitVec::new();
     let mut digit_vec_scale = WithScale::from((digit_vec, 0));
 
     multiply_slices_with_prec_into(
         &mut digit_vec_scale,
-        BigDigitSlice::from_slice(&xv),
-        BigDigitSlice::from_slice(&yv),
+        a_vec.as_digit_slice(),
+        b_vec.as_digit_slice(),
         ctx.precision(),
         rounding_data
     );
 
-    let u32_bigdigits = digit_vec_scale.value.digits.into_iter().map(|d| [d as u32, (d>>32) as u32]).flatten().collect();
-    dest.int_val = BigInt::new(sign, u32_bigdigits);
+    dest.int_val = BigInt::from_biguint(sign, digit_vec_scale.value.into());
     dest.scale = a.scale + b.scale + digit_vec_scale.scale;
 }
 
