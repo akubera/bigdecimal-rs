@@ -103,61 +103,23 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
         mode: ctx.rounding_mode(),
     };
 
-    let xv: Vec<u64> = a.iter_u64_digits().collect();
-    let yv: Vec<u64> = b.iter_u64_digits().collect();
+    let a_vec: BigDigitVec = a.magnitude().into();
+    let b_vec: BigDigitVec = b.magnitude().into();
 
     let mut digit_vec_scale = WithScale::default();
     multiply_slices_with_prec_into(
         &mut digit_vec_scale,
-        BigDigitSlice::from_slice(&xv),
-        BigDigitSlice::from_slice(&yv),
+        a_vec.as_digit_slice(),
+        b_vec.as_digit_slice(),
         ctx.precision(),
         rounding_data
     );
-    digit_vec_scale.scale *= -1;
-    (sign, digit_vec_scale).into()
-}
 
-// pub(crate) fn multiply_with_prec(
-//     non_digit_data: NonDigitRoundingData,
-//     a: BigDigitSlice,
-//     b: BigDigitSlice,
-//     prec: usize,
-// ) {
-//     multiply_big_int_with_ctx
-// }
-
-
-/// optimized calculation of n % 10
-fn mod_ten_uint(n: &BigUint) -> u8 {
-    let mut digits = n.iter_u64_digits();
-    let d0 = digits.next().unwrap_or(0) % 10;
-    let mut acc: u64 = digits.map(|d| d % 10).sum();
-    acc *= 6;
-    acc += d0;
-    (acc % 10) as u8
-}
-
-/// optimized calculation of n % 100
-/// TODO: compare implementations: https://rust.godbolt.org/z/Kcxor1MT5
-fn mod_hundred_uint(n: &BigUint) -> u8 {
-    let mut digits = n.iter_u64_digits();
-
-    let mods_2p64 = [16, 56, 96, 36, 76];
-    let mut acc_v = [ 0,  0,  0,  0,  0];
-    let d0 = digits.next().unwrap_or(0) % 100;
-
-    for (i, d) in digits.enumerate() {
-        acc_v[i % 5] += d % 100;
+    WithScale {
+        scale: -digit_vec_scale.scale,
+        value: digit_vec_scale.value.into_bigint(sign),
     }
-
-    let mut acc = d0;
-    for (&a, m) in acc_v.iter().zip(mods_2p64.iter()) {
-        acc += m * (a % 100);
-    }
-    (acc % 100) as u8
 }
-
 
 
 /// Store `a * b` into dest, to limited precision
