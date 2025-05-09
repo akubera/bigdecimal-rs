@@ -181,11 +181,11 @@ pub(crate) fn multiply_slices_with_prec_into(
     let dest_insig_count = dest.len().saturating_sub(requested_bigdigit_count);
 
     // TODO: don't rely on bigint to do the shifting
-    let unshifted_biguint = dest.as_biguint();
-    let int = unshifted_biguint << (64 * (bigdigits_to_trim - dest_insig_count));
+    let mut int = BigUint::from(&*dest);
+    int <<= (bigdigits_to_trim - dest_insig_count) * 64;
 
     // split shifted integer into base-10 digits
-    let mut int_digits = SmallDigitVec::from_biguint(&int);
+    let mut int_digits = SmallDigitVec::from(&int);
 
     // round the shifted digits
     let (rounded_int_digits, trimmed_digit_count) = int_digits.round_at_prec_inplace(prec, rounding);
