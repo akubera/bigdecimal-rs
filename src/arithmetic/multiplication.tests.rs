@@ -9,7 +9,7 @@ mod multiply_big_int_with_ctx {
             fn case_full() {
                 let (x, y) = test_input();
                 let product = &x * &y;
-                let expected = $expected.parse().unwrap();
+                let expected: BigInt = $expected.parse().unwrap();
 
                 assert_eq!(&expected, &product);
             }
