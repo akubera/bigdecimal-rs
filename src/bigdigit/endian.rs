@@ -36,6 +36,11 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
 
     /// Place given digit at the most-significant end of the vecor
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D);
+
+    /// Split slice into most-significant digit and 'the rest'
+    ///
+    /// If slice is empty zero and empty-slice is returned
+    fn split_most_significant_digit<D: Zero + PrimInt>(digits: &[D]) -> (D, &[D]);
 }
 
 /// Empty struct indicating most-significant bigdigit first
@@ -86,6 +91,10 @@ impl Endianness for BigEndian {
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
         digits.insert(0, d);
     }
+
+    fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
+        digits.split_first().map(|(&d, r)| (d, r)).unwrap_or((Zero::zero(), &[]))
+    }
 }
 
 
@@ -128,6 +137,10 @@ impl Endianness for LittleEndian {
 
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
         digits.push(d);
+    }
+
+    fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
+        digits.split_last().map(|(&d, r)| (d, r)).unwrap_or((Zero::zero(), &[]))
     }
 }
 
