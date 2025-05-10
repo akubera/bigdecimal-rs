@@ -138,6 +138,17 @@ impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
 impl From<DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     fn from(v: DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
+                        .into_iter()
+                        .map(|d| [d as u32, (d >> 32) as u32])
+                        .flatten()
+                        .collect();
+        Self::new(digits)
+    }
+}
+
+impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
+    fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
+        let digits = v.digits
                         .iter()
                         .map(|&d| [d as u32, (d >> 32) as u32])
                         .flatten().collect();
@@ -188,6 +199,13 @@ impl DigitVec<RADIX_10_u8, LittleEndian> {
 
         debug_assert_eq!(prec.get() as usize, sig_digits.len());
         return (DigitSlice::from_slice(sig_digits), trimmed);
+    }
+}
+
+/// Convert BigUint to base-10 digits
+impl From<&num_bigint::BigUint> for DigitVec<RADIX_10_u8, LittleEndian> {
+    fn from(n: &num_bigint::BigUint) -> Self {
+        Self::from_vec(n.to_radix_le(10))
     }
 }
 
