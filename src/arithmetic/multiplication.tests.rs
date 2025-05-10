@@ -1,7 +1,89 @@
-use num_bigint::{BigUint, BigInt};
+use paste::paste;
 
 mod multiply_big_int_with_ctx {
     use super::*;
+
+    macro_rules! impl_case {
+        (full => $expected:literal) => {
+            #[test]
+            fn case_full() {
+                let (x, y) = test_input();
+                let product = &x * &y;
+                let expected = $expected.parse().unwrap();
+
+                assert_eq!(&expected, &product);
+            }
+        };
+        ($prec:literal => $expected:literal E $exp:literal) => {
+            paste! {
+                #[test]
+                fn [< case_prec $prec >] () {
+                    impl_case!(
+                        IMPL;
+                        ctx=Context::default().with_prec($prec);
+                        $expected;
+                        $exp
+                    );
+                }
+            }
+        };
+        ($prec:literal, $mode:ident => $expected:literal E $exp:literal) => {
+            paste! {
+                #[test]
+                fn [< case_prec $prec _ $mode:lower >]() {
+                    impl_case!(
+                        IMPL;
+                        ctx=Context::default().with_rounding_mode(RoundingMode::$mode).with_prec($prec);
+                        $expected;
+                        $exp
+                    );
+                }
+            }
+        };
+        (IMPL; ctx=$ctx:expr; $expected:literal; $exp:literal) => {
+            let (x, y) = test_input();
+            let ctx = $ctx.unwrap();
+            let product = multiply_big_int_with_ctx(&x, &y, ctx);
+
+            let expected: BigInt = $expected.parse().unwrap();
+            let exp = $exp;
+
+            assert_eq!(&expected, &product.value);
+            assert_eq!(&exp, &product.scale);
+        };
+    }
+
+    mod mulz_stuff {
+        use super::*;
+
+        fn test_input() -> (BigInt, BigInt) {
+            let x: BigInt = "1155226260781990200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".parse().unwrap();
+            let y: BigInt = "7500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".parse().unwrap();
+            (x, y)
+        }
+
+        impl_case!(20 => "86641969558649265000" E 290);
+        impl_case!(16, HalfUp   => "8664196955864927" E 290);
+        impl_case!(16, HalfDown => "8664196955864926" E 290);
+        impl_case!(15, Down     => "866419695586493" E 290);
+        impl_case!( 3, HalfUp   => "866" E 307);
+    }
+
+    mod mul_stuff {
+        use super::*;
+
+        fn test_input() -> (BigInt, BigInt) {
+            let x: BigInt = "230134622236549555995211986626222699902919552403311068655782487235360869740373750138395520899795192776856789295000000".parse().unwrap();
+            let y: BigInt = "14293213600958985303333846898378944669728091790434135672846064625014252175269303162751477769546102012233954333273726511104485055758813349716438744379331517132722718015116165694607959258435272025702738339275667597501313358033107443840555382841970678973851997248262639615206455939322314712306500000000000000000000000000000000".parse().unwrap();
+            (x, y)
+        }
+
+        impl_case!(20 => "32893633126030082513" E 419);
+        impl_case!(401 => "32893633126030082513378632456028104243338158146601751534822570641115861940893690474203736021657204584394456560452273117013862292944834269220913901434456366640765512794407601501204644375698772310462659595240672712968083946415944676232524453019368460583076233422452053267394081654933088569072574309446551869537537085955808336137944176420693881753901339121561334586231165213326029020686758979692139589175" E 38);
+        impl_case!(400, HalfUp => "3289363312603008251337863245602810424333815814660175153482257064111586194089369047420373602165720458439445656045227311701386229294483426922091390143445636664076551279440760150120464437569877231046265959524067271296808394641594467623252445301936846058307623342245205326739408165493308856907257430944655186953753708595580833613794417642069388175390133912156133458623116521332602902068675897969213958918" E 39);
+        impl_case!(400, HalfDown => "3289363312603008251337863245602810424333815814660175153482257064111586194089369047420373602165720458439445656045227311701386229294483426922091390143445636664076551279440760150120464437569877231046265959524067271296808394641594467623252445301936846058307623342245205326739408165493308856907257430944655186953753708595580833613794417642069388175390133912156133458623116521332602902068675897969213958917" E 39);
+
+    }
 
     // test (2^5000-1) * (2^1500-1)
     mod mul_2p5000m1_2p1501m1 {
@@ -13,34 +95,12 @@ mod multiply_big_int_with_ctx {
             (x, y)
         }
 
-        #[test]
-        fn case_prec20() {
-            let (x, y) = test_input();
-            let ctx = Context::default().with_prec(20).unwrap();
-            let product = multiply_big_int_with_ctx(&x, &y, ctx);
-
-            let expected: BigInt = "49541803894417944073".parse().unwrap();
-            let exp = 1937;
-
-            assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
-        }
-
-        #[test]
-        fn case_prec100() {
-            let (x, y) = test_input();
-            let ctx = Context::default().with_prec(100).unwrap();
-            let product = multiply_big_int_with_ctx(&x, &y, ctx);
-
-            let expected: BigInt = "4954180389441794407302644533158844937036173071799942385207702899881096950794929284226174201155309760".parse().unwrap();
-            let exp = 1857;
-
-            assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
-        }
+        impl_case!(100 => "4954180389441794407302644533158844937036173071799942385207702899881096950794929284226174201155309760" E 1857);
+        impl_case!(70  => "4954180389441794407302644533158844937036173071799942385207702899881097" E 1887);
+        impl_case!(20  => "49541803894417944073" E 1937);
     }
 
-    mod multiply_big_int_with_ctx {
+    mod multiply_313313e185_140912e85 {
         use super::*;
 
         fn test_input() -> (BigInt, BigInt) {
@@ -49,218 +109,86 @@ mod multiply_big_int_with_ctx {
             (x, y)
         }
 
-        #[test]
-        fn case_full_precision() {
-            let (x, y) = test_input();
-            let p = x * y;
-            let expected: BigInt = "44149773437063254678149469396251230458443452710019771114377331920312228495036605502543146558201981056772851870606187717471634519393139631393769297684773531284154562671396651882745113413784696354015721073630190690162770887707923095632780007819514677121000367593109419444597479155961".parse().unwrap();
-            assert_eq!(expected, p);
-        }
-
-        #[test]
-        fn case_prec100() {
-            let (x, y) = test_input();
-            let expected: BigInt = "4414977343706325467814946939625123045844345271001977111437733192031222849503660550254314655820198106".parse().unwrap();
-            let exp = 181;
-
-            // let x = [
-            //     14731519223619563738,
-            //     2405657302403958407,
-            //     10725034070426109052,
-            //     12618659131331217150,
-            //     17515250887032402398,
-            //     2066,
-            // ];
-
-            let ctx = Context::default().with_prec(100).unwrap();
-            let product = multiply_big_int_with_ctx(&x, &y, ctx);
-
-            assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
-        }
-
-        #[test]
-        fn case_prec50() {
-            let (x, y) = test_input();
-            let expected: BigInt =
-                "44149773437063254678149469396251230458443452710020".parse().unwrap();
-            let exp = 231;
-
-            let ctx = Context::default().with_prec(50).unwrap();
-            let product = multiply_big_int_with_ctx(&x, &y, ctx);
-
-            assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
-
-            // let zz = [
-            //     0,
-            //     0,
-            //     0,
-            //     385227092930854912,
-            //     7532158039382434494,
-            //     9844605054510536212,
-            //     16088462575472628634,
-            //     1434294631195542896,
-            //     17151985756858815671,
-            //     17565837050785020630,
-            //     15636533030619248522,
-            //     17260383999288194180,
-            //     1022303687606097677,
-            //     10639567590217968514,
-            //     83570377573
-            // ];
-            // dbg!(zz);
-        }
-        #[test]
-        fn case_prec21() {
-            let (x, y) = test_input();
-            let expected: BigInt = "441497734370632546781".parse().unwrap();
-            let exp = 260;
-
-            let ctx = Context::default().with_prec(21).unwrap();
-            let product = multiply_big_int_with_ctx(&x, &y, ctx);
-
-            // let ee = [17222620675312859613, 23];
-
-            assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
-        }
+        impl_case!(full => "44149773437063254678149469396251230458443452710019771114377331920312228495036605502543146558201981056772851870606187717471634519393139631393769297684773531284154562671396651882745113413784696354015721073630190690162770887707923095632780007819514677121000367593109419444597479155961");
+        impl_case!(100  => "4414977343706325467814946939625123045844345271001977111437733192031222849503660550254314655820198106" E 181);
+        impl_case!(50  => "44149773437063254678149469396251230458443452710020" E 231);
+        impl_case!(21  => "441497734370632546781" E 260);
     }
 }
 
-// #[test]
-// fn multiply_stuff() {
-//     let x: BigInt = "31331330514777647459696918012218766637269396231379435058341584170846149718531941093035596483272466942484919002494751588025494203950111183556196762802239021663296916615390846043521157975900649".parse().unwrap();
-//     let y: BigInt = "1409125393389843319552855599302577071349036214812589000980540875883362915766473073232671889".parse().unwrap();
-//     // let xv: Vec<u64> = x.iter_u64_digits().collect();
-//     // let yv: Vec<u64> = y.iter_u64_digits().collect();
-//     let expected: BigInt = "4414977343706325467814946939625123045844345271001977111437733192031222849503660550254314655820198106".parse().unwrap();
 
-//     let ctx = Context::default().with_prec(50).unwrap();
-//     let product = multiply_big_int_with_ctx(x, y, ctx);
-
-//     assert_eq!(&expected, &product.value);
-
-//     // let mut p = BigDigitVec::new();
-//     // multiply_with_prec_into(
-//     //     &mut p,
-//     //     BigDigitSlice::from_slice(&xv),
-//     //     BigDigitSlice::from_slice(&yv),
-//     //     // 230
-//     //     100
-//     // );
-//     // assert_eq!(&expected, &value);
-//     // dbg!();
-//     // // 4414977343706325467814946939625123045844345271001977111437733192031222849503660550254314655820198106
-//     // let expected = [
-//     //     // 14162501339517004025,
-//     //     // 17904384892821476550,
-//     //     // 15126569004981673977,
-//     //     // 10405836664442004247,
-//     //     //  2675685814645510795,
-//     //     // 12436132728874226750,
-//     //     // 15914516659996520248,
-//     //     // 16906384975365281894,
-//     //     //  4815920382763188498,
-//     //     //  8969876167025813160,
-//     //     16769938138519858112,
-//     //     14540805706160053231,
-//     //      1022303687606097677,
-//     //     10639567590217968514,
-//     //              83570377573,
-//     // ];
-
-//     // // let fromj
-//     // assert_eq!(&p.digits, &expected);
-// }
-
-/// multiply_quad_spread_into
-///
-pub(crate) fn multiply_quad_spread_into_wrapping(
-    dest: &mut [u32],
-    idx: usize,
-    a: u32,
-    b: u32,
-    y: u32,
-    z: u32,
-) {
-    let ay = a as u64 * y as u64;
-    let az = a as u64 * z as u64;
-
-    let by = b as u64 * y as u64;
-    let bz = b as u64 * z as u64;
-
-    let (ayh, ayl) = split_u64(ay);
-    let (azh, azl) = split_u64(az);
-    let (byh, byl) = split_u64(by);
-    let (bzh, bzl) = split_u64(bz);
-
-    let wrap = dest.len();
-    let mut idx = idx % wrap;
-
-    let (carry, r0) = split_u64(dest[idx] as u64 + ayl * 2);
-    dest[idx] = r0 as u32;
-
-    idx = (idx + 1) % wrap;
-    let (carry, r1) = split_u64(dest[idx] as u64 + carry + (ayh + azl + byl) * 2);
-    dest[idx] = r1 as u32;
-
-    idx = (idx + 1) % wrap;
-    let (carry, r2) = split_u64(dest[idx] as u64 + carry + (azh + byh + bzl) * 2);
-    dest[idx] = r2 as u32;
-
-    idx = (idx + 1) % wrap;
-    let (mut carry, r3) = split_u64(dest[idx] as u64 + carry + bzh * 2);
-    dest[idx] = r3 as u32;
-
-    while carry != 0 {
-        idx = (idx + 1) % wrap;
-        let (c, overflow) = split_u64(dest[idx] as u64 + carry);
-        dest[idx] = overflow as u32;
-        carry = c as u64;
-    }
-}
-
-#[cfg(test)]
 mod test_multiply_quad_spread_into {
     use super::*;
 
-    #[test]
-    fn case_25597123371_684026673_1163340730_1823138616() {
-        let a = 2559712337;
-        let b = 684026673;
-        let y = 1163340730;
-        let z = 1823138616;
-
-        let mut result = vec![0; 8];
-
-        multiply_quad_spread_into(&mut result, 2, a, b, y, z);
-        assert_eq!(&result, &[0, 0, 3001179060, 4203670869, 1059648540, 580714756, 0, 0]);
+    macro_rules! impl_case {
+        ( wrapping: $($toks:tt)* ) => {
+            impl_case!(multiply_quad_spread_into_wrapping; $($toks)*);
+        };
+        (
+            $func:ident;
+            $s:literal @ $n:literal,
+            [ $a:literal, $b:literal, $y:literal, $z:literal] => $expected:expr
+        ) => {
+            paste!{
+                #[test]
+                fn [< case_ $n _ $a _ $b _ $y _ $z >]() {
+                    let mut result = vec![0; $s];
+                    $func(&mut result, $n, $a, $b, $y, $z);
+                    let expected = &$expected;
+                    assert_eq!(expected, result.as_slice());
+                }
+            }
+        };
+        ( $($toks:tt)* ) => {
+            impl_case!(multiply_quad_spread_into; $($toks)*);
+        };
     }
 
-    #[test]
-    fn case_25597123371_684026673_1163340730_1823138616_wrapping() {
-        let a = 2559712337;
-        let b = 684026673;
-        let y = 1163340730;
-        let z = 1823138616;
+    impl_case!(
+        8 @ 2,
+        [2559712337, 684026673, 1163340730, 1823138616]
+         => [0u32, 0, 3001179060, 4203670869, 1059648540, 580714756, 0, 0]);
 
-        let mut result = vec![0; 8];
+    impl_case!(
+        6 @ 1,
+        [4294967295, 4294967295, 4294967295, 4294967295]
+         => [0u32, 2, 0, 4294967292, 4294967295, 1]);
 
-        multiply_quad_spread_into_wrapping(&mut result, 6, a, b, y, z);
-        assert_eq!(&result, &[1059648540, 580714756, 0, 0, 0, 0, 3001179060, 4203670869]);
+    impl_case!(
+        wrapping: 8 @ 6,
+        [2559712337, 684026673, 1163340730, 1823138616]
+         => [1059648540u32, 580714756, 0, 0, 0, 0, 3001179060, 4203670869]);
+}
+
+
+#[cfg(proptests)]
+mod props {
+    use super::*;
+    use proptest::*;
+    use proptest::num::f64::*;
+    use num_traits::FromPrimitive;
+
+    fn random_f64() -> Any {
+        NORMAL | SUBNORMAL | ZERO | NEGATIVE
     }
 
-    #[test]
-    fn case_4294967296() {
-        let a = 4294967295;
-        let b = 4294967295;
-        let y = 4294967295;
-        let z = 4294967295;
+    proptest! {
+        #[test]
+        fn test_multiply_decimals_with_context(a in random_f64(), b in random_f64(), prec in 1..6000u64) {
+            let prec = NonZeroU64::new(prec).unwrap();
+            let a: BigDecimal = BigDecimal::from_f64(a).unwrap();
+            let b: BigDecimal = BigDecimal::from_f64(b).unwrap();
 
-        let mut result = vec![0; 6];
+            let a_times_b = &a * &b;
 
-        multiply_quad_spread_into(&mut result, 1, a, b, y, z);
-        assert_eq!(&result, &[0, 2, 0, 4294967292, 4294967295, 1]);
+            let mode = RoundingMode::HalfDown;
+            let a_times_b_down = a_times_b.with_precision_round(prec, mode);
+
+            let mut dest = BigDecimal::default();
+            let ctx = Context::new(prec, mode);
+            super::multiply_decimals_with_context(&mut dest, &a, &b, &ctx);
+
+            prop_assert_eq!(a_times_b_down, dest)
+        }
     }
 }
