@@ -3,9 +3,12 @@
 use crate::*;
 
 use stdlib::marker::PhantomData;
+use stdlib::num::NonZeroU64;
 
 use super::radix::*;
 use super::endian::*;
+
+use crate::rounding::NonDigitRoundingData;
 
 
 /// Vector of integers, interpreted as bigdigits in an integer
@@ -410,6 +413,53 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, Littl
 impl From<&num_bigint::BigUint> for DigitVec<RADIX_10_u8, LittleEndian> {
     fn from(n: &num_bigint::BigUint) -> Self {
         Self::from_vec(n.to_radix_le(10))
+    }
+}
+
+/// Vector of base-10 digits
+impl DigitVec<RADIX_10_u8, LittleEndian> {
+
+    /// Round the digits in this vec, returning slice of the digits
+    ///
+    /// Note: this changes the value of 'self', and should be considered as
+    /// just a buffer of bytes after rounding in place.
+    ///
+    pub fn round_at_prec_inplace(
+        &mut self,
+        prec: NonZeroU64,
+        rounding: NonDigitRoundingData,
+    ) -> (DigitSlice<'_, RADIX_10_u8, LittleEndian>, usize) {
+        // count number of insignificant digits to remove
+        let mut trimmed = self.digits.len().saturating_sub(prec.get() as usize);
+        if trimmed == 0 {
+            return (DigitSlice::from_slice(&self.digits), 0);
+        }
+
+        let (insig_digits, sig_digits) = self.digits.split_at_mut(trimmed);
+        debug_assert_eq!(trimmed, insig_digits.len());
+
+        let (&insig_digit, insig_digits) = insig_digits.split_last().unwrap_or((&0, &[]));
+        let trailing_zeros = insig_digits.iter().all(|&d| d == 0);
+        let round = rounding.round_pair((sig_digits[0], insig_digit), trailing_zeros);
+
+        if round != 10 {
+            sig_digits[0] = round;
+        } else {
+            match sig_digits.iter().position(|&d| d != 9) {
+                Some(idx) => {
+                    sig_digits[idx] += 1;
+                    sig_digits[..idx].fill(0);
+                }
+                None => {
+                    sig_digits.fill(0);
+                    *sig_digits.last_mut().unwrap() = 1;
+                    trimmed += 1;
+                }
+            }
+        }
+
+        debug_assert_eq!(prec.get() as usize, sig_digits.len());
+        return (DigitSlice::from_slice(sig_digits), trimmed);
     }
 }
 
