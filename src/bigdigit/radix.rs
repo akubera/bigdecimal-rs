@@ -153,7 +153,7 @@ pub struct RADIX_u32;
 pub struct RADIX_u64;
 
 
-trait RadixPowerOfTen {
+pub(crate) trait RadixPowerOfTen {
     const DIGITS: usize;
 }
 
