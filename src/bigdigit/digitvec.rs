@@ -184,15 +184,10 @@ impl<R: RadixType> DigitVec<R, BigEndian> {
 }
 
 impl DigitVec<RADIX_u64, LittleEndian> {
-    pub fn from_biguint(n: &num_bigint::BigUint) -> Self {
-        Self::from_vec(n.iter_u64_digits().collect())
+    /// Convert to signed big integer
+    pub fn into_bigint(self, sign: Sign) -> BigInt {
+        BigInt::from_biguint(sign, self.into())
     }
-
-    // construct from trusted vector
-    pub fn from_bigint(n: &num_bigint::BigInt) -> Self {
-        Self::from_biguint(n.magnitude())
-    }
-
 }
 
 impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
@@ -410,6 +405,14 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, Littl
         }
     }
 }
+
+/// Convert BigUint to base-10 digits
+impl From<&num_bigint::BigUint> for DigitVec<RADIX_10_u8, LittleEndian> {
+    fn from(n: &num_bigint::BigUint) -> Self {
+        Self::from_vec(n.to_radix_le(10))
+    }
+}
+
 
 /// Immutable slice of digits
 ///

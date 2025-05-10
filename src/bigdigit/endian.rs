@@ -98,6 +98,12 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// This will be a no-op for LittleEndian, and a rotate and reverse for BigEndian
     ///
     fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize);
+
+    /// Extract digits in correct order from bigiuint
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8>;
+
+    /// Build BigUint from base-10 digits in slice
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint>;
 }
 
 
@@ -206,6 +212,14 @@ impl Endianness for BigEndian {
         Self::reorder_le_digits(&mut digits[idx..]);
         digits.rotate_left(idx);
     }
+
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8> {
+        n.to_radix_be(10)
+    }
+
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
+        num_bigint::BigUint::from_radix_be(n, 10)
+    }
 }
 
 
@@ -303,6 +317,14 @@ impl Endianness for LittleEndian {
     #[allow(unused_variables)]
     fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize) {
         //no-op
+    }
+
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8> {
+        n.to_radix_le(10)
+    }
+
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
+        num_bigint::BigUint::from_radix_le(n, 10)
     }
 }
 
