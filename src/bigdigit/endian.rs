@@ -17,6 +17,12 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
 
     /// Place given digit at the most-significant end of the vecor
     fn split_most_significant_digit<D: Zero + PrimInt>(digits: &[D]) -> (D, &[D]);
+
+    /// Extract digits in correct order from bigiuint
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8>;
+
+    /// Extract digits in correct order from bigiuint
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint>;
 }
 
 
@@ -46,6 +52,14 @@ impl Endianness for BigEndian {
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
         digits.split_first().map(|(&d, r)| (d, r)).unwrap_or((num_traits::Zero::zero(), &[]))
     }
+
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8> {
+        n.to_radix_be(10)
+    }
+
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
+        num_bigint::BigUint::from_radix_be(n, 10)
+    }
 }
 
 
@@ -64,5 +78,13 @@ impl Endianness for LittleEndian {
 
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
         digits.split_last().map(|(&d, r)| (d, r)).unwrap_or((num_traits::Zero::zero(), &[]))
+    }
+
+    fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8> {
+        n.to_radix_le(10)
+    }
+
+    fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
+        num_bigint::BigUint::from_radix_le(n, 10)
     }
 }

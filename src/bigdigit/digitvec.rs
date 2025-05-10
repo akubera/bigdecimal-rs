@@ -118,15 +118,10 @@ impl<R: RadixType> DigitVec<R, BigEndian> {
 }
 
 impl DigitVec<RADIX_u64, LittleEndian> {
-    pub fn from_biguint(n: &num_bigint::BigUint) -> Self {
-        Self::from_vec(n.iter_u64_digits().collect())
+    /// Convert to signed big integer
+    pub fn into_bigint(self, sign: Sign) -> BigInt {
+        BigInt::from_biguint(sign, self.into())
     }
-
-    // construct from trusted vector
-    pub fn from_bigint(n: &num_bigint::BigInt) -> Self {
-        Self::from_biguint(n.magnitude())
-    }
-
 }
 
 impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
@@ -271,5 +266,25 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
 
     pub fn from_vec_offset(v: &'a mut DigitVec<R, E>, offset: usize) -> Self {
         Self::from_slice(&mut v.digits[offset..])
+    }
+}
+
+impl<'a, R: RadixPowerOfTen, E: Endianness> DigitSlice<'a, R, E> {
+    fn count_decimal_digits(&self) -> usize {
+        let (top_digit, trailing) = E::split_most_significant_digit(self.digits);
+            R::DIGITS * trailing.len() + crate::arithmetic::decimal::count_digits_u64(top_digit.to_u64().unwrap())
+    }
+}
+
+impl<'a> DigitSlice<'a, RADIX_10_u8, LittleEndian> {
+    pub fn fill_vec_u64(&self, dest: &mut DigitVec<RADIX_u64, LittleEndian>) {
+        let n = BigUint::from_radix_le(self.digits, 10).unwrap();
+        *dest = (&n).into();
+    }
+}
+
+impl<'a, E: Endianness> From<&'a DigitVec<RADIX_u64, E>> for DigitSlice<'a, RADIX_u64, E> {
+    fn from(v: &'a DigitVec<RADIX_u64, E>) -> Self {
+        v.as_digit_slice()
     }
 }
