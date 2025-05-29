@@ -30,21 +30,22 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
         }
     }
 
-
     // Count the number of multiplications we're going to perform, one per "1" binary digit
     // in exp, and the number of times we can divide exp by 2.
-    let mut n = exp.abs() as u64;
+    let mut n = exp.unsigned_abs();
     // Note: 63 - n.leading_zeros() == n.ilog2, but that's only available in recent Rust versions.
     let muls = (n.count_ones() + (63 - n.leading_zeros()) - 1) as u64;
     // Note: div_ceil would be nice to use here, but only available in recent Rust versions.
-    let margin_extra = (muls + MUL_PER_MARGIN_EXTRA/2) / MUL_PER_MARGIN_EXTRA;
+    let margin_extra = (muls + MUL_PER_MARGIN_EXTRA / 2) / MUL_PER_MARGIN_EXTRA;
     let mut margin = margin_extra + MARGIN_PER_MUL * muls;
 
     let mut bd_y: BigDecimal = 1.into();
     let mut bd_x = if exp >= 0 {
         bd.clone()
     } else {
-        bd.inverse_with_context(&ctx.with_precision(NonZeroU64::new(ctx.precision().get() + margin + MARGIN_PER_MUL).unwrap()))
+        bd.inverse_with_context(&ctx.with_precision(
+            NonZeroU64::new(ctx.precision().get() + margin + MARGIN_PER_MUL).unwrap(),
+        ))
     };
 
     while n > 1 {
@@ -59,7 +60,7 @@ pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) ->
     }
     debug_assert_eq!(margin, margin_extra);
 
-    return trim_precision(bd_x * bd_y, ctx, 0);
+    trim_precision(bd_x * bd_y, ctx, 0)
 }
 
 #[cfg(test)]
