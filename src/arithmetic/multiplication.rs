@@ -2,18 +2,14 @@
 //!
 #![allow(dead_code)]
 
-use num_bigint::{Sign, BigInt, BigUint};
-use num_integer::Integer;
+// use num_bigint::{Sign, BigInt, BigUint};
+// use num_integer::Integer;
 use num_traits::{Zero, ToPrimitive, AsPrimitive};
-
-use crate::{BigDecimal, BigDecimalRef};
 
 use stdlib::num::NonZeroU64;
 
-use crate::WithScale;
-
-use crate::context::Context;
-use crate::rounding::{NonDigitRoundingData, RoundingMode};
+use crate::*;
+use crate::rounding::NonDigitRoundingData;
 
 use crate::bigdigit::{
     radix::{RadixType, RADIX_u64, RADIX_10_u8},
@@ -26,8 +22,6 @@ type BigDigitVecBe = DigitVec<RADIX_u64, BigEndian>;
 type BigDigitSlice<'a> = DigitSlice<'a, RADIX_u64, LittleEndian>;
 
 type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
-
-use crate::LOG2_10;
 
 
 pub(crate) fn multiply_decimals_with_context<'a, A, B>(
