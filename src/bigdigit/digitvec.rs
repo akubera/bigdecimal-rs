@@ -71,20 +71,17 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
 
     /// Borrow inner vectory as immutable digit-slice
     pub fn as_digit_slice(&self) -> DigitSlice<'_, R, E> {
-        DigitSlice {
-            digits: self.digits.as_slice(),
-            _radix: self._radix,
-            _endian: self._endian,
-        }
+        DigitSlice::from_slice(&self.digits[..])
+    }
+
+    /// Return slice skipping first n bigdigits
+    pub fn as_digit_slice_at(&self, n: usize) -> DigitSlice<'_, R, E> {
+        DigitSlice::from_slice(&self.digits[n..])
     }
 
     /// Borrow inner vectory as mutable digit-slice
     pub fn as_digit_slice_mut(&mut self) -> DigitSliceMut<'_, R, E> {
-        DigitSliceMut {
-            digits: &mut self.digits,
-            _radix: self._radix,
-            _endian: self._endian,
-        }
+        DigitSliceMut::from_slice(&mut self.digits[..])
     }
 
     /// Split slice at 'pos' least-significant digits
