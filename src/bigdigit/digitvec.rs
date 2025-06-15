@@ -54,6 +54,14 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         }
     }
 
+    pub fn as_digit_slice_at(&self, n: usize) -> DigitSlice<'_, R, E> {
+        DigitSlice {
+            digits: &self.digits[n..],
+            _radix: self._radix,
+            _endian: self._endian,
+        }
+    }
+
     // construct from vector of digits
     fn from_vec(v: Vec<R::Base>) -> Self {
         debug_assert!(R::validate_digits(v.iter()));
