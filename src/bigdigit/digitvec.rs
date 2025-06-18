@@ -105,6 +105,13 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
     }
 }
 
+impl<'a, R: RadixPowerOfTen, E: Endianness> DigitVec<R, E> {
+    pub fn count_decimal_digits(&self) -> usize {
+        self.as_digit_slice().count_decimal_digits()
+    }
+}
+
+
 impl<R: RadixType> DigitVec<R, LittleEndian> {
     /// allocate with n bigdigits and fill with zeros
     pub fn remove_significant_digits(&mut self) {
@@ -275,12 +282,33 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     pub fn from_vec_offset(v: &'a mut DigitVec<R, E>, offset: usize) -> Self {
         Self::from_slice(&mut v.digits[offset..])
     }
+
+    /// Cast to immutable slice
+    fn as_digit_slice(&'a self) -> DigitSlice<'a, R, E> {
+        DigitSlice::from_slice(self.digits)
+    }
 }
 
+impl<'a, R: RadixPowerOfTen, E: Endianness> DigitSliceMut<'a, R, E> {
+    pub fn count_decimal_digits(&self) -> usize {
+        self.as_digit_slice().count_decimal_digits()
+    }
+}
+
+impl<'a, R: RadixType, E: Endianness> From<&'a mut Vec<R::Base>> for DigitSliceMut<'a, R, E> {
+    fn from(digits: &'a mut Vec<R::Base>) -> Self {
+        Self::from_slice(&mut digits[..])
+    }
+}
+
+
 impl<'a, R: RadixPowerOfTen, E: Endianness> DigitSlice<'a, R, E> {
-    fn count_decimal_digits(&self) -> usize {
+    pub fn count_decimal_digits(&self) -> usize {
+        use crate::arithmetic::decimal::count_digits_u64;
+
         let (top_digit, trailing) = E::split_most_significant_digit(self.digits);
-            R::DIGITS * trailing.len() + crate::arithmetic::decimal::count_digits_u64(top_digit.to_u64().unwrap())
+        R::DIGITS * trailing.len()
+            + count_digits_u64(top_digit.to_u64().unwrap())
     }
 }
 
