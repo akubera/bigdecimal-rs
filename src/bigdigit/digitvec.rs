@@ -174,6 +174,15 @@ impl<R: RadixPowerOfTen, E: Endianness> DigitVec<R, E> {
     }
 }
 
+impl<R: RadixType> DigitVec<R, LittleEndian> {
+    /// allocate with n bigdigits and fill with zeros
+    pub fn remove_significant_digits(&mut self) {
+        if let Some(idx) = self.digits.iter().rposition(|d| !d.is_zero()) {
+            self.digits.truncate(idx);
+        }
+    }
+}
+
 impl<R: RadixType> DigitVec<R, BigEndian> {
     pub fn remove_significant_digits(&mut self) {
         if let Some(idx) = self.digits.iter().position(|d| !d.is_zero()) {
