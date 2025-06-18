@@ -262,6 +262,19 @@ impl RadixPowerOfTen for RADIX_10p4_i16 {
     const DIGITS: usize = 4;
 }
 
+impl RADIX_10p19_u64 {
+    /// Divide double-wide u64 by radix, storing the quotient in the low u64,
+    /// and returning the remainder
+    pub(crate) fn rotating_div_u64_radix(hi: u64, lo: &mut u64) -> <Self as RadixType>::Base {
+        use num_integer::div_rem;
+        type BaseDouble = <RADIX_10p19_u64 as RadixType>::BaseDouble;
+
+        let num = BaseDouble::from(*lo) + (BaseDouble::from(hi) << 64);
+        let (q, r) = div_rem(num, Self::RADIX);
+        *lo = q.as_();
+        r.as_()
+    }
+}
 
 #[cfg(test)]
 mod test_validate {
