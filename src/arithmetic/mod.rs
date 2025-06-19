@@ -29,6 +29,15 @@ pub(crate) fn ten_to_the_u64(pow: u8) -> u64 {
     10u64.pow(pow as u32)
 }
 
+/// Return 10^{pow} as output
+pub(crate) fn ten_to_the_t<T>(pow: u8) -> T
+where
+    T: From<u8> + num_traits::Pow<u8, Output = T>
+{
+    debug_assert!((pow as f64) < stdlib::mem::size_of::<T>() as f64 * 8.0 / LOG2_10);
+    T::from(10u8).pow(pow)
+}
+
 /// Return 10^pow
 pub(crate) fn ten_to_the_uint(pow: u64) -> BigUint {
     if pow < 20 {
