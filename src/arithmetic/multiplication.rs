@@ -23,6 +23,8 @@ type BigDigitSliceP19<'a> = DigitSlice<'a, RADIX_10p19_u64, LittleEndian>;
 
 type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
 
+const BASE2_BIGINT_MUL_THRESHOLD: u64 = 128;
+
 
 pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     dest: &mut BigDecimal,
@@ -97,9 +99,9 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
         mode: ctx.rounding_mode(),
     };
 
-    if a.bits() + b.bits() < BASE2_BIGDIGIT_THREASHOLD {
-        let mut product = a * b;
-        return ctx.round_bigint(product);
+    // if bits are under this threshold, just multiply full integer and round
+    if a.bits() + b.bits() < BASE2_BIGINT_MUL_THRESHOLD {
+        return ctx.round_bigint(a * b);
     }
 
     let mut tmp = Vec::new();
