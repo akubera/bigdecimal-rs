@@ -26,6 +26,7 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
         + num_traits::WrappingSub
         + num_traits::Pow<u8, Output = Self::Base>
         + AddAssign
+        + From<bool>
         + From<u8>;
 
     /// double wide unsigned type (capable of storing product of two BigDigits)
@@ -184,6 +185,29 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
             *d = sum;
             *c = overflow;
         }
+    }
+
+    /// return value of (lhs - rhs + carry - borrow)
+    fn sub_with_carry_borrow(
+        lhs: Self::Base,
+        rhs: Self::Base,
+        carry: &mut Self::Base,
+        borrow: &mut Self::Base,
+    ) -> Self::Base {
+        let mut result = Self::BaseDouble::from(lhs);
+        result = result
+                    .wrapping_sub(&Self::BaseDouble::from(rhs))
+                    .wrapping_add(&(*carry).as_())
+                    .wrapping_sub(&(*borrow).as_());
+
+        *borrow = Self::Base::from(result >= (Self::RADIX << 1));
+        result = result.wrapping_add(&(borrow.as_() * Self::RADIX));
+        debug_assert!(result < (Self::RADIX << 1));
+
+        *carry = Self::Base::from(result >= Self::RADIX);
+        result = result - carry.as_() * Self::RADIX;
+
+        return result.as_();
     }
 }
 
