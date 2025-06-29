@@ -13,6 +13,7 @@ use num_traits::{ToPrimitive, FromPrimitive};
 use num_traits::CheckedAdd;
 
 
+pub(crate) mod alignment;
 pub(crate) mod endian;
 pub(crate) mod radix;
 pub(crate) mod digitvec;
