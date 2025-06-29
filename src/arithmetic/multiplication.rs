@@ -6,10 +6,10 @@ use stdlib::num::NonZeroU64;
 use num_traits::AsPrimitive;
 
 use crate::*;
-use crate::rounding::NonDigitRoundingData;
+use crate::rounding::{NonDigitRoundingData, InsigData};
 
 use crate::bigdigit::{
-    radix::{RadixType, RADIX_u64, RADIX_10_u8},
+    radix::{RadixType, RADIX_u64, RADIX_10_u8, RADIX_10p19_u64},
     endian::{Endianness, LittleEndian, BigEndian},
     digitvec::{DigitVec, DigitSlice},
 };
@@ -17,6 +17,9 @@ use crate::bigdigit::{
 type BigDigitVec = DigitVec<RADIX_u64, LittleEndian>;
 type BigDigitVecBe = DigitVec<RADIX_u64, BigEndian>;
 type BigDigitSlice<'a> = DigitSlice<'a, RADIX_u64, LittleEndian>;
+
+type BigDigitVecP19 = DigitVec<RADIX_10p19_u64, LittleEndian>;
+type BigDigitSliceP19<'a> = DigitSlice<'a, RADIX_10p19_u64, LittleEndian>;
 
 type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
 
@@ -85,6 +88,8 @@ pub(crate) fn multiply_at_idx_into<R: RadixType>(
 }
 
 pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) -> WithScale<BigInt> {
+    use bigdigit::radix::RadixPowerOfTen;
+
     let sign = a.sign() * b.sign();
     // Rounding prec: usize
     let rounding_data = NonDigitRoundingData {
@@ -92,21 +97,39 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
         mode: ctx.rounding_mode(),
     };
 
-    let a_vec: BigDigitVec = a.magnitude().into();
-    let b_vec: BigDigitVec = b.magnitude().into();
+    if a.bits() + b.bits() < BASE2_BIGDIGIT_THREASHOLD {
+        let mut product = a * b;
+        return ctx.round_bigint(product);
+    }
 
-    let mut digit_vec_scale = WithScale::default();
-    multiply_slices_with_prec_into(
-        &mut digit_vec_scale,
-        a_vec.as_digit_slice(),
-        b_vec.as_digit_slice(),
+    let mut tmp = Vec::new();
+    let a_p19_vec = BigDigitVecP19::from_biguint_using_tmp(a.magnitude(), &mut tmp);
+    let b_p19_vec = BigDigitVecP19::from_biguint_using_tmp(b.magnitude(), &mut tmp);
+
+    // trim the trailing zeros from the multiplication
+    let a_tz = a_p19_vec.digits.iter()
+                               .position(|&d| d != 0)
+                               .unwrap_or(a_p19_vec.len());
+    let b_tz = b_p19_vec.digits.iter()
+                               .position(|&d| d != 0)
+                               .unwrap_or(b_p19_vec.len());
+
+    let mut result = WithScale::default();
+    multiply_slices_with_prec_into_p19(
+        &mut result,
+        a_p19_vec.as_digit_slice_at(a_tz),
+        b_p19_vec.as_digit_slice_at(b_tz),
         ctx.precision(),
         rounding_data
     );
 
+    // increase scale by this many trailing-zeros
+    let trailing_zero_bigdigit_count = a_tz + b_tz;
+    let trailing_zero_scale = (RADIX_10p19_u64::DIGITS * trailing_zero_bigdigit_count) as i64;
+
     WithScale {
-        scale: -digit_vec_scale.scale,
-        value: digit_vec_scale.value.into_bigint(sign),
+        scale: result.scale - trailing_zero_scale,
+        value: result.value.into_bigint(sign),
     }
 }
 
