@@ -64,6 +64,17 @@ pub trait RadixType : Copy + Clone + Default + fmt::Debug {
         i.into_iter().map(|&d| d.into()).all(|d| Self::BaseDouble::zero() <= d && d < Self::RADIX)
     }
 
+    /// True if n is the maximum value for this radix (RADIX - 1)
+    fn max() -> Self::Base {
+        use num_traits::AsPrimitive;
+        (Self::RADIX - One::one()).as_()
+    }
+
+    /// True if n is the maximum value for this radix (RADIX - 1)
+    fn is_max(n: Self::Base) -> bool {
+        n == Self::max()
+    }
+
     fn split_wide_digit(n: Self::BaseDouble) -> (Self::Base, Self::Base) {
         use num_traits::AsPrimitive;
 
