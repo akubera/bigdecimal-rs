@@ -41,7 +41,12 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     ///
     /// If slice is empty zero and empty-slice is returned
     fn split_most_significant_digit<D: Zero + PrimInt>(digits: &[D]) -> (D, &[D]);
+
+    /// Remove any zeros at the location of highest significance, if all zeros
+    /// the vector will be cleared
+    fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>);
 }
+
 
 /// Empty struct indicating most-significant bigdigit first
 #[derive(Copy, Clone, Debug, Default)]
@@ -95,6 +100,15 @@ impl Endianness for BigEndian {
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
         digits.split_first().map(|(&d, r)| (d, r)).unwrap_or((Zero::zero(), &[]))
     }
+
+    fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>) {
+        if let Some(idx) = digits.iter().position(|d| !d.is_zero()) {
+            digits.copy_within(idx.., 0);
+            digits.truncate(digits.len() - idx);
+        } else {
+            digits.clear();
+        }
+    }
 }
 
 
@@ -141,6 +155,14 @@ impl Endianness for LittleEndian {
 
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
         digits.split_last().map(|(&d, r)| (d, r)).unwrap_or((Zero::zero(), &[]))
+    }
+
+    fn strip_significant_zeros<D: Zero>(digits: &mut Vec<D>) {
+        if let Some(idx) = digits.iter().rposition(|d| !d.is_zero()) {
+            digits.truncate(idx + 1);
+        } else {
+            digits.clear();
+        }
     }
 }
 

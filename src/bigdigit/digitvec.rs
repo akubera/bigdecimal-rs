@@ -116,14 +116,15 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
             E::push_significant_digit(&mut self.digits, overflow);
         }
     }
-}
 
-impl<R: RadixType> DigitVec<R, LittleEndian> {
-    /// allocate with n bigdigits and fill with zeros
-    pub fn remove_significant_digits(&mut self) {
-        if let Some(idx) = self.digits.iter().rposition(|d| !d.is_zero()) {
-            self.digits.truncate(idx);
-        }
+    /// Add bigdigit to the significant end of the vec
+    pub fn push_significant_digit(&mut self, n: R::Base) {
+        E::push_significant_digit(&mut self.digits, n);
+    }
+
+    /// remove significant zeros
+    pub fn remove_leading_zeros(&mut self) {
+        E::strip_significant_zeros(&mut self.digits)
     }
 }
 
