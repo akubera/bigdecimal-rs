@@ -68,6 +68,15 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn as_digit_slice_mut(&mut self) -> DigitSliceMut<'_, R, E> {
+        DigitSliceMut {
+            digits: &mut self.digits[..],
+            _radix: self._radix,
+            _endian: self._endian,
+        }
+    }
+
     // construct from vector of digits
     fn from_vec(v: Vec<R::Base>) -> Self {
         debug_assert!(R::validate_digits(v.iter()));
