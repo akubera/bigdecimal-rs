@@ -1,6 +1,8 @@
 //! Routines for multiplying numbers
 //!
 #![allow(dead_code)]
+#![allow(unreachable_code)]
+#![allow(unused_variables)]
 
 use stdlib::num::NonZeroU64;
 use num_traits::AsPrimitive;
@@ -126,6 +128,7 @@ pub(crate) fn multiply_at_idx_into<R: RadixType>(
     b: DigitSlice<R, LittleEndian>,
     idx: usize,
 ) {
+    debug_assert!(a.len() + b.len() <= dest.len() + idx);
     for (ia, &da) in a.digits.iter().enumerate() {
         if da.is_zero() {
             continue;
@@ -184,94 +187,211 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
     }
 }
 
+
+#[allow(unreachable_code)]
+pub(crate) fn multiply_slices_with_prec_into_p19(
+    dest: &mut WithScale<BigDigitVecP19>,
+    a: BigDigitSliceP19,
+    b: BigDigitSliceP19,
+    prec: NonZeroU64,
+    rounding: NonDigitRoundingData
+) {
+    use crate::bigdigit::radix::RadixPowerOfTen;
+    use super::bigdigit::alignment::BigDigitSplitter;
+    use super::bigdigit::alignment::BigDigitSliceSplitterIter;
+    type R = RADIX_10p19_u64;
+
+    let radix = R::RADIX as u64;
+
+    if a.len() < b.len() {
+        // ensure a is the longer of the two digit slices
+        return multiply_slices_with_prec_into_p19(dest, b, a, prec, rounding);
+    }
+
+    debug_assert_ne!(a.len(), 0);
+    debug_assert_ne!(b.len(), 0);
+    debug_assert_ne!(a.digits.first().unwrap(), &0);
+    debug_assert_ne!(b.digits.first().unwrap(), &0);
+
+    let WithScale { value: dest, scale: result_scale } = dest;
+
+    // we need at least this many bigdigits to resolve 'prec' base-10 digits
+    // let a_digit_count = a.count_decimal_digits();
+    // let b_digit_count = b.count_decimal_digits();
+    // let product_digit_count = a_digit_count + b_digit_count;
+
+    // minimum possible length of each integer, given length of bigdigit vecs
+    let pessimistic_product_digit_count = (a.len() + b.len() - 2) * R::DIGITS + 1;
+
+    // require more digits of precision for overflow and rounding
+    // max number of digits produced by adding all bigdigits at any
+    // particular "digit-index" i of the product
+    //  log10( Σ a_m × b_n (∀ m+n=i) )
+    let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
+    let max_bigdigit_sum_width = max_digit_sum_width.div_ceil(RADIX_10p19_u64::DIGITS);
+    // the "index" of the product which could affect the significant results
+    let bigdigits_to_skip = pessimistic_product_digit_count
+                                .saturating_sub(prec.get() as usize + 1)
+                                .div_ceil(RADIX_10p19_u64::DIGITS)
+                                .saturating_sub(max_bigdigit_sum_width);
+
+    let a_start;
+    let b_start;
+    if bigdigits_to_skip == 0 {
+        // we've requested more digits than product will produce; don't skip any digits
+        a_start = 0;
+        b_start = 0;
+    } else {
+        // the indices of the least significant bigdigits in a and b which may contribute
+        // to the significant digits in the product
+        a_start = bigdigits_to_skip.saturating_sub(b.len());
+        b_start = bigdigits_to_skip.saturating_sub(a.len());
+    }
+
+    let a_sig = a.trim_insignificant(a_start);
+    let b_sig = b.trim_insignificant(b_start);
+
+    let a_sig_digit_count = a_sig.count_decimal_digits();
+    let b_sig_digit_count = b_sig.count_decimal_digits();
+
+    // calculate maximum number of digits from product
+    let max_sigproduct_bigdigit_count =
+        (a_sig_digit_count + b_sig_digit_count + 1).div_ceil(RADIX_10p19_u64::DIGITS);
+    let mut product =
+        BigDigitVecP19::with_capacity(max_sigproduct_bigdigit_count + max_bigdigit_sum_width + 1);
+
+    *result_scale -= (R::DIGITS * bigdigits_to_skip) as i64;
+
+    multiply_at_product_index(&mut product, a, b, bigdigits_to_skip);
+    product.remove_leading_zeros();
+
+    let product_digit_count = product.count_decimal_digits();
+
+    // precision plus the rounding digit
+    let digits_to_remove = product_digit_count.saturating_sub(prec.get() as usize);
+    if digits_to_remove == 0 {
+        debug_assert_eq!(a_start, 0);
+        debug_assert_eq!(b_start, 0);
+        debug_assert_eq!(bigdigits_to_skip, 0);
+
+        // no need to trim the results, everything was significant;
+        *dest = product;
+        return;
+    }
+
+    // removing insignificant digits decreases the scale
+    *result_scale -= digits_to_remove as i64;
+
+    // keep adding more multiplication terms if the number ends with 999999...., until
+    // the nines stop or it overflows.
+    // NOTE: the insignificant digits in 'product' will be _wrong_ and must be ignored
+    let trailing_zeros = new_handle_insignificant_overflow(
+        &mut product, a, b, bigdigits_to_skip, digits_to_remove
+    );
+
+    // remove the digits, returning the top one to be used
+    let insig_digit = product.shift_n_digits_returning_high(digits_to_remove);
+    let sig_digit = (product.digits[0] % 10) as u8;
+
+    let insig_rounding_data = InsigData {
+        rounding_data: rounding,
+        digit: insig_digit,
+        trailing_zeros,
+    };
+
+    let rounded_digit = insig_rounding_data.round_digit(sig_digit);
+
+    let mut carry = rounded_digit as u64;
+
+    product.digits[0] -= sig_digit as u64;
+
+    R::add_carry_into_slice(
+        &mut product.digits, &mut carry
+    );
+
+    if carry != 0 {
+        todo!()
+    }
+
+    *dest = product;
+}
+
 /// Store `a * b` into dest, to limited precision
 pub(crate) fn multiply_slices_with_prec_into(
     dest: &mut WithScale<BigDigitVec>,
     a: BigDigitSlice,
     b: BigDigitSlice,
     prec: NonZeroU64,
-    rounding: NonDigitRoundingData
+    rounding: NonDigitRoundingData,
 ) {
-    if a.len() < b.len() {
-        // ensure a is the longer of the two digit slices
-        return multiply_slices_with_prec_into(dest, b, a, prec, rounding);
-    }
-    debug_assert_ne!(a.len(), 0);
-    debug_assert_ne!(b.len(), 0);
+    let a_base10: BigDigitVecP19 = a.into();
+    let b_base10: BigDigitVecP19 = b.into();
 
-    // expand 'result' into separate variables
-    let WithScale { value: dest, scale: trimmed_digits } = dest;
+    let mut product = Default::default();
+    multiply_slices_with_prec_into_p19(
+        &mut product,
+        a_base10.as_digit_slice(),
+        b_base10.as_digit_slice(),
+        prec,
+        rounding,
+    );
 
-    // we need at least this many bigdigits to resolve 'prec' base-10 digits
-    let min_bit_count = prec.get() as f64 * LOG2_10;
-    let min_bigdigit_count = (min_bit_count / 64.0).ceil() as usize;
+    let WithScale { value: product_digits, scale: result_scale } = product;
 
-    // require two extra big digits, for carry safety/rounding
-    let requested_bigdigit_count = min_bigdigit_count + 2;
-
-    // maximum number of big-digits in the output
-    let product_bigdigit_count = a.len() + b.len();
-
-    let a_start;
-    let b_start;
-    let bigdigits_to_trim = product_bigdigit_count.saturating_sub(requested_bigdigit_count);
-    if bigdigits_to_trim == 0 {
-        // we've requested more digits than we have, use the whole thing
-        a_start = 0;
-        b_start = 0;
-    } else {
-        // product has fewer digits than the result requires: skip some
-        // the least significant bigdigits in a and b
-        a_start = bigdigits_to_trim.saturating_sub(b.len() - 1);
-        b_start = b.len().saturating_sub(requested_bigdigit_count);
-    };
-
-    // only multiply the relevant significant digits
-    let a_sig = a.trim_insignificant(a_start);
-    let b_sig = b.trim_insignificant(b_start);
-    debug_assert_ne!(a_sig.len(), 0);
-    debug_assert_ne!(b_sig.len(), 0);
-
-    // fill dest with as many zeros as we will need
-    dest.clear();
-    dest.resize(a_sig.len() + b_sig.len());
-
-    // perform dest = a_sig * b_sig
-    multiply_at_idx_into(dest, a_sig, b_sig, 0);
-
-    // number of ignorable bigdigits in dest
-    let dest_insig_count = dest.len().saturating_sub(requested_bigdigit_count);
-
-    // TODO: don't rely on bigint to do the shifting
-    let mut int = BigUint::from(&*dest);
-    int <<= (bigdigits_to_trim - dest_insig_count) * 64;
-
-    // split shifted integer into base-10 digits
-    let mut int_digits = SmallDigitVec::from(&int);
-
-    // round the shifted digits
-    let (rounded_int_digits, trimmed_digit_count) = int_digits.round_at_prec_inplace(prec, rounding);
-    debug_assert!(
-        rounded_int_digits.len() == prec.get() as usize
-        || (trimmed_digit_count == 0 && rounded_int_digits.len() < prec.get() as usize));
-
-    // fill dest with rounded digits
-    rounded_int_digits.fill_vec_u64(dest);
-    *trimmed_digits -= trimmed_digit_count as i64;
+    dest.scale = result_scale;
+    dest.value = product_digits.into();
 }
 
+/// do calculation to determine if insignificant digits of 'a * b' are all zero
+/// (used when rounding)
+///
+/// a * b has already been multiplied from the
+///
+#[allow(unused_variables)]
+fn check_trailing_zeros(
+    trailing: &[u8],
+    a: BigDigitSlice,
+    a_prec: usize,
+    b: BigDigitSlice,
+    b_prec: usize,
+) -> bool {
+    // classify as insignificant and significant big-digit slices
+    let (a_insig, a_sig) = a.digits.split_at(a_prec);
+    let (b_insig, b_sig) = b.digits.split_at(b_prec);
+
+    // location of first non-zero digit
+    let a_fnz = a_insig.iter().position(|&d| d != 0).unwrap_or(a_insig.len());
+    let b_fnz = b_insig.iter().position(|&d| d != 0).unwrap_or(b_insig.len());
+
+    // trim trailing zeros
+    let (_, a_insig) = a_insig.split_at(a_fnz);
+    let (_, b_insig) = b_insig.split_at(b_fnz);
+
+    match (a_insig.is_empty(), b_insig.is_empty()) {
+        (true, true) => {
+            // there is nothing left to multiply, just go by insignificant digits
+            return trailing.iter().all(|&d| d == 0);
+        }
+        (false, false) => {}
+        _ => todo!(),
+    }
+
+    // product at zero
+    let p0 = a_insig[0] * b_insig[0];
+    dbg!(p0);
+
+    todo!();
+}
 
 /// split u64 into high and low bits
 fn split_u64(x: u64) -> (u64, u64) {
-    x.div_rem(&(1<<32))
+    x.div_rem(&(1 << 32))
 }
-
 
 fn mul_split_u64_u64(a: u64, b: u64) -> [u32; 4] {
     let p = u128::from(a) * u128::from(b);
     mul_split_u128_to_u32x4(p)
 }
-
 
 fn mul_split_u128_to_u32x4(n: u128) -> [u32; 4] {
     [
@@ -281,7 +401,6 @@ fn mul_split_u128_to_u32x4(n: u128) -> [u32; 4] {
         (n >> 96).as_(),
     ]
 }
-
 
 /// Add carry into dest
 #[inline]
@@ -293,7 +412,6 @@ fn _apply_carry_u64(dest: &mut [u32], mut idx: usize, mut carry: u64) {
         carry = c;
     }
 }
-
 
 /// Evaluate (a + (b << 64))^2, where a and b are u64's, storing
 /// the result as u32's in *dest*, starting at location *idx*
@@ -532,9 +650,9 @@ pub(crate) fn multiply_thrup_spread_into(
 pub(crate) fn multiply_thrup_spread_into_wrapped(
     dest: &mut [u32],
     idx0: usize,
-    a: u64,
-    b: u64,
-    z: u64,
+    a: u32,
+    b: u32,
+    z: u32,
 ) {
     let a = a as u64;
     let b = b as u64;
