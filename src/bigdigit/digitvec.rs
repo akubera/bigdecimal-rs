@@ -1,11 +1,8 @@
 //! Digit vectors (and slices) of arbitrary radix and endianness
 
-use stdlib::{
-    Vec,
-    marker::PhantomData,
-};
+use crate::*;
 
-use num_traits::Zero;
+use stdlib::marker::PhantomData;
 
 use super::radix::*;
 use super::endian::*;
@@ -179,6 +176,192 @@ impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     }
 }
 
+impl DigitVec<RADIX_10p19_u64, LittleEndian> {
+    pub(crate) fn from_biguint_using_tmp(
+        n: &num_bigint::BigUint,
+        tmp: &mut Vec<u64>,
+    ) -> Self {
+        tmp.clear();
+        tmp.extend(n.iter_u64_digits());
+        Self::from_2p64le_vec(tmp)
+    }
+
+    fn from_2p64le_vec(src: &mut Vec<u64>) -> Self {
+        type R = RADIX_10p19_u64;
+
+        let mut result: Vec<u64>;
+        match src.split_last() {
+            None => {
+                return Self::default();
+            }
+            Some((&top_digit, &[])) => {
+                let result = if top_digit < R::RADIX as u64 {
+                    vec![top_digit]
+                } else {
+                    let (hi, lo) = top_digit.div_rem(&(R::RADIX as u64));
+                    vec![lo, hi]
+                };
+                return Self::from_vec(result);
+            }
+            Some((&top_digit, digits)) => {
+                let bit_count = (64 * digits.len()) + (64 - top_digit.leading_zeros() as usize);
+                let base2p64_bigdigit_count = (bit_count as f64) / (LOG2_10 * R::DIGITS as f64);
+                result = Vec::with_capacity(base2p64_bigdigit_count.ceil() as usize);
+            }
+        }
+        while let Some(pos) = src.iter().rposition(|&d| d != 0) {
+            src.truncate(pos + 1);
+            let rem: u64 = src.iter_mut().rev().fold(0, |acc, d| {
+                R::rotating_div_u64_radix(acc, d)
+            });
+            result.push(rem);
+        }
+        Self::from_vec(result)
+    }
+
+    pub fn into_bigint(self, sign: Sign) -> BigInt {
+        let mut tmp = Vec::new();
+        self.into_bigint_tmp(sign, &mut tmp)
+    }
+
+    pub fn into_bigint_tmp(self, sign: Sign, tmp: &mut Vec<u64>) -> BigInt {
+        let uint = self.into_biguint_tmp(tmp);
+        BigInt::from_biguint(sign, uint)
+    }
+
+    pub fn into_biguint_tmp(self, _tmp: &mut Vec<u64>) -> BigUint {
+        use num_integer::div_rem;
+        let radix = <RADIX_10p19_u64 as RadixType>::RADIX;
+
+        let mut digits = self.digits.into_iter();
+        let d0 = digits.next().unwrap_or(0);
+        let mut result = BigUint::from(d0);
+
+        let n = match digits.next() {
+            None => {
+                return result;
+            }
+            Some(n) => n,
+        };
+
+        let mut scale = BigUint::from(radix);
+        result += n * &scale;
+
+        for digit in digits {
+            scale *= radix;
+            match digit {
+                0 => {},
+                1 => {
+                    result += &scale;
+                }
+                n => {
+                    result += n * &scale;
+                }
+            }
+        }
+        return result;
+    }
+}
+
+impl From<DigitVec<RADIX_u32, LittleEndian>> for num_bigint::BigUint {
+    fn from(v: DigitVec<RADIX_u32, LittleEndian>) -> Self {
+        Self::new(v.digits)
+    }
+}
+
+impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for num_bigint::BigUint {
+    fn from(v: DigitVec<RADIX_10p19_u64, LittleEndian>) -> Self {
+        type R = RADIX_10p19_u64;
+        let radix = R::RADIX as u64;
+        match v.digits.as_slice() {
+            &[] => {
+                Self::zero()
+            }
+            &[d] => {
+                Self::from(d)
+            }
+            &[d0, d1] => {
+                let mut result = Self::from(d1);
+                result *= radix;
+                result += d0;
+                return result;
+            }
+            _ => {
+                let mut shifter = Self::one();
+                let mut digits = v.digits.iter().rev();
+
+                let mut result: Self = digits.next().unwrap().clone().into();
+
+                for &d in digits {
+                    shifter *= radix;
+                    result *= &shifter;
+                    result += d;
+                }
+                result
+            }
+        }
+    }
+}
+
+impl From<DigitSlice<'_, RADIX_u64, LittleEndian>> for DigitVec<RADIX_10p19_u64, LittleEndian> {
+    fn from(v: DigitSlice<'_, RADIX_u64, LittleEndian>) -> Self {
+        let mut src = Vec::from(v.digits);
+        Self::from_2p64le_vec(&mut src)
+    }
+}
+
+impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, LittleEndian> {
+    fn from(mut src: DigitVec<RADIX_10p19_u64, LittleEndian>) -> Self {
+        type R2p64 = RADIX_u64;
+
+        let radix = RADIX_10p19_u64::RADIX as u64;
+
+        match src.digits.len() {
+            0 | 1 => {
+                Self::from_vec(src.digits)
+            }
+            2 => {
+                let (hi, lo) = R2p64::expanding_mul(src.digits[1], radix);
+                let (sum, overflow) = src.digits[0].overflowing_add(lo);
+                src.digits[0] = sum;
+                src.digits[1] = hi + u64::from(overflow);
+                Self::from_vec(src.digits)
+            }
+            _ => {
+                let mut result = vec![0; src.len()];
+                result[0] = src.digits[0];
+
+                let mut scaler = BigInt::from(radix);
+                let mut base10_digits = src.digits.iter().skip(1);
+                let mut base10_digit = base10_digits.next().copied().unwrap_or(0);
+                loop {
+                    for (i, base2_digit) in scaler.iter_u64_digits().enumerate() {
+                        let (hi, lo) = R2p64::expanding_mul(base10_digit, base2_digit);
+                        let (sum, overflow) = result[i].overflowing_add(lo);
+                        result[i] = sum;
+                        let mut j = i + 1;
+                        let (sum, overflow) = result[j].overflowing_add(hi + u64::from(overflow));
+                        result[j] = sum;
+                        let mut carry = u64::from(overflow);
+                        while carry != 0 {
+                            j += 1;
+                            let (sum, overflow) = result[j].overflowing_add(carry);
+                            result[j] = sum;
+                            carry = u64::from(overflow);
+                        }
+                    }
+
+                    match base10_digits.next() {
+                        None => break,
+                        Some(&d) => { base10_digit = d }
+                    }
+                    scaler *= radix;
+                }
+                Self::from_vec(result)
+            }
+        }
+    }
+}
 
 /// Immutable slice of digits
 ///
@@ -230,6 +413,19 @@ impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
     }
 }
 
+impl<'a, E: Endianness> From<&'a DigitVec<RADIX_u64, E>> for DigitSlice<'a, RADIX_u64, E> {
+    fn from(v: &'a DigitVec<RADIX_u64, E>) -> Self {
+        v.as_digit_slice()
+    }
+}
+
+impl DigitSlice<'_, RADIX_10_u8, LittleEndian> {
+    /// fill digitvec with value contained in this digit-slice
+    pub fn fill_vec_u64(&self, dest: &mut DigitVec<RADIX_u64, LittleEndian>) {
+        let n = num_bigint::BigUint::from_radix_le(self.digits, 10).unwrap();
+        *dest = (&n).into();
+    }
+}
 
 /// Mutable slice of bigdigit values
 #[derive(Debug)]
@@ -254,11 +450,17 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
         self.digits.len()
     }
 
+    /// From digitvec, offset from the true index (independent of endianness)
     pub fn from_vec_offset(v: &'a mut DigitVec<R, E>, offset: usize) -> Self {
         Self::from_slice(&mut v.digits[offset..])
     }
 
-    /// Add bigdigit 'n' into this slice, if the
+    /// Cast to immutable slice
+    pub fn as_digit_slice(&'a self) -> DigitSlice<'a, R, E> {
+        DigitSlice::from_slice(self.digits)
+    }
+
+    /// Add bigdigit 'n' into this slice, returning overflow
     pub fn add_value_at(&mut self, idx: usize, mut n: R::Base) -> R::Base {
         if n.is_zero() {
             return n;
@@ -270,5 +472,11 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     /// Add bigdigit into vector, storing overflow back in c
     pub fn addassign_carry(&mut self, c: &mut R::Base) {
         E::addassign_carry_into_slice_at::<R>(self.digits, c, 0);
+    }
+}
+
+impl<'a, R: RadixType, E: Endianness> From<&'a mut Vec<R::Base>> for DigitSliceMut<'a, R, E> {
+    fn from(digits: &'a mut Vec<R::Base>) -> Self {
+        Self::from_slice(&mut digits[..])
     }
 }
