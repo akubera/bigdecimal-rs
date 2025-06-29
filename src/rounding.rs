@@ -213,6 +213,13 @@ impl RoundingMode {
         full * splitter
     }
 
+    /// Round the round big to prec digits
+    pub(crate) fn round_bigint_to_prec(
+        self, n: num_bigint::BigInt, prec: NonZeroU64
+    ) -> WithScale<num_bigint::BigInt> {
+        round_bigint_to_prec(n, prec, self)
+    }
+
     /// Hint used to skip calculating trailing_zeros if they don't matter
     fn needs_trailing_zeros(&self, insig_digit: u8) -> bool {
         use RoundingMode::*;
