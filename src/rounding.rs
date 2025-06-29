@@ -4,6 +4,7 @@
 use crate::*;
 use crate::arithmetic::{add_carry, store_carry, extend_adding_with_carry};
 use stdlib;
+use stdlib::num::NonZeroU64;
 
 // const DEFAULT_ROUNDING_MODE: RoundingMode = ${RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE} or HalfUp;
 include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
@@ -213,11 +214,27 @@ impl RoundingMode {
         full * splitter
     }
 
-    /// Round the round big to prec digits
+    /// Round the bigint to prec digits
     pub(crate) fn round_bigint_to_prec(
-        self, n: num_bigint::BigInt, prec: NonZeroU64
+        self, mut n: num_bigint::BigInt, prec: NonZeroU64
     ) -> WithScale<num_bigint::BigInt> {
-        round_bigint_to_prec(n, prec, self)
+        let (sign, mut biguint) = n.into_parts();
+
+        let ndrd = NonDigitRoundingData { mode: self, sign };
+        let scale = round_biguint_inplace(&mut biguint, prec, ndrd);
+
+        let result = BigInt::from_biguint(sign, biguint);
+        WithScale::from((result, scale))
+    }
+
+    /// Round the biguint to prec digits
+    #[allow(dead_code)]
+    pub(crate) fn round_biguint_to_prec(
+        self, mut n: num_bigint::BigUint, prec: NonZeroU64
+    ) -> WithScale<num_bigint::BigUint> {
+        let ndrd = NonDigitRoundingData { mode: self, sign: Sign::Plus };
+        let scale = round_biguint_inplace(&mut n, prec, ndrd);
+        WithScale::from((n, scale))
     }
 
     /// Hint used to skip calculating trailing_zeros if they don't matter
@@ -422,6 +439,67 @@ impl InsigData {
 
         extend_adding_with_carry(dest, digits, carry);
     }
+}
+
+/// Round BigUint n to 'prec' digits
+fn round_biguint_inplace(
+    n: &mut num_bigint::BigUint,
+    prec: NonZeroU64,
+    rounder: NonDigitRoundingData,
+) -> i64 {
+    use arithmetic::modulo::{mod_ten_2p64_le, mod_100_uint};
+    use arithmetic::decimal::count_decimal_digits_biguint;
+
+    let digit_count = count_decimal_digits_biguint(n);
+    let digits_to_remove = digit_count.saturating_sub(prec.get());
+    if digits_to_remove == 0 {
+        return 0;
+    }
+
+    if digits_to_remove == 1 {
+        let insig_digit = mod_ten_2p64_le(n.iter_u64_digits());
+        *n /= 10u8;
+        let sig_digit = mod_ten_2p64_le(n.iter_u64_digits());
+        let rounded_digit = rounder.round_pair((sig_digit, insig_digit), true);
+        *n += rounded_digit - sig_digit;
+        if rounded_digit != 10 {
+            todo!("needs test");
+            return 1;
+        }
+        todo!("check for overflow");
+        let digit_count = count_decimal_digits_biguint(n);
+        if digit_count == prec.get() {
+            todo!("needs test");
+            return 1;
+        }
+        todo!("handle overflow");
+        debug_assert_eq!(digit_count, prec.get() + 1);
+        *n /= 10u8;
+        return 2;
+    }
+
+    let shifter = ten_to_the_uint(digits_to_remove - 1);
+    let low_digits = &(*n) % &shifter;
+    let trailing_zeros = low_digits.is_zero();
+
+    *n /= &shifter;
+    let u = mod_100_uint(n);
+    let (sig_digit, insig_digit) = u.div_rem(&10);
+    let rounded_digit = rounder.round_pair((sig_digit, insig_digit), trailing_zeros);
+    *n /= 10u8;
+    *n += rounded_digit - sig_digit;
+
+    if rounded_digit != 10 {
+        return digits_to_remove as i64;
+    }
+
+    let digit_count = count_decimal_digits_biguint(n);
+    if digit_count == prec.get() {
+        return digits_to_remove as i64;
+    }
+
+    todo!("needs test");
+    return digits_to_remove as i64 + 1;
 }
 
 
