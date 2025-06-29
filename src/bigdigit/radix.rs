@@ -4,7 +4,10 @@
 //!
 #![allow(non_camel_case_types)]
 
+use crate::*;
 use crate::stdlib::fmt;
+
+use num_traits::{WrappingAdd, WrappingSub};
 
 
 /// All the information needed to specify a bigdecimal's radix, and methods operating on integers
@@ -13,11 +16,17 @@ pub trait RadixType : Copy + Clone + Default + fmt::Debug {
     type Base
         : 'static
         + Copy
+        + fmt::Debug
         + num_integer::Integer
         + num_traits::PrimInt
         + num_traits::FromPrimitive
+        + num_traits::AsPrimitive<Self::BaseDouble>
         + num_traits::Zero
-        + num_traits::One;
+        + num_traits::One
+        + num_traits::WrappingSub
+        + num_traits::Pow<u8, Output = Self::Base>
+        + AddAssign
+        + From<u8>;
 
     /// double wide unsigned type (capable of storing product of two BigDigits)
     type BaseDouble
@@ -26,9 +35,12 @@ pub trait RadixType : Copy + Clone + Default + fmt::Debug {
         + num_integer::Integer
         + num_traits::PrimInt
         + num_traits::FromPrimitive
+        + num_traits::AsPrimitive<Self::Base>
         + num_traits::Zero
         + num_traits::One
-        + num_traits::AsPrimitive<Self::Base>
+        + num_traits::WrappingAdd
+        + num_traits::WrappingSub
+        + AddAssign
         + From<u8>
         + From<Self::Base>;
 
