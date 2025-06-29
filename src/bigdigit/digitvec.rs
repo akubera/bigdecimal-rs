@@ -28,6 +28,12 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         Self::from_vec(Vec::new())
     }
 
+    /// Create digit vector with capacity
+    #[allow(dead_code)]
+    pub fn with_capacity(n: usize) -> Self {
+        Self::from_vec(Vec::with_capacity(n))
+    }
+
     /// Number of bigdigits in the vector
     pub fn len(&self) -> usize {
         self.digits.len()
