@@ -94,6 +94,24 @@ impl Context {
         d.with_precision_round(self.precision(), self.rounding_mode())
     }
 
+    /// Round the bigint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_bigint(
+        self, n: num_bigint::BigInt
+    ) -> WithScale<num_bigint::BigInt> {
+        self.rounding.round_bigint_to_prec(n, self.precision)
+    }
+
+    /// Round the biguint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_biguint(
+        self, n: num_bigint::BigUint
+    ) -> WithScale<num_bigint::BigUint> {
+        self.rounding.round_biguint_to_prec(n, self.precision)
+    }
+
     /// Round digits x and y with the rounding mode
     #[allow(dead_code)]
     pub(crate) fn round_pair(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool) -> u8 {
