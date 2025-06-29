@@ -129,30 +129,13 @@ impl<'a, R: RadixPowerOfTen, E: Endianness> DigitVec<R, E> {
     pub fn count_decimal_digits(&self) -> usize {
         self.as_digit_slice().count_decimal_digits()
     }
-}
 
-
-impl<R: RadixType> DigitVec<R, LittleEndian> {
     /// remove significant zeros
     pub fn remove_leading_zeros(&mut self) {
-        if let Some(idx) = self.digits.iter().rposition(|d| !d.is_zero()) {
-            self.digits.truncate(idx + 1);
-        } else {
-            self.digits.clear();
-        }
+        E::strip_significant_zeros(&mut self.digits)
     }
 }
 
-
-#[allow(dead_code)]
-impl<R: RadixType> DigitVec<R, BigEndian> {
-    pub fn remove_significant_digits(&mut self) {
-        if let Some(idx) = self.digits.iter().position(|d| !d.is_zero()) {
-            self.digits.copy_within(idx.., 0);
-            self.digits.truncate(self.len() - idx);
-        }
-    }
-}
 
 impl DigitVec<RADIX_u64, LittleEndian> {
     /// Convert to signed big integer

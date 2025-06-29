@@ -23,6 +23,10 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
 
     /// Extract digits in correct order from bigiuint
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint>;
+
+    /// Remove any zeros at the location of highest significance, if all zeros
+    /// the vector will be cleared
+    fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>);
 }
 
 
@@ -60,6 +64,15 @@ impl Endianness for BigEndian {
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
         num_bigint::BigUint::from_radix_be(n, 10)
     }
+
+    fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>){
+        if let Some(idx) = digits.iter().position(|d| !d.is_zero()) {
+            digits.copy_within(idx.., 0);
+            digits.truncate(digits.len() - idx);
+        } else {
+            digits.clear();
+        }
+    }
 }
 
 
@@ -86,5 +99,13 @@ impl Endianness for LittleEndian {
 
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
         num_bigint::BigUint::from_radix_le(n, 10)
+    }
+
+    fn strip_significant_zeros<D: Zero>(digits: &mut Vec<D>){
+        if let Some(idx) = digits.iter().rposition(|d| !d.is_zero()) {
+            digits.truncate(idx + 1);
+        } else {
+            digits.clear();
+        }
     }
 }
