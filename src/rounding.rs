@@ -223,10 +223,10 @@ impl RoundingMode {
         let (sign, mut biguint) = n.into_parts();
 
         let ndrd = NonDigitRoundingData { mode: self, sign };
-        let scale = round_biguint_inplace(&mut biguint, prec, ndrd);
+        let ndigits = round_biguint_inplace(&mut biguint, prec, ndrd);
 
         let result = BigInt::from_biguint(sign, biguint);
-        WithScale::from((result, scale))
+        WithScale::from((result, -ndigits))
     }
 
     /// Round the biguint to prec digits
@@ -235,8 +235,8 @@ impl RoundingMode {
         self, mut n: num_bigint::BigUint, prec: NonZeroU64
     ) -> WithScale<num_bigint::BigUint> {
         let ndrd = NonDigitRoundingData { mode: self, sign: Sign::Plus };
-        let scale = round_biguint_inplace(&mut n, prec, ndrd);
-        WithScale::from((n, scale))
+        let ndigits = round_biguint_inplace(&mut n, prec, ndrd);
+        WithScale::from((n, -ndigits))
     }
 
     /// Hint used to skip calculating trailing_zeros if they don't matter

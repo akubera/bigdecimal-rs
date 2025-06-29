@@ -49,10 +49,10 @@ mod multiply_big_int_with_ctx {
             let product = multiply_big_int_with_ctx(&x, &y, ctx);
 
             let expected: BigInt = $expected.parse().unwrap();
-            let exp = $exp;
+            let scale = -$exp;
 
             assert_eq!(&expected, &product.value);
-            assert_eq!(&exp, &product.scale);
+            assert_eq!(&scale, &product.scale);
         };
     }
 
