@@ -9,6 +9,7 @@
 //! NOTE: These are distinct from the BigDigits in num_bigint.
 //!
 
+pub mod alignment;
 pub mod digitvec;
 pub mod endian;
 pub mod radix;
