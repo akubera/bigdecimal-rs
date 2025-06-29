@@ -116,6 +116,11 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
             }
         }
 
+        self.push_significant_digit(n);
+    }
+
+    /// Add bigdigit to the significant end of the vec
+    pub fn push_significant_digit(&mut self, n: R::Base) {
         E::push_significant_digit(&mut self.digits, n);
     }
 }
