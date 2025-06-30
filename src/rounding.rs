@@ -216,7 +216,7 @@ impl RoundingMode {
 
     /// Round the bigint to prec digits
     pub(crate) fn round_bigint_to_prec(
-        self, mut n: num_bigint::BigInt, prec: NonZeroU64
+        self, n: num_bigint::BigInt, prec: NonZeroU64
     ) -> WithScale<num_bigint::BigInt> {
         let (sign, mut biguint) = n.into_parts();
 
