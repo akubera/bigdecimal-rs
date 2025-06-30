@@ -422,6 +422,39 @@ impl From<&num_bigint::BigUint> for DigitVec<RADIX_10_u8, LittleEndian> {
     }
 }
 
+#[cfg(test)]
+mod test_from_biguint_using_tmp {
+    use super::*;
+    use crate::bigdigit::radix::RADIX_10p19_u64;
+
+    macro_rules! impl_case {
+        ($name:ident: $input:literal => $result:expr) => {
+            #[test]
+            fn $name() {
+                let n: BigUint = $input.parse().unwrap();
+
+                let mut tmp = Vec::new();
+                let vec = DigitVec::from_biguint_using_tmp(&n, &mut tmp);
+                let expected: &[u64] = &$result;
+                assert_eq!(vec.digits.as_slice(), expected);
+            }
+        }
+    }
+
+    impl_case!(test_zero: "0" => []);
+    impl_case!(test_3888089293362626678: "3888089293362626678" => [3888089293362626678]);
+    impl_case!(test_10000000000000000000: "10000000000000000000" => [0, 1]);
+    impl_case!(test_141905914:
+        "1419059141115374799211309048234647259918822773497033524702964376392264024748829821875106774"
+        => [
+            4748829821875106774,
+            2470296437639226402,
+            2599188227734970335,
+            4799211309048234647,
+                141905914111537,
+        ]);
+}
+
 /// Vector of base-10 digits
 impl DigitVec<RADIX_10_u8, LittleEndian> {
     /// splits digits into `prec` significant digits, returning the lowest significant digit,
