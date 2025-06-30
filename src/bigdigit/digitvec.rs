@@ -79,7 +79,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
     }
 
     // construct from vector of digits
-    fn from_vec(v: Vec<R::Base>) -> Self {
+    pub(crate) fn from_vec(v: Vec<R::Base>) -> Self {
         debug_assert!(R::validate_digits(v.iter()));
         Self {
             digits: v,
@@ -173,6 +173,7 @@ impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
 }
 
 impl DigitVec<RADIX_10p19_u64, LittleEndian> {
+    /// Convert a num biguint into DigitVec, using tmp as scratchpad
     pub(crate) fn from_biguint_using_tmp(
         n: &num_bigint::BigUint,
         tmp: &mut Vec<u64>,
@@ -182,6 +183,7 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
         Self::from_2p64le_vec(tmp)
     }
 
+    /// Convert a base-2^64 DigitVec to 10^19 DigitVec
     fn from_2p64le_vec(src: &mut Vec<u64>) -> Self {
         type R = RADIX_10p19_u64;
 
@@ -215,17 +217,14 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
         Self::from_vec(result)
     }
 
+    /// Convert to a num BigInt with given sign
     pub fn into_bigint(self, sign: Sign) -> BigInt {
-        let mut tmp = Vec::new();
-        self.into_bigint_tmp(sign, &mut tmp)
-    }
-
-    pub fn into_bigint_tmp(self, sign: Sign, tmp: &mut Vec<u64>) -> BigInt {
-        let uint = self.into_biguint_tmp(tmp);
+        let uint = self.into_biguint();
         BigInt::from_biguint(sign, uint)
     }
 
-    pub fn into_biguint_tmp(self, tmp: &mut Vec<u64>) -> BigUint {
+    /// Convert to BigUint
+    pub fn into_biguint(self) -> BigUint {
         use num_integer::div_rem;
         let radix = <RADIX_10p19_u64 as RadixType>::RADIX;
 
@@ -257,14 +256,11 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
         }
         return result;
     }
+}
+
 impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for num_bigint::BigUint {
     fn from(v: DigitVec<RADIX_10p19_u64, LittleEndian>) -> Self {
-        let digits = v.digits
-                        .into_iter()
-                        .map(|d| [d as u32, (d >> 32) as u32])
-                        .flatten()
-                        .collect();
-        Self::new(digits)
+        v.into_biguint()
     }
 }
 
