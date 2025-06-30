@@ -1,6 +1,7 @@
 use crate::*;
 
 /// optimized calculation of n % 10
+#[allow(dead_code)]
 pub(crate) fn mod_ten_uint(n: &BigUint) -> u8 {
     mod_ten_2p64_le(n.iter_u64_digits())
 }
