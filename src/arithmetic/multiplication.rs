@@ -531,88 +531,10 @@ pub(crate) fn multiply_slices_with_prec_into(
         rounding,
     );
 
-    let WithScale { value: product_digits, scale: result_scale, } = product;
+    let WithScale { value: product_digits, scale: result_scale } = product;
 
     dest.scale = result_scale;
-    dest.value = dbg!(product_digits).into();
-
-    return;
-
-    if a.len() < b.len() {
-        // ensure a is the longer of the two digit slices
-        return multiply_slices_with_prec_into(dest, b, a, prec, rounding);
-    }
-    debug_assert_ne!(a.len(), 0);
-    debug_assert_ne!(b.len(), 0);
-
-    // expand 'result' into separate variables
-    let WithScale { value: dest, scale: result_scale, } = dest;
-
-    // we need at least this many bigdigits to resolve 'prec' base-10 digits
-    let min_bit_count = prec.get() as f64 * LOG2_10;
-    let min_bigdigit_count = (min_bit_count / 64.0).ceil() as usize;
-
-    // require two extra big digits, for carry safety/rounding
-    let requested_bigdigit_count = min_bigdigit_count + 2;
-
-    // maximum number of big-digits in the output
-    let product_bigdigit_count = a.len() + b.len();
-
-    let a_start;
-    let b_start;
-    let bigdigits_to_trim = product_bigdigit_count.saturating_sub(requested_bigdigit_count);
-    if bigdigits_to_trim == 0 {
-        // we've requested more digits than we have, use the whole thing
-        a_start = 0;
-        b_start = 0;
-    } else {
-        // product has fewer digits than the result requires: skip some
-        // the least significant bigdigits in a and b
-        a_start = bigdigits_to_trim.saturating_sub(b.len() - 1);
-        b_start = b.len().saturating_sub(requested_bigdigit_count);
-    };
-
-    // only multiply the relevant significant digits
-    let a_sig = a.trim_insignificant(a_start);
-    let b_sig = b.trim_insignificant(b_start);
-    debug_assert_ne!(a_sig.len(), 0);
-    debug_assert_ne!(b_sig.len(), 0);
-
-    // fill dest with as many zeros as we will need
-    dest.clear();
-    dest.resize(a_sig.len() + b_sig.len());
-
-    // perform dest = a_sig * b_sig
-    multiply_at_idx_into(dest, a_sig, b_sig, 0);
-
-    // number of ignorable bigdigits in dest
-    let dest_insig_count = dest.len().saturating_sub(requested_bigdigit_count);
-
-    // TODO: don't rely on bigint to do the shifting
-    let mut int = BigUint::from(&*dest);
-    int <<= (bigdigits_to_trim - dest_insig_count) * 64;
-
-    // split shifted integer into base-10 digits
-    let int_digits = SmallDigitVec::from(&int);
-    let (sig_digit, insig_digit, trailing) = int_digits.get_rounding_digits_at_prec(prec);
-    // dbg!(&trailing[..20]);
-    // dbg!(trailing.iter().rev().position(|&d| d != 9));
-    // dbg!(trailing.iter().rposition(|&d| d != 9));
-    todo!();
-    // // only check trailing zeros if we have to; it could be expensive
-    // let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(rounding, insig_digit, || {
-    //     check_trailing_zeros(trailing, a, a.len() - a_sig.len(), b, b.len() - b_sig.len())
-    // });
-    // // round the shifted digits
-    let (rounded_int_digits, trimmed_digit_count) =
-        int_digits.round_at_prec_inplace(prec, rounding);
-    // debug_assert!(
-    //     rounded_int_digits.len() == prec.get() as usize
-    //     || (trimmed_digit_count == 0 && rounded_int_digits.len() < prec.get() as usize));
-
-    // // fill dest with rounded digits
-    // rounded_int_digits.fill_vec_u64(dest);
-    *result_scale -= trimmed_digit_count as i64;
+    dest.value = product_digits.into();
 }
 
 /// do calculation to determine if insignificant digits of 'a * b' are all zero
