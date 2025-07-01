@@ -1,6 +1,7 @@
 //! Structs and traits for generic operations on big or little endian ints
 
 use crate::stdlib::fmt;
+use crate::stdlib::Vec;
 use num_traits::{Zero, PrimInt};
 
 
