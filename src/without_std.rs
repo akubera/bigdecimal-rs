@@ -36,6 +36,7 @@ mod stdlib {
     pub use siphasher::sip::SipHasher as DefaultHasher;
 
     pub use alloc::borrow;
+    pub use alloc::collections;
     pub use alloc::string;
     pub use alloc::vec::Vec;
 }

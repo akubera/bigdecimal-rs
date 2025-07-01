@@ -15,6 +15,7 @@ mod stdlib {
         ops,
         iter,
         slice,
+        collections,
         str,
         string,
         f32,
