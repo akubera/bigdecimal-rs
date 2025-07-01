@@ -71,6 +71,55 @@ where
     dest.scale = a.scale + b.scale - digit_vec_scale.scale;
 }
 
+
+/// Multiply digits in slices a and b, ignoring all factors that come from
+/// digits "below" the given index (which is stored at index 0 in the dest)
+///
+/// ```ignore
+///     a₀ a₁ a₂ a₃ ...
+///  b₀| 0  1  2  3
+///  b₁| 1  2  3  4   <- indexes in vector of the 'full' product
+///  b₂| 2  3  4  5 ...
+///  ```
+///  If given idx '3', `dest[0] = a₁b₂ + a₂b₁ + a₃b₀` and `dest[1] = a₂b₂+...` etc
+///
+/// Carrying from lower digits is not calculated, so care must be given
+/// to ensure data enough digits are provided.
+///
+pub(crate) fn multiply_at_product_index<R: RadixType>(
+    dest: &mut DigitVec<R, LittleEndian>,
+    a: DigitSlice<R, LittleEndian>,
+    b: DigitSlice<R, LittleEndian>,
+    idx: usize,
+) {
+    debug_assert!(b.len() <= a.len());
+
+    dest.resize((a.len() + b.len()).saturating_sub(idx));
+
+    let b_idx_min = idx.saturating_sub(a.len() - 1);
+
+    for b_idx in (b_idx_min..b.len()).rev() {
+        let a_idx_min = idx.saturating_sub(b_idx);
+        debug_assert!(a_idx_min < a.len());
+
+        let mut dest_idx = a_idx_min + b_idx - idx;
+
+        let mut carry = Zero::zero();
+        let x = b.digits[b_idx];
+        for &y in a.digits.iter().skip(a_idx_min) {
+            R::carrying_mul_add_inplace(
+                x, y, &mut dest.digits[dest_idx], &mut carry
+            );
+            dest_idx += 1;
+        }
+        R::add_carry_into(dest.digits.iter_mut().skip(dest_idx), &mut carry);
+        if !carry.is_zero() {
+            dest.digits.push(carry);
+        }
+    }
+}
+
+
 pub(crate) fn multiply_at_idx_into<R: RadixType>(
     dest: &mut DigitVec<R, LittleEndian>,
     a: DigitSlice<R, LittleEndian>,
