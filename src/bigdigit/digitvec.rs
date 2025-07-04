@@ -197,6 +197,84 @@ impl DigitVec<RADIX_u64, LittleEndian> {
     pub fn into_bigint(self, sign: Sign) -> BigInt {
         BigInt::from_biguint(sign, self.into())
     }
+
+    /// Construct vector from iterator of base-10^{19} bigdigits
+    #[allow(dead_code)]
+    pub fn from_10p19_digits<I: Iterator<Item=u64>>(mut digits: I) -> Self {
+        type R2p64 = RADIX_u64;
+        type R10p19 = RADIX_10p19_u64;
+
+        let mut v = vec![digits.next().unwrap_or(0)];
+
+        if let Some(d) = digits.next() {
+            let mut carry = 0;
+            R2p64::carrying_mul_add_inplace(
+                d, R10p19::RADIX as u64, &mut v[0], &mut carry
+            );
+            if carry != 0 {
+                v.push(carry);
+            }
+        }
+
+        let mut d = match digits.next() {
+            Some(d) => d,
+            None => {
+                return Self::from_vec(v);
+            }
+        };
+
+        let mut shifter = BigUint::from(R10p19::RADIX * R10p19::RADIX);
+
+        loop {
+            v.push(0);
+
+            if d != 0 {
+                let mut carry = 0;
+                let mut dest_digits = v.iter_mut();
+                let mut shifter_digits = shifter.iter_u64_digits();
+
+                loop {
+                    match (dest_digits.next(), shifter_digits.next()) {
+                        (Some(p), Some(s)) => {
+                            R2p64::carrying_mul_add_inplace(d, s, p, &mut carry);
+                        }
+                        (None, Some(mut s)) => {
+                            loop {
+                                let (hi, lo) = R2p64::fused_mul_add(s, d, carry);
+                                v.push(lo);
+                                carry = hi;
+                                s = match shifter_digits.next() {
+                                    None => break,
+                                    Some(x) => x,
+                                };
+                            }
+                            break;
+                        }
+                        (Some(p), None) if carry != 0 => {
+                            R2p64::addassign_carry(p, &mut carry);
+                        }
+                        _ => {
+                            break;
+                        }
+                    }
+                }
+                if !carry.is_zero() {
+                    v.push(carry);
+                }
+            }
+
+            d = match digits.next() {
+                Some(d) => d,
+                None => {
+                    let zero_idx = v.iter().rposition(|&d| d != 0).unwrap_or(0);
+                    v.truncate(zero_idx + 1);
+                    return Self::from_vec(v);
+                }
+            };
+
+            shifter *= R10p19::RADIX as u64;
+        }
+    }
 }
 
 impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
