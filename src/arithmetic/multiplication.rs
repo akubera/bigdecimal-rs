@@ -224,32 +224,34 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     // let b_digit_count = b.count_decimal_digits();
     // let product_digit_count = a_digit_count + b_digit_count;
 
-    // minimum possible length of each digit, given length of bigdigit vecs
-    let min_a_digit_count = (a.len() - 1) * R::DIGITS + 1;
-    let min_b_digit_count = (b.len() - 1) * R::DIGITS + 1;
-    let pessimistic_product_digit_count = min_a_digit_count + min_b_digit_count;
+    // minimum possible length of each integer, given length of bigdigit vecs
+    let pessimistic_product_digit_count = (a.len() + b.len() - 2) * R::DIGITS + 1;
 
     // require more digits of precision for overflow and rounding
     // max number of digits produced by adding all bigdigits at any
     // particular "digit-index" i of the product
     //  log10( Σ a_m × b_n (∀ m+n=i) )
     let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
-    let bigdigits_to_trim = pessimistic_product_digit_count
+    let max_bigdigit_sum_width = max_digit_sum_width.div_ceil(RADIX_10p19_u64::DIGITS);
+    // the "index" of the product which could affect the significant results
+    let bigdigits_to_skip = pessimistic_product_digit_count
                                 .saturating_sub(prec.get() as usize + 1)
                                 .div_ceil(RADIX_10p19_u64::DIGITS)
-                                .saturating_sub(max_digit_sum_width.div_ceil(RADIX_10p19_u64::DIGITS));
+                                .saturating_sub(max_bigdigit_sum_width);
+
+    dbg!(bigdigits_to_skip);
 
     let a_start;
     let b_start;
-    if bigdigits_to_trim == 0 {
-        // we've requested more digits than product will produce, don't trim any digits
+    if bigdigits_to_skip == 0 {
+        // we've requested more digits than product will produce; don't skip any digits
         a_start = 0;
         b_start = 0;
     } else {
         // the idexes of the least significant bigdigits in a and b which may contribute
         // to the significant digits in the product
-        a_start = bigdigits_to_trim.saturating_sub(b.len());
-        b_start = bigdigits_to_trim.saturating_sub(a.len());
+        a_start = bigdigits_to_skip.saturating_sub(b.len());
+        b_start = bigdigits_to_skip.saturating_sub(a.len());
     }
 
     *result_scale -= (R::DIGITS * (a_start + b_start)) as i64;
@@ -260,25 +262,25 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     let a_sig_digit_count = a_sig.count_decimal_digits();
     let b_sig_digit_count = b_sig.count_decimal_digits();
 
-    let mut product = BigDigitVecP19::new();
-    product.resize((a_sig_digit_count + b_sig_digit_count + 1).div_ceil(RADIX_10p19_u64::DIGITS) + 1);
-    multiply_at_idx_into(&mut product, a_sig, b_sig, 0);
+    // calculate maximum number of digits from product
+    let max_sigproduct_bigdigit_count =
+        (a_sig_digit_count + b_sig_digit_count + 1).div_ceil(RADIX_10p19_u64::DIGITS);
+    let mut product =
+        BigDigitVecP19::with_capacity(max_sigproduct_bigdigit_count + max_bigdigit_sum_width + 1);
+
+    *result_scale -= (R::DIGITS * bigdigits_to_skip) as i64;
+
+    multiply_at_product_index(&mut product, a, b, bigdigits_to_skip);
     product.remove_leading_zeros();
 
     let product_digit_count = product.count_decimal_digits();
-    debug_assert!(a_sig_digit_count + b_sig_digit_count - product_digit_count <= 1);
-    dbg!(pessimistic_product_digit_count, product_digit_count + (R::DIGITS * bigdigits_to_trim));
-    // debug_assert!(pessimistic_product_digit_count <= product_digit_count + (R::DIGITS * bigdigits_to_trim));
 
-    let insignificant_product_is_zero = || {
-        a.digits.iter().take(a_start).all(Zero::is_zero)
-        && b.digits.iter().take(b_start).all(Zero::is_zero)
-    };
-
+    // precision plus the rounding digit
     let digits_to_remove = product_digit_count.saturating_sub(prec.get() as usize);
     if digits_to_remove == 0 {
         debug_assert_eq!(a_start, 0);
         debug_assert_eq!(b_start, 0);
+        debug_assert_eq!(bigdigits_to_skip, 0);
 
         // no need to trim the results, everything was significant;
         *dest = product;
