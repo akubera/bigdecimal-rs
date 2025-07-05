@@ -239,8 +239,6 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
                                 .div_ceil(RADIX_10p19_u64::DIGITS)
                                 .saturating_sub(max_bigdigit_sum_width);
 
-    dbg!(bigdigits_to_skip);
-
     let a_start;
     let b_start;
     if bigdigits_to_skip == 0 {
@@ -253,8 +251,6 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
         a_start = bigdigits_to_skip.saturating_sub(b.len());
         b_start = bigdigits_to_skip.saturating_sub(a.len());
     }
-
-    *result_scale -= (R::DIGITS * (a_start + b_start)) as i64;
 
     let a_sig = a.trim_insignificant(a_start);
     let b_sig = b.trim_insignificant(b_start);
@@ -287,278 +283,40 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
         return;
     }
 
-    // shifting the scale to the left
-    *result_scale -= digits_to_remove as i64;
+    // removing insignificant digits decreases the scale
+    *result_scale -= dbg!(digits_to_remove as i64);
 
-    // count number of bigdigits and digits are left
-    let (insig_bd_count, insig_d_count) = digits_to_remove.div_rem(&RADIX_10p19_u64::DIGITS);
+    // keep adding more multiplication terms if the number ends with 999999...., until
+    // the nines stop or it overflows.
+    // NOTE: the insignificant digits in 'product' will be _wrong_ and must be ignored
+    let trailing_zeros = new_handle_insignificant_overflow(
+        &mut product, a, b, bigdigits_to_skip, digits_to_remove
+    );
 
-    let insig_rounding_data;
-    if insig_d_count == 0 {
-        debug_assert_ne!(insig_bd_count, 0);
+    let insig_digit = product.shift_n_digits_returning_high(digits_to_remove);
+    let sig_digit = (product.digits[0] % 10) as u8;
 
-        // we are rounding on a big-digit boundary
-        let shifter = ten_to_the_u64((RADIX_10p19_u64::DIGITS - 1) as u8);
-        let (insig_digit, insig_digits) = product.digits.get(insig_bd_count - 1)
-                                                        .copied()
-                                                        .unwrap_or(0)
-                                                        .div_rem(&shifter);
-        insig_rounding_data = InsigData::from_digit_and_lazy_trailing_zeros(
-                rounding, insig_digit as u8, || {
-                    insig_digits == 0 && insignificant_product_is_zero()
-                // && product.digits[..bigdigits_to_remove - 1].iter().all(|&d| d == 0)
-            });
+    let insig_rounding_data = InsigData {
+        rounding_data: rounding,
+        digit: insig_digit,
+        trailing_zeros,
+    };
 
-        let sig_digit = product.digits[insig_bd_count] % 10;
-        let rounded_digit = insig_rounding_data.round_digit(sig_digit as u8);
+    let rounded_digit = insig_rounding_data.round_digit(sig_digit);
 
-        dest.digits.push(product.digits[insig_bd_count] - sig_digit + rounded_digit as u64);
-        if dest.digits[0] < radix {
-            dest.digits.extend_from_slice(&product.digits[insig_bd_count + 1..]);
-            return;
-        }
+    let mut carry = rounded_digit as u64;
 
-        // handle overflow case
-        dest.digits[0] -= RADIX_10p19_u64::RADIX as u64;
+    product.digits[0] -= sig_digit as u64;
 
-        if let Some(pos) = product.digits.iter().skip(insig_bd_count).position(|&d| d < radix) {
-            let d = product.digits[pos + insig_bd_count + 1] + 1;
-            dest.digits.resize(1 + pos, 0);
-            dest.digits.push(d);
-            dest.digits.extend_from_slice(&product.digits[insig_bd_count + pos + 2..]);
-            return;
-        }
+    R::add_carry_into_slice(
+        &mut product.digits, &mut carry
+    );
 
-        todo!("NEEDS TESTS");
-        dest.digits.resize(1 + product.digits.len() - insig_bd_count, 0);
-
-        // if dest.digits[0] >= R::RADIX as u64 {
-        // }
-    } else {
-        // let (sig, insig) = product.digits.split_at(insig_bd_count);
-        let mut splitter = BigDigitSliceSplitterIter::<R>::from_slice_starting_bottom(
-            &product.digits[insig_bd_count..],
-            dbg!(insig_d_count),
-        );
-
-        let insig_bigdigit = splitter.next().unwrap();
-        let top_digit_splitter = BigDigitSplitter::<R>::mask_high(1);
-        let (insig_digit, insig_trailing) = top_digit_splitter.div_rem(insig_bigdigit);
-
-        insig_rounding_data =
-            InsigData::from_digit_and_lazy_trailing_zeros(rounding, insig_digit as u8, || {
-                insig_trailing == 0
-                    && product.digits[..insig_bd_count].iter().all(Zero::is_zero)
-                    && insignificant_product_is_zero()
-            });
-
-        let bigdigit = splitter.next().unwrap();
-        let sig_digit0 = bigdigit % 10;
-        let rounded_digit = insig_rounding_data.round_digit(sig_digit0 as u8);
-        let r0 = bigdigit - sig_digit0 + rounded_digit as u64;
-
-        let shifted_r0 = u128::from(r0).wrapping_sub(R::RADIX);
-
-        // shifted_r0 is greater than RADIX if subtraction
-        // wrapped around, meaning there was no carry
-        if shifted_r0 >= R::RADIX {
-            dest.digits.push(r0);
-            dest.digits.extend(splitter);
-            return;
-        }
-        dest.digits.push(shifted_r0 as u64);
-        loop {
-            match splitter.next() {
-                None => {
-                    break;
-                }
-                Some(d) if d == R::max() => {
-                    dest.digits.push(0);
-                }
-                Some(d) => {
-                    debug_assert!(d as u128 + 1 < R::RADIX);
-                    dest.digits.push(d + 1);
-                    dest.digits.extend(splitter);
-                    return;
-                }
-            }
-        }
+    if carry != 0 {
+        todo!()
     }
-    // dest.extend_adding_with_carry(splitter, &mut carry);
-    todo!("handle overflow");
-    return;
 
-    // match dbg!(product_digit_count).saturating_sub(prec.get() as usize) {
-    //     0 => {
-    //         debug_assert_eq!(a_start, 0);
-    //         debug_assert_eq!(b_start, 0);
-
-    //         todo!("needs test");
-    //         // no need to trim the results, we're done
-    //         return;
-    //     }
-    //     // we are rounding on a big-digit boundary
-    //     digits_to_remove if digits_to_remove % RADIX_10p19_u64::DIGITS == 0 => {
-    //         debug_assert_ne!(dbg!(digits_to_remove), 0);
-    //         let bigdigits_to_remove = digits_to_remove / RADIX_10p19_u64::DIGITS;
-    //         debug_assert_ne!(bigdigits_to_remove, 0);
-
-    //         *result_scale += dbg!(digits_to_remove) as i64;
-
-    //         // if digits_to_remove == 0 {
-    //             // InsigData::from_digit_and_lazy_trailing_zeros(rounding 0, 0);
-    //         // } else {
-    //         // };
-
-    //         dest.digits.push(product.digits[bigdigits_to_remove] - sig_digit + rounded_digit as u64);
-    //         if dest.digits[0] < RADIX_10p19_u64::RADIX as u64 {
-    //             dest.digits.extend_from_slice(&product.digits[bigdigits_to_remove + 1..]);
-    //             // dest.digits.copy_within(bigdigits_to_remove + 1.., 1);
-    //             // dest.digits.truncate(dest.digits.len() - bigdigits_to_remove);
-    //             return;
-    //         }
-
-    //         // handle overflow case
-    //         dest.digits[0] -= RADIX_10p19_u64::RADIX as u64;
-    //         // dest.digits[bigdigits_to_remove]
-
-    //         todo!();
-    //     }
-    //     digits_to_remove => {
-    //         use super::bigdigit::alignment::BigDigitSplitter;
-    //         use super::bigdigit::alignment::BigDigitSliceSplitterIter;
-    //         type R = RADIX_10p19_u64;
-
-    //         dbg!(&result_scale);
-    //         *result_scale += dbg!(digits_to_remove) as i64;
-    //         dbg!(result_scale);
-    //         todo!();
-
-    //         let (bigdigits_to_remove, digits_to_remove) = digits_to_remove.div_rem(&RADIX_10p19_u64::DIGITS);
-    //         debug_assert_ne!(digits_to_remove, 0);
-
-    //         let mut splitter = BigDigitSliceSplitterIter::<R>::from_slice_starting_bottom(
-    //             &product.digits[bigdigits_to_remove..], digits_to_remove
-    //         );
-
-    //         let insig_bigdigit = splitter.next().unwrap();
-    //         let top_digit_splitter = BigDigitSplitter::<R>::mask_high(1);
-    //         let (insig_digit, insig_trailing) = top_digit_splitter.div_rem(insig_bigdigit);
-
-    //         let insig_rounding_data = InsigData::from_digit_and_lazy_trailing_zeros(
-    //             rounding, insig_digit as u8, || {
-    //                 insig_trailing == 0 && product.digits[..bigdigits_to_remove].iter().all(Zero::is_zero)
-    //             }
-    //         );
-
-    //         let bigdigit = splitter.next().unwrap();
-    //         let sig_digit0 = bigdigit % 10;
-    //         let rounded_digit = insig_rounding_data.round_digit(sig_digit0 as u8);
-    //         let r0 = bigdigit - sig_digit0 + rounded_digit as u64;
-
-    //         let shifted_r0 = u128::from(r0).wrapping_sub(R::RADIX);
-
-    //         // shifted_r0 is greater than RADIX if subtraction
-    //         // wrapped around, meaning there was no carry
-    //         if shifted_r0 >= R::RADIX {
-    //             dest.digits.push(r0);
-    //             dest.digits.extend(splitter);
-    //             dbg!(&dest.digits);
-    //             return;
-    //         }
-
-    //         dest.digits.push(shifted_r0.as_());
-    //         while let Some(next_digit) = splitter.next() {
-    //             if R::is_max(next_digit) {
-    //                 dest.digits.push(0);
-    //                 continue;
-    //             }
-    //             dest.digits.push(next_digit + 1);
-    //             dest.digits.extend(splitter);
-    //             return;
-    //         }
-
-    //         // handle overflow :-(
-    //         todo!("HANDLE OVERFLOW");
-
-    //         // let boundary_digit = dest.digits[bigdigits_to_remove as usize];
-    //         // let (shifted_boundary_digit, insig_digits) = boundary_digit.div_rem(&shifter);
-
-    //         // dbg!(shifted_boundary_digit);
-    //         // let (sig_digits, insig_digit)  = shifted_boundary_digit.div_rem(&10);
-
-    //         // let rounding_data = InsigData::from_digit_and_lazy_trailing_zeros(
-    //         //     rounding, insig_digit as u8, || {
-    //         //         insig_digits == 0 && dest.digits[..bigdigits_to_remove].iter().all(|&d| d == 0)
-    //         //     }
-    //         // );
-
-    //         // let sig_digit = sig_digits % 10;
-    //         // let rounded_digit = rounding_data.round_digit(sig_digit as u8);
-    //         // dest.digits[0] = sig_digits - sig_digit as u64 + rounded_digit as u64;
-    //         // let mut carry = 0;
-
-    //         // for i in 1.. {
-    //         //     let (hi, lo) = bigdigits_to_remove+i
-    //         // }
-
-    //     //     if dest[0] < RADIX_10p19_u64::RADIX {
-    //     //         dest.copy_within(.., 1);
-    //     //     }
-
-    //     //     if dest[0] >= RADIX_10p19_u64::RADIX {
-    //     //         // match dest.digits.iter().skip(bigdigits_to_remove + 1).pos(|&d| d != RADIX_10p19_u64::RADIX - 1) {
-    //     //         //     Some(pox
-    //     //         // }
-    //     //         // carry = 1;
-    //     //         // dest[0] -= RADIX_10p19_u64::RADIX;
-    //     //         todo!();
-    //     //    }
-    //         todo!();
-    //     }
-    // }
-
-    // let digits_removed = dest.round_at_prec_inplace(prec);
-    // *trimmed_digits += digits_removed;
-    // todo!();
-
-    // dbg!(prec.get());
-    // let (full_count, partial_count) = div_rem(prec.get(), 19);
-    // dbg!(full_count, partial_count);
-    // use num_integer::div_rem;
-    // use crate::arithmetic::decimal::count_digits_u64;
-
-    // let insig_data = InsigData::from_digit_and_lazy_trailing_zeros(rounding, insig_digit, || {
-    //     check_trailing_zeros(trailing, a, a.len() - a_sig.len(), b, b.len() - b_sig.len())
-    // });
-
-    // let digits_removed = dest.digits.round_at_prec_inplace(prec, rounding);
-    // dest.scale -= digits_removed;
-
-    // let (&sig_digit, b) = dest.digits.split_last().unwrap();
-    // let top_digit_cout = count_digits_u64(sig_digit) as u64;
-    // match top_digit_count.checked_sub(partial_count) {
-    //     Some(digits_to_remove) => {
-    //         dbg!(digits_to_remove);
-    //         let shifter = ten_to_the_u64(digits_to_remove as u8);
-    //         dbg!(shifter);
-    //         dbg!(top_digit_count);
-    //         dbg!(sig_digit / digits_to_remove);
-    //     }
-    //     None => {
-    //     }
-    // }
-    // // if top_digit_count < partial_count as usize {
-    // //     dbg!(partial_count - top_digit_count);
-    // // }
-    // dbg!(top_digit_count);
-
-    // let ab = (a_sig.digits[0] as u128) * (b_sig.digits[0] as u128);
-    // let (carry, y) = div_rem(ab, RADIX_10p19_u64::RADIX);
-    // dbg!(carry, y);
-
-    // let z = (a_sig.digits[1] as u128) * (b_sig.digits[0] as u128) + carry;
-    // let (carry, y) = div_rem(z, RADIX_10p19_u64::RADIX);
+    *dest = product;
 }
 
 /// Store `a * b` into dest, to limited precision
