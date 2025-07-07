@@ -293,6 +293,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
         &mut product, a, b, bigdigits_to_skip, digits_to_remove
     );
 
+    // remove the digits, returning the top one to be used
     let insig_digit = product.shift_n_digits_returning_high(digits_to_remove);
     let sig_digit = (product.digits[0] % 10) as u8;
 
