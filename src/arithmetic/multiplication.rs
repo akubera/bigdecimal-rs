@@ -284,7 +284,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     }
 
     // removing insignificant digits decreases the scale
-    *result_scale -= dbg!(digits_to_remove as i64);
+    *result_scale -= digits_to_remove as i64;
 
     // keep adding more multiplication terms if the number ends with 999999...., until
     // the nines stop or it overflows.
