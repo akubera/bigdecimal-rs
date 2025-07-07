@@ -311,7 +311,21 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     product.as_digit_slice_mut().addassign_carry(&mut carry);
 
     if carry != 0 {
-        todo!()
+        debug_assert!(product.digits.iter().all(|&d| d == 0));
+        *result_scale -= 1;
+        *product.digits.last_mut().unwrap() = (R::RADIX as u64) / 10;
+    }
+
+    if rounded_digit == 10 && product.count_decimal_digits() != prec.get() as usize {
+        *result_scale -= 1;
+
+        if let Some((hi, zeros)) = product.digits.split_last_mut() {
+            debug_assert!(*hi >= 10);
+            debug_assert!(zeros.iter().all(|&d| d == 0));
+            *hi /= 10;
+        } else {
+            unreachable!();
+        }
     }
 
     *dest = product;
