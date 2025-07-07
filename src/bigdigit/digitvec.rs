@@ -573,6 +573,10 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     fn as_digit_slice(&'a self) -> DigitSlice<'a, R, E> {
         DigitSlice::from_slice(self.digits)
     }
+
+    pub fn addassign_carry(&mut self, c: &mut R::Base) {
+        R::add_carry_into(E::iter_slice_mut(self.digits), c);
+    }
 }
 
 impl<'a, R: RadixPowerOfTen, E: Endianness> DigitSliceMut<'a, R, E> {

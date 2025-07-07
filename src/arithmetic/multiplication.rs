@@ -308,9 +308,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
 
     product.digits[0] -= sig_digit as u64;
 
-    R::add_carry_into_slice(
-        &mut product.digits, &mut carry
-    );
+    product.as_digit_slice_mut().addassign_carry(&mut carry);
 
     if carry != 0 {
         todo!()
