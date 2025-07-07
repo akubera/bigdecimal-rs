@@ -174,9 +174,18 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
     /// Starts adding at index 0.
     ///
     fn add_carry_into_slice(dest: &mut [Self::Base], c: &mut Self::Base) {
+        Self::add_carry_into(dest.iter_mut(), c)
+    }
+
+    /// Iterate over digits in 'dest', adding the carry value until it becomes zero.
+    ///
+    /// If iterator runs out of digits while carry has a value (i.e. the sum overflows),
+    /// the carry value will not be zero.
+    ///
+    fn add_carry_into<'a, I: Iterator<Item=&'a mut Self::Base>>(dest: I, c: &mut Self::Base) {
         use num_traits::Zero;
 
-        for d in dest.iter_mut() {
+        for d in dest {
             if c.is_zero() {
                 return;
             }
