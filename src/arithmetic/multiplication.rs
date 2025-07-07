@@ -285,7 +285,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     // keep adding more multiplication terms if the number ends with 999999...., until
     // the nines stop or it overflows.
     // NOTE: the insignificant digits in 'product' will be _wrong_ and must be ignored
-    let trailing_zeros = new_handle_insignificant_overflow(
+    let trailing_zeros = calculate_partial_product_trailing_zeros(
         &mut product, a, b, bigdigits_to_skip, digits_to_remove
     );
 
@@ -356,45 +356,153 @@ pub(crate) fn multiply_slices_with_prec_into(
     dest.value = product_digits.into();
 }
 
-/// do calculation to determine if insignificant digits of 'a * b' are all zero
-/// (used when rounding)
+/// return if the number has all trailing zeros
 ///
-/// a * b has already been multiplied from the
-///
-#[allow(unused_variables)]
-fn check_trailing_zeros(
-    trailing: &[u8],
-    a: BigDigitSlice,
-    a_prec: usize,
-    b: BigDigitSlice,
-    b_prec: usize,
+fn calculate_partial_product_trailing_zeros(
+    v: &mut BigDigitVecP19,
+    a: BigDigitSliceP19,
+    b: BigDigitSliceP19,
+    product_idx: usize,
+    digits_to_remove: usize,
 ) -> bool {
-    // classify as insignificant and significant big-digit slices
-    let (a_insig, a_sig) = a.digits.split_at(a_prec);
-    let (b_insig, b_sig) = b.digits.split_at(b_prec);
+    use bigdigit::radix::RadixPowerOfTen;
+    type R = RADIX_10p19_u64;
+    type D = <R as RadixType>::Base;
 
-    // location of first non-zero digit
-    let a_fnz = a_insig.iter().position(|&d| d != 0).unwrap_or(a_insig.len());
-    let b_fnz = b_insig.iter().position(|&d| d != 0).unwrap_or(b_insig.len());
-
-    // trim trailing zeros
-    let (_, a_insig) = a_insig.split_at(a_fnz);
-    let (_, b_insig) = b_insig.split_at(b_fnz);
-
-    match (a_insig.is_empty(), b_insig.is_empty()) {
-        (true, true) => {
-            // there is nothing left to multiply, just go by insignificant digits
-            return trailing.iter().all(|&d| d == 0);
-        }
-        (false, false) => {}
-        _ => todo!(),
+    if digits_to_remove == 0 {
+        return true;
     }
 
-    // product at zero
-    let p0 = a_insig[0] * b_insig[0];
-    dbg!(p0);
+    debug_assert!(b.len() <= a.len());
+    debug_assert!(digits_to_remove <= v.count_decimal_digits());
 
-    todo!();
+    let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
+    let max_bigdigit_sum_width = max_digit_sum_width.div_ceil(R::DIGITS);
+    let (insig_bd_count, insig_d_count) = digits_to_remove.div_rem(&R::DIGITS);
+    debug_assert!(insig_bd_count > 0 || insig_d_count > 0);
+
+    let trailing_zeros;
+    let trailing_nines;
+
+    // index  of the first "full" insignificant big-digit
+    let top_insig_idx;
+
+    match (insig_bd_count, insig_d_count as u8) {
+        (0, 0) => unreachable!(),
+        (0, 1) => {
+            return true;
+        }
+        (0, 2) => {
+            return v.digits[0] % 10 == 0;
+        }
+        (0, n) => {
+            let splitter = ten_to_the_u64(n - 1);
+            return v.digits[0] % splitter == 0;
+        }
+        (1, 0) => {
+            let splitter = ten_to_the_u64(R::DIGITS as u8 - 1);
+            return v.digits[0] % splitter == 0;
+        }
+        (1, 1) => {
+            return v.digits[0] == 0;
+        }
+        (i, 1) => {
+            // special case when the 'top' insignificant digit is
+            // with the other digits
+            trailing_zeros = v.digits[i - 1] == 0;
+            trailing_nines = v.digits[i - 1] == R::max();
+            top_insig_idx = i - 1;
+        }
+        (i, 0) => {
+            // split on a boundary, check previous bigdigit
+            let insig = v.digits[i - 1];
+            let splitter = ten_to_the_u64(R::DIGITS as u8 - 1);
+            let insig_digits = insig % splitter;
+            trailing_zeros = insig_digits == 0;
+            trailing_nines = insig_digits == splitter - 1;
+            top_insig_idx = i - 2;
+        }
+        (i, n) => {
+            let insig = v.digits[i];
+            let splitter = ten_to_the_u64(n - 1);
+            let insig_digits = insig % splitter;
+            trailing_zeros = insig_digits == 0;
+            trailing_nines = insig_digits == splitter - 1;
+            top_insig_idx = i - 1;
+        }
+    }
+
+
+    // the insignificant digits should be at least one bigdigit wider
+    // than the maximum overflow from one iteration of preceding digits
+    // debug_assert!(insig_bd_count >= max_bigdigit_sum_width, "{}, {}", insig_bd_count, max_bigdigit_sum_width);
+
+    // not zero and no chance for overflow
+    if !trailing_zeros && !trailing_nines {
+        return false;
+    }
+
+    if product_idx == 0 {
+        // no new multiplications needs to happen, just return if
+        // product has trailing zeros
+        return trailing_zeros
+            && v.digits[..top_insig_idx].iter().all(|&d| d == 0);
+    }
+
+    // check if last bigdigit in product is not zero before iterative multiplication
+    if trailing_zeros && (a.digits[0].saturating_mul(b.digits[0])) != 0 {
+       return false;
+    }
+
+    for idx in (0..product_idx).rev() {
+        let a_range;
+        let b_range;
+        if idx < b.len() {
+            // up to and including 'idx'
+            a_range = 0..idx + 1;
+            b_range = 0..idx + 1;
+        } else if idx < a.len() {
+            a_range = idx - b.len() + 1..idx + 1;
+            b_range = 0..b.len();
+        } else {
+            a_range = idx - b.len() + 1..a.len();
+            b_range = idx - a.len() + 1..b.len();
+        }
+        debug_assert_eq!(
+            a_range.end - a_range.start,
+            b_range.end - b_range.start,
+        );
+
+        let a_start = a_range.start;
+        let b_start = b_range.start;
+        let a_digits = a.digits[a_range].iter();
+        let b_digits = b.digits[b_range].iter().rev();
+
+        let mut d0 = 0;
+
+        let mut carry = Zero::zero();
+        for (&x, &y) in a_digits.zip(b_digits) {
+            R::carrying_mul_add_inplace(x, y, &mut d0, &mut carry);
+            R::add_carry_into(v.digits.iter_mut(), &mut carry);
+        }
+        debug_assert_eq!(carry, 0);
+
+        let top_insig = v.digits[top_insig_idx];
+        if top_insig != R::max() {
+            // we have overflowed!
+            return v.digits[..top_insig_idx].iter().all(|&d| d == 0)
+                && a.digits[..a_start].iter().all(|&d| d == 0)
+                && b.digits[..b_start].iter().all(|&d| d == 0);
+        }
+
+        // shift the insignificant digits in the vector by one
+        // (i.e. the '9999999' in highest insig bigdigit may be ignored)
+        v.digits.copy_within(..top_insig_idx, 1);
+        v.digits[0] = d0;
+    }
+
+    // never overflowed, therefore "trailing zeros" is false
+    return false;
 }
 
 /// split u64 into high and low bits
