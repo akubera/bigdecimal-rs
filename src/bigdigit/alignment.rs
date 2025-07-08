@@ -277,8 +277,7 @@ impl<'a, R: RadixPowerOfTen> BigDigitSliceSplitterIter<'a, R> {
 
     /// Return the next bigdigit (if available) without advancing the internal value
     pub fn peek_next(&self) -> Option<R::Base> {
-        let mut clone = self.clone();
-        clone.next().clone()
+        self.clone().next()
     }
 }
 
