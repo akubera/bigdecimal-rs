@@ -321,7 +321,7 @@ impl<R: RadixPowerOfTen> ShiftState<R> {
         if n == 0 {
             Self::Zero
         } else {
-            let mask = BigDigitSplitter::mask_high(n as usize);
+            let mask = BigDigitSplitter::mask_high(n);
             let first_digit = digits.next().map(|d| d / mask.mask).unwrap_or(Zero::zero());
             Self::Shifted {
                 mask: mask,

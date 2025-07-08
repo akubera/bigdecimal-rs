@@ -817,7 +817,7 @@ pub(crate) fn multiply_quad_spread_into(
     while carry != 0 {
         let (c, overflow) = split_u64(dest[idx] as u64 + carry);
         dest[idx] = overflow as u32;
-        carry = c as u64;
+        carry = c;
         idx += 1;
     }
 }
@@ -865,7 +865,7 @@ pub(crate) fn multiply_quad_spread_into_wrapping(
         idx = (idx + 1) % wrap;
         let (c, overflow) = split_u64(dest[idx] as u64 + carry);
         dest[idx] = overflow as u32;
-        carry = c as u64;
+        carry = c;
     }
 }
 
