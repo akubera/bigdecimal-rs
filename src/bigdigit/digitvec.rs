@@ -261,6 +261,51 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
         Self::from_2p64le_vec(tmp)
     }
 
+    /// remove the bottom 'n' digits in the vector, returning the highest
+    pub fn shift_n_digits_returning_high(&mut self, n: usize) -> u8 {
+        use bigdigit::alignment::BigDigitSplitter;
+        type Splitter = BigDigitSplitter::<RADIX_10p19_u64>;
+
+        if n == 0 {
+            return 0;
+        }
+
+        let (bd_count, d_count) = n.div_rem(&19);
+
+        if d_count == 0 {
+            // insig is top digit on previous bigdigit
+            let ret = self.digits[bd_count - 1] / (RADIX_10p19_u64::RADIX as u64 / 10);
+            self.digits.copy_within(bd_count.., 0);
+            self.digits.truncate(self.len() - bd_count);
+            return ret as u8;
+        }
+
+        let mask = Splitter::mask_low(d_count as u8);
+        let (d0, insig) = mask.div_rem(self.digits[bd_count]);
+        let ret = mask.div(insig * 10) as u8;
+
+        let mut prev = d0;
+
+        let mut j = 0;
+
+        loop {
+            if let Some(&d) = self.digits.get(bd_count + 1 + j) {
+                let (hi, lo) = mask.split_and_shift(d);
+                self.digits[j] = lo + prev;
+                prev = hi;
+
+                j += 1;
+            } else {
+                if prev != 0 {
+                    self.digits[j] = prev;
+                    j += 1;
+                }
+                self.digits.truncate(j);
+                return ret;
+            }
+        }
+    }
+
     /// Convert a base-2^64 DigitVec to 10^19 DigitVec
     fn from_2p64le_vec(src: &mut Vec<u64>) -> Self {
         type R = RADIX_10p19_u64;
