@@ -382,6 +382,10 @@ impl<R: RadixPowerOfTen> BigDigitSplitter<R> {
     pub fn div_rem(&self, n: R::Base) -> (R::Base, R::Base) {
         n.div_rem(&self.mask)
     }
+
+    pub fn div(&self, n: R::Base) -> R::Base {
+        n / self.mask
+    }
 }
 
 // impl<R: RadixPowerOfTen> BigDigitSplitter<R>
