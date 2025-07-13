@@ -627,10 +627,10 @@ impl DigitVec<RADIX_10_u8, LittleEndian> {
             match sig_digits.iter().position(|&d| d != 9) {
                 Some(idx) => {
                     sig_digits[idx] += 1;
-                    sig_digits[..idx].fill(0);
+                    fill_slice_with_zero(&mut sig_digits[..idx]);
                 }
                 None => {
-                    sig_digits.fill(0);
+                    fill_slice_with_zero(sig_digits);
                     *sig_digits.last_mut().unwrap() = 1;
                     trimmed += 1;
                 }
@@ -639,6 +639,18 @@ impl DigitVec<RADIX_10_u8, LittleEndian> {
 
         debug_assert_eq!(prec.get() as usize, sig_digits.len());
         return (DigitSlice::from_slice(sig_digits), trimmed);
+    }
+}
+
+#[cfg(rustc_1_50)]
+fn fill_slice_with_zero<D: Zero + Clone>(s: &mut [D]) {
+    s.fill(Zero::zero());
+}
+
+#[cfg(not(rustc_1_50))]
+fn fill_slice_with_zero<D: Zero + Clone>(s: &mut [D]) {
+    for r in s.iter_mut() {
+        *r = Zero::zero();
     }
 }
 
