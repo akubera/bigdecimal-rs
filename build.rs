@@ -13,6 +13,9 @@ const SERDE_MAX_SCALE: &str = "150000";
 
 fn main() {
     let ac = autocfg::new();
+    // Fn() -> impl Trait
+    ac.emit_rustc_version(1, 75);
+
     // abs_diff
     ac.emit_rustc_version(1, 60);
 
