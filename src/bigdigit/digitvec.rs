@@ -227,8 +227,7 @@ impl From<DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     fn from(v: DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
                         .into_iter()
-                        .map(|d| [d as u32, (d >> 32) as u32])
-                        .flatten()
+                        .flat_map(|d| [d as u32, (d >> 32) as u32].iter().copied())
                         .collect();
         Self::new(digits)
     }
@@ -238,8 +237,8 @@ impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
                         .iter()
-                        .map(|&d| [d as u32, (d >> 32) as u32])
-                        .flatten().collect();
+                        .flat_map(|&d| [d as u32, (d >> 32) as u32].iter().copied())
+                        .collect();
         Self::new(digits)
     }
 }
