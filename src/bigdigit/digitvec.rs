@@ -110,13 +110,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
             return;
         }
 
-        for dest in E::iter_slice_mut(&mut self.digits).skip(idx) {
-            R::addassign_carry(dest, &mut n);
-            if n.is_zero() {
-                return;
-            }
-        }
-
+        E::addassign_carry_into_slice_at::<R>(&mut self.digits, &mut n, idx);
         self.push_significant_digit(n);
     }
 
