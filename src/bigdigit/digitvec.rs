@@ -647,7 +647,7 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     }
 
     pub fn addassign_carry(&mut self, c: &mut R::Base) {
-        R::add_carry_into(E::iter_slice_mut(self.digits), c);
+        E::addassign_carry_into_slice_at::<R>(self.digits, c, 0);
     }
 }
 
