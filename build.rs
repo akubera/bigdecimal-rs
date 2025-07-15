@@ -21,6 +21,9 @@ fn main() {
     // abs_diff
     ac.emit_rustc_version(1, 60);
 
+    // slice::into_iter
+    ac.emit_rustc_version(1, 53);
+
     // slice::fill
     ac.emit_rustc_version(1, 50);
 
