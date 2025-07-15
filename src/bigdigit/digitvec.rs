@@ -224,21 +224,43 @@ impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
 }
 
 impl From<DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
-    fn from(v: DigitVec<RADIX_u64, LittleEndian>) -> Self {
+    #[cfg(rustc_1_53)]
+    fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
-                        .into_iter()
-                        .flat_map(|d| [d as u32, (d >> 32) as u32].iter().copied())
+                        .iter()
+                        .flat_map(|&d| [d as u32, (d >> 32) as u32])
                         .collect();
+        Self::new(digits)
+    }
+
+    #[cfg(not(rustc_1_53))]
+    fn from(v: DigitVec<RADIX_u64, LittleEndian>) -> Self {
+        let mut digits = Vec::with_capacity(v.len() * 2);
+        for d in v.digits.into_iter() {
+            digits.push(d as u32);
+            digits.push((d >> 32) as u32);
+        }
         Self::new(digits)
     }
 }
 
 impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
+    #[cfg(rustc_1_53)]
     fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
                         .iter()
-                        .flat_map(|&d| [d as u32, (d >> 32) as u32].iter().copied())
+                        .flat_map(|&d| [d as u32, (d >> 32) as u32])
                         .collect();
+        Self::new(digits)
+    }
+
+    #[cfg(not(rustc_1_53))]
+    fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
+        let mut digits = Vec::with_capacity(v.len() * 2);
+        for d in v.digits.into_iter() {
+            digits.push(d as u32);
+            digits.push((d >> 32) as u32);
+        }
         Self::new(digits)
     }
 }
