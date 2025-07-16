@@ -225,7 +225,7 @@ impl From<&num_bigint::BigUint> for DigitVec<RADIX_u64, LittleEndian> {
 
 impl From<DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     #[cfg(rustc_1_53)]
-    fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
+    fn from(v: DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let digits = v.digits
                         .iter()
                         .flat_map(|&d| [d as u32, (d >> 32) as u32])
