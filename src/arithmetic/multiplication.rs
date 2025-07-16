@@ -232,12 +232,11 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     // particular "digit-index" i of the product
     //  log10( Σ a_m × b_n (∀ m+n=i) )
     let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
-    let max_bigdigit_sum_width = max_digit_sum_width.div_ceil(RADIX_10p19_u64::DIGITS);
+    let max_bigdigit_sum_width = R::div_digits(max_digit_sum_width);
     // the "index" of the product which could affect the significant results
-    let bigdigits_to_skip = pessimistic_product_digit_count
-                                .saturating_sub(prec.get() as usize + 1)
-                                .div_ceil(RADIX_10p19_u64::DIGITS)
-                                .saturating_sub(max_bigdigit_sum_width);
+    let digits_to_skip = pessimistic_product_digit_count.saturating_sub(prec.get() as usize + 1);
+    let bigdigits_to_skip = R::div_digits(digits_to_skip)
+                              .saturating_sub(max_bigdigit_sum_width);
 
     let a_start;
     let b_start;
@@ -259,8 +258,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     let b_sig_digit_count = b_sig.count_decimal_digits();
 
     // calculate maximum number of digits from product
-    let max_sigproduct_bigdigit_count =
-        (a_sig_digit_count + b_sig_digit_count + 1).div_ceil(RADIX_10p19_u64::DIGITS);
+    let max_sigproduct_bigdigit_count = R::div_digits(a_sig_digit_count + b_sig_digit_count + 1);
     let mut product =
         BigDigitVecP19::with_capacity(max_sigproduct_bigdigit_count + max_bigdigit_sum_width + 1);
 
@@ -379,7 +377,7 @@ fn calculate_partial_product_trailing_zeros(
     debug_assert!(digits_to_remove <= v.count_decimal_digits());
 
     let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
-    let max_bigdigit_sum_width = max_digit_sum_width.div_ceil(R::DIGITS);
+    let max_bigdigit_sum_width = R::div_digits(max_digit_sum_width);
     let (insig_bd_count, insig_d_count) = digits_to_remove.div_rem(&R::DIGITS);
     debug_assert!(insig_bd_count > 0 || insig_d_count > 0);
 

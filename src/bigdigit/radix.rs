@@ -213,6 +213,12 @@ pub struct RADIX_u64;
 
 pub(crate) trait RadixPowerOfTen : RadixType {
     const DIGITS: usize;
+
+    /// convert number of digits to number of big-digits
+    fn div_digits(digit_count: usize) -> usize {
+        use num_integer::Integer;
+        Integer::div_ceil(&digit_count, &Self::DIGITS)
+    }
 }
 
 impl RadixPowerOfTen for RADIX_10p19_u64 {
