@@ -24,6 +24,7 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
     #[cfg(not(rustc_1_75))]
     fn iter_slice_mut<'a, D>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D>;
 
+    /// Add 'carry' into digits, starting at least-significant digit 'idx'
     fn addassign_carry_into_slice_at<R: RadixType>(
         digits: &mut [R::Base], carry: &mut R::Base, idx: usize
     ) {
@@ -38,13 +39,15 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
     /// Place given digit at the most-significant end of the vecor
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D);
 
-    /// Place given digit at the most-significant end of the vecor
+    /// Split slice into most-significant digit and 'the rest'
+    ///
+    /// If slice is empty zero and empty-slice is returned
     fn split_most_significant_digit<D: Zero + PrimInt>(digits: &[D]) -> (D, &[D]);
 
-    /// Extract digits in correct order from bigiuint
+    /// Extract base-10 digits in endian-order from bigiuint
     fn bigint_to_digits(n: &num_bigint::BigUint) -> Vec<u8>;
 
-    /// Extract digits in correct order from bigiuint
+    /// Build BigUint from base-10 digits in slice
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint>;
 
     /// Remove any zeros at the location of highest significance, if all zeros
@@ -63,7 +66,6 @@ pub(crate) struct LittleEndian {}
 
 
 impl Endianness for BigEndian {
-    /// Iterate over digits in slice from least to most significance
     #[cfg(rustc_1_75)]
     fn into_iter<D>(digits: Vec<D>) -> impl Iterator<Item=D> {
         digits.into_iter().rev()
