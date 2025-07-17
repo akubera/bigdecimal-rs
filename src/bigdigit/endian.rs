@@ -17,7 +17,13 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
     #[cfg(rustc_1_75)]
     fn iter_slice_mut<D>(digits: &mut [D]) -> impl Iterator<Item=&mut D>;
 
-    #[cfg(rustc_1_75)]
+    #[cfg(not(rustc_1_75))]
+    #[allow(dead_code)]
+    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D>;
+
+    #[cfg(not(rustc_1_75))]
+    fn iter_slice_mut<'a, D>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D>;
+
     fn addassign_carry_into_slice_at<R: RadixType>(
         digits: &mut [R::Base], carry: &mut R::Base, idx: usize
     ) {
@@ -28,11 +34,6 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
             }
         }
     }
-
-    #[cfg(not(rustc_1_75))]
-    fn addassign_carry_into_slice_at<R: RadixType>(
-        digits: &mut [R::Base], carry: &mut R::Base, idx: usize
-    );
 
     /// Place given digit at the most-significant end of the vecor
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D);
@@ -69,22 +70,18 @@ impl Endianness for BigEndian {
     }
 
     #[cfg(rustc_1_75)]
-    fn iter_slice_mut<D>(digits: &mut [D]) -> impl Iterator<Item=&mut D>{
+    fn iter_slice_mut<D>(digits: &mut [D]) -> impl Iterator<Item=&mut D> {
         digits.iter_mut().rev()
     }
 
     #[cfg(not(rustc_1_75))]
-    fn addassign_carry_into_slice_at<R: RadixType>(
-        digits: &mut [R::Base],
-        carry: &mut R::Base,
-        idx: usize
-    ) {
-        for dest in digits.iter_mut().rev().skip(idx) {
-            R::addassign_carry(dest, carry);
-            if carry.is_zero() {
-                return;
-            }
-        }
+    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
+        LittleEndianBigDigitIter { digits: Box::new(digits.into_iter().rev()) }
+    }
+
+    #[cfg(not(rustc_1_75))]
+    fn iter_slice_mut<'a, D>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D> {
+        LittleEndianBigDigitIter { digits: Box::new(digits.iter_mut().rev()) }
     }
 
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
@@ -126,17 +123,13 @@ impl Endianness for LittleEndian {
     }
 
     #[cfg(not(rustc_1_75))]
-    fn addassign_carry_into_slice_at<R: RadixType>(
-        digits: &mut [R::Base],
-        carry: &mut R::Base,
-        idx: usize
-    ) {
-        for dest in digits.iter_mut().skip(idx) {
-            R::addassign_carry(dest, carry);
-            if carry.is_zero() {
-                return;
-            }
-        }
+    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
+        LittleEndianBigDigitIter { digits: Box::new(digits.into_iter()) }
+    }
+
+    #[cfg(not(rustc_1_75))]
+    fn iter_slice_mut<'a, D: 'static>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D> {
+        LittleEndianBigDigitIter { digits: Box::new(digits.into_iter()) }
     }
 
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
@@ -161,5 +154,20 @@ impl Endianness for LittleEndian {
         } else {
             digits.clear();
         }
+    }
+}
+
+
+#[cfg(not(rustc_1_75))]
+pub(crate) struct LittleEndianBigDigitIter<'a, D> {
+    digits: Box<dyn Iterator<Item=D> + 'a>
+}
+
+#[cfg(not(rustc_1_75))]
+impl<D> Iterator for LittleEndianBigDigitIter<'_, D> {
+    type Item = D;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.digits.next()
     }
 }
