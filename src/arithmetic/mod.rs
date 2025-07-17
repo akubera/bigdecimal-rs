@@ -16,6 +16,18 @@ pub(crate) use self::decimal::{
     count_decimal_digits_biguint as count_decimal_digits_uint,
 };
 
+#[cfg(not(feature = "std"))]
+// f64::log10 is only available in std, we have to use an external crate like libm
+fn log10(x: f64) -> f64 {
+    libm::log10(x)
+}
+
+#[cfg(feature = "std")]
+fn log10(x: f64) -> f64 {
+    x.log10()
+}
+
+
 /// Return 10^pow
 ///
 /// Try to calculate this with fewest number of allocations
