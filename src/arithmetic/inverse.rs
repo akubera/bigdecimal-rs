@@ -1,6 +1,7 @@
 //! inverse implementation
 
 use crate::*;
+use super::exp2;
 
 /// Implementation of inverse: (1/n)
 pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {

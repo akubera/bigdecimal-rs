@@ -17,16 +17,29 @@ pub(crate) use self::decimal::{
 };
 
 #[cfg(not(feature = "std"))]
-// f64::log10 is only available in std, we have to use an external crate like libm
-fn log10(x: f64) -> f64 {
-    libm::log10(x)
+mod funcs {
+    // f64::exp2 is only available in std, we have to use an external crate like libm
+    pub fn exp2(x: f64) -> f64 {
+        libm::exp2(x)
+    }
+
+    pub fn log10(x: f64) -> f64 {
+        libm::log10(x)
+    }
 }
 
 #[cfg(feature = "std")]
-fn log10(x: f64) -> f64 {
-    x.log10()
+mod funcs {
+    pub fn exp2(x: f64) -> f64 {
+        x.exp2()
+    }
+
+    pub fn log10(x: f64) -> f64 {
+        x.log10()
+    }
 }
 
+pub(crate) use self::funcs::*;
 
 /// Return 10^pow
 ///
