@@ -129,9 +129,7 @@ pub(crate) fn multiply_at_idx_into<R: RadixType>(
     b: DigitSlice<R, LittleEndian>,
     idx: usize,
 ) {
-    dbg!(&a);
-    dbg!(&b);
-    debug_assert!(dbg!(a.len()) + dbg!(b.len()) <= dbg!(dest.len()) + dbg!(idx));
+    debug_assert!(a.len() + b.len() <= dest.len() + idx);
     for (ia, &da) in a.digits.iter().enumerate() {
         if da.is_zero() {
             continue;
