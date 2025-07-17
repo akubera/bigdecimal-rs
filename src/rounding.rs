@@ -463,16 +463,12 @@ fn round_biguint_inplace(
         let rounded_digit = rounder.round_pair((sig_digit, insig_digit), true);
         *n += rounded_digit - sig_digit;
         if rounded_digit != 10 {
-            todo!("needs test");
             return 1;
         }
-        todo!("check for overflow");
         let digit_count = count_decimal_digits_biguint(n);
         if digit_count == prec.get() {
-            todo!("needs test");
             return 1;
         }
-        todo!("handle overflow");
         debug_assert_eq!(digit_count, prec.get() + 1);
         *n /= 10u8;
         return 2;
@@ -498,7 +494,11 @@ fn round_biguint_inplace(
         return digits_to_remove as i64;
     }
 
-    todo!("needs test");
+    debug_assert_eq!(digit_count, prec.get() + 1);
+
+    // shift by another digit. Overflow means all significant
+    // digits were nines, so no need to re-round
+    *n /= 10u8;
     return digits_to_remove as i64 + 1;
 }
 
