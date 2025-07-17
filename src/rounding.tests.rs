@@ -269,3 +269,97 @@ mod test_round_u32 {
         impl_test!(8 :: Down => 0);
     }
 }
+
+
+#[allow(non_snake_case)]
+mod test_round_biguint_inplace {
+    use super::*;
+    use paste::paste;
+
+    macro_rules! impl_test {
+        (IMPL; $prec:literal, $mode:ident => $expected:literal, $exp:literal) => {
+            paste! {
+                #[test]
+                fn [< prec $prec _mode_ $mode >]() {
+                    let mut n = test_input();
+                    let rounder = NonDigitRoundingData {
+                        mode: self::RoundingMode::$mode,
+                        sign: Sign::Plus,
+                    };
+                    let prec = NonZeroU64::new($prec).unwrap();
+                    let result = round_biguint_inplace(&mut n, prec, rounder);
+                    let expected: BigUint = $expected.parse().unwrap();
+                    assert_eq!(&expected, &n);
+                    assert_eq!($exp, result);
+                }
+            }
+        };
+        ($prec:literal: $($mode:ident),+ => $expected:literal E $exp:literal) => {
+            $( impl_test!(IMPL; $prec, $mode => $expected, $exp); )*
+        };
+        ($prec:literal: $($($mode:ident),+ => $expected:literal E $exp:literal),+ ) => {
+            $( impl_test!($prec: $($mode),* => $expected E $exp); )*
+        };
+    }
+
+    mod case_14414008876e200 {
+        use super::*;
+
+        fn test_input() -> BigUint {
+            "1441400887642029388383856645559897315584165538408309505171135258930500598075662511441702498467332463786833300335785089981027498174604649257434184055851638492438374046355824930138046686225938550901559011829587689".parse().unwrap()
+        }
+
+        impl_test!(15:   Up => "144140088764203" E 196,
+                       Down => "144140088764202" E 196);
+
+        impl_test!(11: Down,
+                       HalfEven => "14414008876" E 200,
+                             Up => "14414008877" E 200);
+
+        impl_test!(1: Down,
+                       HalfEven => "1" E 210,
+                             Up => "2" E 210);
+    }
+
+    mod case_99191529355902971933631238546419824884699 {
+        use super::*;
+
+        fn test_input() -> BigUint {
+            "99191529355902971933631238546419824884699".parse().unwrap()
+        }
+
+        impl_test!(42: Down, Up => "99191529355902971933631238546419824884699" E 0);
+
+        impl_test!(41: Down,
+                       Up,
+                       HalfEven => "99191529355902971933631238546419824884699" E 0);
+
+        impl_test!(40:   Up => "9919152935590297193363123854641982488470" E 1,
+                       Down => "9919152935590297193363123854641982488469" E 1);
+
+        impl_test!(13:   Up => "9919152935591" E 28,
+                       Down => "9919152935590" E 28);
+
+        impl_test!(4:   Up => "9920" E 37,
+                      Down => "9919" E 37);
+        impl_test!(3:   Up => "992" E 38,
+                      Down => "991" E 38);
+        impl_test!(2:   Up => "10" E 40,
+                      Down => "99" E 39);
+        impl_test!(1:   Up => "1" E 41,
+                      Down => "9" E 40);
+    }
+
+    mod case_99 {
+        use super::*;
+
+        fn test_input() -> BigUint {
+            "99".parse().unwrap()
+        }
+
+        impl_test!(2:   Up => "99" E 0,
+                      Down => "99" E 0);
+        impl_test!(1:   Up => "1" E 2,
+                      Down => "9" E 1);
+    }
+}
