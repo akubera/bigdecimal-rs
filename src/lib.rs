@@ -210,17 +210,6 @@ pub struct BigDecimal {
     scale: i64,
 }
 
-#[cfg(not(feature = "std"))]
-// f64::exp2 is only available in std, we have to use an external crate like libm
-fn exp2(x: f64) -> f64 {
-    libm::exp2(x)
-}
-
-#[cfg(feature = "std")]
-fn exp2(x: f64) -> f64 {
-    x.exp2()
-}
-
 impl BigDecimal {
     /// Creates and initializes a `BigDecimal`.
     ///

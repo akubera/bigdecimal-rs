@@ -10,6 +10,24 @@ pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
 
+#[cfg(not(feature = "std"))]
+mod funcs {
+    // f64::exp2 is only available in std, we have to use an external crate like libm
+    pub fn exp2(x: f64) -> f64 {
+        libm::exp2(x)
+    }
+}
+
+#[cfg(feature = "std")]
+mod funcs {
+    pub fn exp2(x: f64) -> f64 {
+        x.exp2()
+    }
+}
+
+// rexport all funcs into this module
+pub(crate) use self::funcs::*;
+
 /// Return 10^pow
 ///
 /// Try to calculate this with fewest number of allocations
