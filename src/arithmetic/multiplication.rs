@@ -8,6 +8,8 @@ use num_traits::AsPrimitive;
 use crate::*;
 use crate::rounding::{NonDigitRoundingData, InsigData};
 
+use super::log10;
+
 use crate::bigdigit::{
     radix::{RadixType, RADIX_u64, RADIX_10_u8, RADIX_10p19_u64},
     endian::{Endianness, LittleEndian, BigEndian},
@@ -223,7 +225,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     // max number of digits produced by adding all bigdigits at any
     // particular "digit-index" i of the product
     //  log10( Σ a_m × b_n (∀ m+n=i) )
-    let max_digit_sum_width = (2.0 * (R::max() as f32).log10() + (b.len() as f32).log10()).ceil() as usize;
+    let max_digit_sum_width = (2.0 * log10(R::max() as f64) + log10(b.len() as f64)).ceil() as usize;
     let max_bigdigit_sum_width = R::divceil_digit_count(max_digit_sum_width);
     // the "index" of the product which could affect the significant results
     let digits_to_skip = pessimistic_product_digit_count.saturating_sub(prec.get() as usize + 1);
