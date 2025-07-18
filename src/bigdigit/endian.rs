@@ -19,7 +19,7 @@ pub(crate) trait Endianness : Copy + Clone + Default + fmt::Debug {
 
     #[cfg(not(rustc_1_75))]
     #[allow(dead_code)]
-    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D>;
+    fn into_iter<'a, D: 'static>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D>;
 
     #[cfg(not(rustc_1_75))]
     fn iter_slice_mut<'a, D>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D>;
@@ -77,7 +77,7 @@ impl Endianness for BigEndian {
     }
 
     #[cfg(not(rustc_1_75))]
-    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
+    fn into_iter<'a, D: 'static>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
         LittleEndianBigDigitIter { digits: Box::new(digits.into_iter().rev()) }
     }
 
@@ -125,12 +125,12 @@ impl Endianness for LittleEndian {
     }
 
     #[cfg(not(rustc_1_75))]
-    fn into_iter<'a, D>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
+    fn into_iter<'a, D: 'static>(digits: Vec<D>) -> LittleEndianBigDigitIter<'a, D> {
         LittleEndianBigDigitIter { digits: Box::new(digits.into_iter()) }
     }
 
     #[cfg(not(rustc_1_75))]
-    fn iter_slice_mut<'a, D: 'static>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D> {
+    fn iter_slice_mut<'a, D>(digits: &'a mut [D]) -> LittleEndianBigDigitIter<'a, &'a mut D> {
         LittleEndianBigDigitIter { digits: Box::new(digits.into_iter()) }
     }
 
