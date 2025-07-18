@@ -257,7 +257,7 @@ impl From<&DigitVec<RADIX_u64, LittleEndian>> for num_bigint::BigUint {
     #[cfg(not(rustc_1_53))]
     fn from(v: &DigitVec<RADIX_u64, LittleEndian>) -> Self {
         let mut digits = Vec::with_capacity(v.len() * 2);
-        for d in v.digits.into_iter() {
+        for d in v.digits.iter() {
             digits.push(d as u32);
             digits.push((d >> 32) as u32);
         }
