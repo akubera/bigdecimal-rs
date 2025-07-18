@@ -474,7 +474,7 @@ mod test_from_biguint_using_tmp {
 
                 let mut tmp = Vec::new();
                 let vec = DigitVec::from_biguint_using_tmp(&n, &mut tmp);
-                let expected = &$result;
+                let expected: &[u64] = &$result;
                 assert_eq!(vec.digits.as_slice(), expected);
             }
         }
