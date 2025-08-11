@@ -10,7 +10,9 @@ include!(concat!(env!("OUT_DIR"), "/default_rounding_mode.rs"));
 
 /// Determines how to calculate the last digit of the number
 ///
-/// Default rounding mode is HalfUp
+/// Default rounding mode is `HalfEven`, overwritable at compile-time
+/// by setting the environment-value `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE`
+/// to the name of the mode.
 ///
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum RoundingMode {
