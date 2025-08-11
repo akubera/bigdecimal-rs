@@ -3,6 +3,8 @@
 use crate::*;
 use num_traits::CheckedSub;
 
+pub(crate) mod decimal;
+
 pub(crate) mod addition;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
@@ -74,27 +76,6 @@ pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
     }
 
 }
-
-/// Return number of decimal digits in integer
-pub(crate) fn count_decimal_digits(int: &BigInt) -> u64 {
-    count_decimal_digits_uint(int.magnitude())
-}
-
-/// Return number of decimal digits in unsigned integer
-pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
-    if uint.is_zero() {
-        return 1;
-    }
-    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
-    // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the_uint(digits);
-    while *uint >= num {
-        num *= 10u8;
-        digits += 1;
-    }
-    digits
-}
-
 
 /// Return difference of two numbers, returning diff as u64
 pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)

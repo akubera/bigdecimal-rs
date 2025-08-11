@@ -161,8 +161,8 @@ use arithmetic::{
     ten_to_the_u64,
     diff,
     diff_usize,
-    count_decimal_digits,
-    count_decimal_digits_uint,
+    decimal::count_digits_bigint as count_decimal_digits,
+    decimal::count_digits_biguint as count_decimal_digits_uint,
 };
 
 
