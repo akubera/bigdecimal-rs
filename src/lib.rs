@@ -161,8 +161,8 @@ use arithmetic::{
     ten_to_the_u64,
     diff,
     diff_usize,
-    count_decimal_digits,
-    count_decimal_digits_uint,
+    decimal::count_digits_bigint as count_decimal_digits,
+    decimal::count_digits_biguint as count_decimal_digits_uint,
 };
 
 
@@ -249,6 +249,31 @@ impl BigDecimal {
     pub fn to_ref(&self) -> BigDecimalRef<'_> {
         // search for "From<&'a BigDecimal> for BigDecimalRef<'a>"
         self.into()
+    }
+
+    /// Count of decimal digits
+    ///
+    /// Zero is considered to be one digit.
+    ///
+    pub fn count_decimal_digits(&self) -> u64 {
+        if self.is_zero() {
+            return 1;
+        }
+        count_decimal_digits_uint(self.int_val.magnitude())
+    }
+
+    /// Position of most significant digit of this decimal
+    ///
+    /// Equivalent to the exponent when written in scientific notation,
+    /// or $$\floor{log10(n)}$$.
+    ///
+    /// The order of magnitude of 0 is 0.
+    ///
+    pub fn order_of_magnitude(&self) -> i64 {
+        if self.is_zero() {
+            return 0;
+        }
+        self.count_decimal_digits() as i64 - self.scale - 1
     }
 
     /// Returns the scale of the BigDecimal, the total number of
@@ -2207,6 +2232,8 @@ mod bigdecimal_tests {
             assert_eq!(expected, parsed, "[{}] didn't round trip through [{}]", s, display);
         }
     }
+
+    include!("lib.tests.rs");
 }
 
 
