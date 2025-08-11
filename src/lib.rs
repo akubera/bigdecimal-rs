@@ -255,7 +255,7 @@ impl BigDecimal {
     ///
     /// Zero is considered to be one digit.
     ///
-    pub fn count_decimal_digits(&self) -> u64 {
+    pub fn decimal_digit_count(&self) -> u64 {
         if self.is_zero() {
             return 1;
         }
@@ -265,7 +265,7 @@ impl BigDecimal {
     /// Position of most significant digit of this decimal
     ///
     /// Equivalent to the exponent when written in scientific notation,
-    /// or $$\floor{log10(n)}$$.
+    /// or `⌊log10(n)⌋`.
     ///
     /// The order of magnitude of 0 is 0.
     ///
@@ -273,7 +273,7 @@ impl BigDecimal {
         if self.is_zero() {
             return 0;
         }
-        self.count_decimal_digits() as i64 - self.scale - 1
+        self.decimal_digit_count() as i64 - self.scale - 1
     }
 
     /// Returns the scale of the BigDecimal, the total number of
