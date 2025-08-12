@@ -270,10 +270,7 @@ impl BigDecimal {
     /// The order of magnitude of 0 is 0.
     ///
     pub fn order_of_magnitude(&self) -> i64 {
-        if self.is_zero() {
-            return 0;
-        }
-        self.decimal_digit_count() as i64 - self.scale - 1
+        self.to_ref().order_of_magnitude()
     }
 
     /// Returns the scale of the BigDecimal, the total number of
@@ -1304,6 +1301,20 @@ impl BigDecimalRef<'_> {
     /// Count total number of decimal digits
     pub fn count_digits(&self) -> u64 {
         count_decimal_digits_uint(self.digits)
+    }
+
+    /// Position of most significant digit of this decimal
+    ///
+    /// Equivalent to the exponent when written in scientific notation,
+    /// or `⌊log10(n)⌋`.
+    ///
+    /// The order of magnitude of 0 is 0.
+    ///
+    pub fn order_of_magnitude(&self) -> i64 {
+        if self.is_zero() {
+            return 0;
+        }
+        self.count_digits() as i64 - self.scale - 1
     }
 
     /// Return the number of trailing zeros in the referenced integer
