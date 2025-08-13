@@ -1,4 +1,35 @@
 
+mod is_one {
+    use super::*;
+
+    macro_rules! impl_case {
+        ($name:ident: $input:literal => $expected:literal) => {
+            #[test]
+            fn $name() {
+                let d: BigDecimal = $input.parse().unwrap();
+                assert_eq!(d.is_one(), $expected);
+            }
+        };
+    }
+
+    impl_case!(case_0: "0" => false);
+    impl_case!(case_1: "1" => true);
+    impl_case!(case_n1: "-1" => false);
+    impl_case!(case_10en1: "10e-1" => true);
+    impl_case!(case_100en2: "100e-2" => true);
+    impl_case!(case_10000en4: "10000e-4" => true);
+    impl_case!(case_1d00000000000000000:   "1.00000000000000000" => true);
+    impl_case!(case_1d000000000000000000:  "1.000000000000000000" => true);
+    impl_case!(case_1d0000000000000000000: "1.0000000000000000000" => true);
+    impl_case!(case_1d00000000000000001:   "1.00000000000000001" => false);
+    impl_case!(case_1d000000000000000001:  "1.000000000000000001" => false);
+    impl_case!(case_1d0000000000000000001: "1.0000000000000000001" => false);
+    impl_case!(case_1d00000000000000000000000000000000: "1.00000000000000000000000000000000" => true);
+    impl_case!(case_1d00000000000000000000000000000001: "1.00000000000000000000000000000001" => false);
+    impl_case!(case_10d0000000000000000000000000000000000: "10.00000000000000000000000000000000000" => false);
+}
+
+
 mod decimal_digit_count {
     use super::*;
 

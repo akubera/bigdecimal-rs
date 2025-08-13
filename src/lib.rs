@@ -98,6 +98,7 @@ use num_integer::Integer as IntegerTrait;
 pub use num_traits::{FromPrimitive, Num, One, Pow, Signed, ToPrimitive, Zero};
 
 use stdlib::f64::consts::LOG2_10;
+use stdlib::f64::consts::LOG10_2;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
@@ -1067,9 +1068,12 @@ impl Zero for BigDecimal {
 }
 
 impl One for BigDecimal {
-    #[inline]
     fn one() -> BigDecimal {
         BigDecimal::new(BigInt::one(), 0)
+    }
+
+    fn is_one(&self) -> bool {
+        self.to_ref().is_one()
     }
 }
 
@@ -1388,6 +1392,39 @@ impl BigDecimalRef<'_> {
     /// Return if the referenced decimal is zero
     pub fn is_zero(&self) -> bool {
         self.digits.is_zero()
+    }
+
+    /// Return if the referenced decimal is one
+    pub fn is_one(&self) -> bool {
+        if self.sign() != Sign::Plus || self.scale < 0 {
+            return false;
+        }
+        let value = self.digits;
+
+        // special case for standard integers (scale == 0)
+        if self.scale == 0 {
+            return value.to_u32() == Some(1);
+        }
+
+        // scale required to represent a value of 10^{pow} for
+        // an int_val with this number of bits, quickly filter
+        // any integers with wrong number of digits for the scale
+        let approx_digits = (value.bits() as f64 * LOG10_2).ceil() as i64 - 1;
+        if approx_digits != self.scale {
+            return false;
+        }
+
+        if let Some(n) = value.to_u64() {
+            // small value optimization, compare with 10^{scale}
+            self.scale.to_u32()
+                      .and_then(|scale| 10u64.checked_pow(scale))
+                      .map(|ten_pow_scale| n == ten_pow_scale)
+                      .unwrap_or(false)
+        } else {
+            // full comparison of {int} == 10^{scale}
+            // (because actual value is {int} * 10^{-scale})
+            value == &ten_to_the_uint(self.scale as u64)
+        }
     }
 
     /// Clone this value into dest
