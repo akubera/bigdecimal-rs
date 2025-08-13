@@ -1371,19 +1371,15 @@ impl BigDecimalRef<'_> {
 
     /// Take square root of absolute-value of the number
     pub fn sqrt_abs_with_context(&self, ctx: &Context) -> BigDecimal {
-        use Sign::*;
-
         let (_, scale, uint) = self.as_parts();
         arithmetic::sqrt::impl_sqrt(uint, scale, ctx)
     }
 
     /// Take square root, copying sign of the initial decimal
     pub fn sqrt_copysign_with_context(&self, ctx: &Context) -> BigDecimal {
-        use Sign::*;
-
         let (sign, scale, uint) = self.as_parts();
         let mut result = arithmetic::sqrt::impl_sqrt(uint, scale, ctx);
-        if sign == Minus {
+        if sign == Sign::Minus {
             result.int_val = result.int_val.neg();
         }
         result
