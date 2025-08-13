@@ -113,7 +113,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
 
         let overflow = self.as_digit_slice_mut().add_value_at(0, n);
         if !overflow.is_zero() {
-            E::push_significant_digit(&mut self.digits, overflow);
+            self.push_significant_digit(overflow);
         }
     }
 
@@ -263,12 +263,12 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
         if n.is_zero() {
             return n;
         }
-        for dest in E::iter_slice_mut(self.digits).skip(idx) {
-            R::addassign_carry(dest, &mut n);
-            if n.is_zero() {
-                return n;
-            }
-        }
+        E::addassign_carry_into_slice_at::<R>(self.digits, &mut n, idx);
         n
+    }
+
+    /// Add bigdigit into vector, storing overflow back in c
+    pub fn addassign_carry(&mut self, c: &mut R::Base) {
+        E::addassign_carry_into_slice_at::<R>(self.digits, c, 0);
     }
 }
