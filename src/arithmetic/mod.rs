@@ -134,7 +134,6 @@ where
 }
 
 /// Return difference of two numbers, returning diff as usize
-#[allow(dead_code)]
 pub(crate) fn diff_usize<T>(a: T, b: T) -> (Ordering, usize)
 where
     T: AsPrimitive<usize> + stdlib::ops::Sub<Output = T> + stdlib::cmp::Ord

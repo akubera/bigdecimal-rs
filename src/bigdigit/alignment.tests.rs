@@ -30,14 +30,110 @@ fn split_and_shift_987654321_low_3() {
     assert_eq!(lo, 321000000)
 }
 
+mod from_lengths_and_scales {
+    use super::*;
+    use paste::*;
 
-fn splitter_iter_pi() {
-    let digits = &[
-        3141592653589793238,4626433832795028841,9716939937510582097,4944592307816406286,2089986280348253421
-    ];
+    macro_rules! impl_test {
+        (($x:literal, -$y:literal) += $($t:tt)*) => {
+            paste! {
+                impl_test!([< case_ $x _n$y >]; ($x, -$y); $($t)*);
+            }
+        };
+        (($x:literal, $y:literal) += $($t:tt)*) => {
+            paste! {
+                impl_test!([< case_ $x _$y >]; ($x, $y); $($t)*);
+            }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, -$b:literal) => $e:expr ) => {
+            paste! {
+                impl_test!([< $name _ $a _n $b >]; ($x, $y); ($a, -$b); $e);
+            }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, $b:literal) => $e:expr ) => {
+            paste! {
+                impl_test!([< $name _ $a _ $b >]; ($x, $y); ($a, $b); $e);
+            }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, $b:literal); $expected:expr) => {
+            #[test]
+            fn $name() {
+                use self::AddAssignSliceAlignment::*;
 
-    let iter = BigDigitSplitterIter::<RADIX_10p19_u64>::from_slice_starting_top(digits, 1);
-    let result: Vec<u64> = iter.collect();
-    assert_eq!(
-        3, 1415926535897932384, 6264338327950288419, 71693993751058209, 7494459230781640628, 6208998628034825342, 1000000000000000000
+                let alignment = AddAssignSliceAlignment::from_lengths_and_scales(
+                    WithScale { value: $x, scale: $y},
+                    WithScale { value: $a, scale: $b},
+                );
+                assert_eq!(alignment, $expected);
+            }
+        };
+    }
+
+    // ll.llllllll
+    //  r.rrrrrrr
+    impl_test!((10, 2) += (8, 1) => RightOverlap { count: 1 });
+
+    // ll.lllllll
+    //   .rrrrrrr
+    impl_test!((9, 2) += (7, 0) => RightOverlap { count: 0 });
+
+    //    ll.ll
+    // rrrrr.rr
+    impl_test!((4, 2) += (7, 5) => RightOverlap { count: 0 });
+
+    // lllll000.
+    //         .00rrrrrrr
+    impl_test!((5, 8) += (7, -2) => LeftDisjoint { count: 12 });
+
+    // l0.
+    //   .0rrrrrrr
+    impl_test!((1, 2) += (7, -1) => LeftDisjoint { count: 9 });
+
+    // ll.lllllllll
+    //   .0rrrrrrr
+    impl_test!((11, 2) += (7, -1) => RightOverlap { count: 1 });
+
+    // ll.llllllll
+    //   .0rrrrrrr
+    impl_test!((10, 2) += (7, -1) => RightOverlap { count: 0 });
+
+    // ll.lllllll
+    //   .0rrrrrrr
+    impl_test!((9, 2) += (7, -1) => LeftOverlap { count: 1 });
+
+    // ll.ll
+    //   .0rrrrrrr
+    impl_test!((4, 2) += (7, -1) => LeftOverlap { count: 6 });
+
+    // ll.l
+    //   .0rrrrrrr
+    impl_test!((3, 2) += (7, -1) => LeftDisjoint { count: 7 });
+
+    // ll.
+    //   .0rrrrrrr
+    impl_test!((2, 2) += (7, -1) => LeftDisjoint { count: 8 });
+
+    // rrrrr000.
+    //         .00lllllll
+    impl_test!((7, -2) += (5, 8) => RightDisjoint { count: 12 });
+
+    // lllll.ll
+    //     r.rrrr
+    impl_test!((7, 5) += (5, 1) => LeftOverlap { count: 2 });
+
+    // lllll.l
+    //     r.rrrr
+    impl_test!((6, 5) += (5, 1) => LeftOverlap { count: 3 });
+
+    // lllll.
+    //     r.rrrr
+    impl_test!((5, 5) += (5, 1) => LeftOverlap { count: 4 });
+
+    // llll0.
+    //     r.rrrr
+    impl_test!((4, 5) += (5, 1) => LeftDisjoint { count: 5 });
+
+    //       l.llll
+    // rrr0000.
+    impl_test!((5, 1) += (3, 7) => RightDisjoint { count: 8 });
 }

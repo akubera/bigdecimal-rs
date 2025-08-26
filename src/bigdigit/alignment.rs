@@ -4,8 +4,77 @@
 use crate::*;
 use super::radix::RadixPowerOfTen;
 use super::endian::LittleEndian;
+use crate::arithmetic::diff_usize;
 
 type BigDigitVec<R> = super::digitvec::DigitVec<R, LittleEndian>;
+
+/// The cases resulting from applying (lhs += rhs * offset)
+///
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum AddAssignSliceAlignment {
+    ///  [rrrrrrrr]     |   [rrr]    |  [rrrrrrr]
+    ///      [lllllll]  | [lllllll]  |    [lllll]
+    RightOverlap {
+        count: usize,
+    },
+    ///  [rrrrr]
+    ///              [lllllll]
+    ///       ^count        ^0
+    RightDisjoint {
+        count: usize,
+    },
+    /// Left starts with the more significant digits
+    ///      [rrrrrrr]  | [rrrrrrr]
+    ///  [llllllll]     |   [lll]
+    LeftOverlap {
+        count: usize,
+    },
+    /// Disjoint, left more significant
+    ///              [rrrrrrr]
+    ///  [lllll]
+    ///       ^count        ^0
+    LeftDisjoint {
+        count: usize,
+    },
+}
+
+impl AddAssignSliceAlignment {
+    /// Determine relative alignment of digit-arrays of given length
+    /// and scale (exponent of the least significant digit)
+    pub fn from_lengths_and_scales(lhs: WithScale<usize>, rhs: WithScale<usize>) -> Self {
+        use cmp::Ordering::*;
+
+        match diff_usize(rhs.scale, lhs.scale) {
+            (Equal, _) => {
+                Self::RightOverlap {
+                    count: 0,
+                }
+            }
+            (Less, count) => {
+                if count < lhs.value {
+                    Self::RightOverlap {
+                        count,
+                    }
+                } else {
+                    Self::RightDisjoint {
+                        count,
+                    }
+                }
+            }
+            (Greater, count) => {
+                if count < rhs.value {
+                    Self::LeftOverlap {
+                        count,
+                    }
+                } else {
+                    Self::LeftDisjoint {
+                        count,
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct BigDigitSplitterIter<R, I>
@@ -387,37 +456,9 @@ impl<R: RadixPowerOfTen> BigDigitSplitter<R> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
-    use bigdigit::radix::RADIX_10p9_u32;
 
-    #[test]
-    fn split_987654321_low_3() {
-        let (hi, lo) = BigDigitSplitter::<RADIX_10p9_u32>::mask_low(3).split(987654321);
-        assert_eq!(hi, 987654000);
-        assert_eq!(lo, 000000321)
-    }
-
-    #[test]
-    fn split_987654321_high_3() {
-        let (hi, lo) = BigDigitSplitter::<RADIX_10p9_u32>::mask_high(3).split(987654321);
-        assert_eq!(hi, 987000000);
-        assert_eq!(lo, 000654321)
-    }
-
-    #[test]
-    fn split_and_shift_987654321_high_3() {
-        let (hi, lo) = BigDigitSplitter::<RADIX_10p9_u32>::mask_high(3).split_and_shift(987654321);
-        assert_eq!(hi, 000000987);
-        assert_eq!(lo, 654321000)
-    }
-
-    #[test]
-    fn split_and_shift_987654321_low_3() {
-        let (hi, lo) = BigDigitSplitter::<RADIX_10p9_u32>::mask_low(3).split_and_shift(987654321);
-        assert_eq!(hi, 000987654);
-        assert_eq!(lo, 321000000)
-    }
+    include!("alignment.tests.rs");
 }
