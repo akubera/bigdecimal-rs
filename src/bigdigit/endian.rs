@@ -85,6 +85,19 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     fn count_significant_zeros<D: Zero>(digits: &[D]) -> usize {
         Self::iter_slice(digits).rev().position(|d| !d.is_zero()).unwrap_or(digits.len())
     }
+
+    /// Correctly order a slice of little endian digits
+    ///
+    /// Reverses for BigEndian, no-op for LittleEndian
+    fn reorder_le_digits<D: Copy>(digits: &mut [D]);
+
+    /// Consider digits in slice past 'idx' to be little-endian digits
+    /// of higher significance than those below; move them to correct
+    /// position in the slice
+    ///
+    /// This will be a no-op for LittleEndian, and a rotate and reverse for BigEndian
+    ///
+    fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize);
 }
 
 
@@ -184,6 +197,15 @@ impl Endianness for BigEndian {
             (&[], digits)
         }
     }
+
+    fn reorder_le_digits<D: Copy>(digits: &mut [D]) {
+        digits.reverse()
+    }
+
+    fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize) {
+        Self::reorder_le_digits(&mut digits[idx..]);
+        digits.rotate_left(idx);
+    }
 }
 
 
@@ -271,6 +293,16 @@ impl Endianness for LittleEndian {
         } else {
             (&[], digits)
         }
+    }
+
+    #[allow(unused_variables)]
+    fn reorder_le_digits<D: Copy>(digits: &mut [D]) {
+        //no-op
+    }
+
+    #[allow(unused_variables)]
+    fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize) {
+        //no-op
     }
 }
 
