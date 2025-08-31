@@ -63,6 +63,9 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// If slice is empty zero and empty-slice is returned
     fn split_most_significant_digit<D: Zero + PrimInt>(digits: &[D]) -> (D, &[D]);
 
+    /// Split significant zeros from digits returning pair (digits, zeros)
+    fn split_significant_zeros<D: Zero>(digits: &[D]) -> (&[D], &[D]);
+
     /// Remove any zeros at the location of highest significance, if all zeros
     /// the vector will be cleared
     fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>);
@@ -144,6 +147,15 @@ impl Endianness for BigEndian {
             digits.clear();
         }
     }
+
+    fn split_significant_zeros<D: Zero>(digits: &[D]) -> (&[D], &[D]) {
+        if let Some(idx) = digits.iter().position(|d| !d.is_zero()) {
+            let (sig_zeros, digits) = digits.split_at(idx);
+            (digits, sig_zeros)
+        } else {
+            (&[], digits)
+        }
+    }
 }
 
 
@@ -211,6 +223,15 @@ impl Endianness for LittleEndian {
             digits.truncate(idx + 1);
         } else {
             digits.clear();
+        }
+    }
+
+    fn split_significant_zeros<D: Zero>(digits: &[D]) -> (&[D], &[D]) {
+        if let Some(idx) = digits.iter().rposition(|d| !d.is_zero()) {
+            let (digits, sig_zeros) = digits.split_at(idx);
+            (digits, sig_zeros)
+        } else {
+            (&[], digits)
         }
     }
 }

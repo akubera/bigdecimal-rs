@@ -400,6 +400,12 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
     pub fn len(&self) -> usize {
         self.digits.len()
     }
+
+    /// Return self, ignoring any significant zeros
+    pub fn without_leading_zeros(&self) -> Self {
+        let (digits, _) = E::split_significant_zeros(self.digits);
+        Self::from_slice(digits)
+    }
 }
 
 impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
