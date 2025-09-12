@@ -113,6 +113,14 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
         *n = lo;
     }
 
+    /// Perform n += a + carry, returning overflow in carry
+    fn addassign_with_carry(n: &mut Self::Base, a: Self::Base, carry: &mut Self::Base) {
+        let sum = n.as_() + a.as_() + carry.as_();
+        let (hi, lo) = Self::split_wide_digit(sum);
+        *carry = hi;
+        *n = lo;
+    }
+
     /// Perform a + b, returning tuple of (high, low) digits
     fn add_expand_doublewide(a: Self::Base, b: Self::BaseDouble) -> (Self::Base, Self::Base) {
         let a: Self::BaseDouble = a.into();
