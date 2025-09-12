@@ -13,7 +13,7 @@ use super::endian::*;
 /// Value of the integer is defined by the radix and endianness
 /// type parameters.
 ///
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct DigitVec<R: RadixType, E: Endianness> {
     pub digits: Vec<R::Base>,
     _radix: PhantomData<R>,
@@ -122,6 +122,26 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
     /// remove significant zeros
     pub fn remove_leading_zeros(&mut self) {
         E::strip_significant_zeros(&mut self.digits)
+    }
+
+    #[cfg(rustc_1_75)]
+    pub fn iter_le(&self) -> impl LeBigDigitIterator<'_, &R::Base> {
+        E::iter_slice(&self.digits[..])
+    }
+
+    #[cfg(not(rustc_1_75))]
+    pub fn iter_le(&self) -> LittleEndianBigDigitIter<'_, &R::Base> {
+        E::iter_slice(&self.digits[..])
+    }
+
+    #[cfg(rustc_1_75)]
+    pub fn iter_le_mut(&mut self) -> impl LeBigDigitIterator<'_, &mut R::Base> {
+        E::iter_slice_mut(&mut self.digits[..])
+    }
+
+    #[cfg(not(rustc_1_75))]
+    pub fn iter_le_mut(&mut self) -> LittleEndianBigDigitIter<'_, &mut R::Base> {
+        E::iter_slice_mut(&mut self.digits[..])
     }
 }
 
@@ -406,6 +426,16 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
         let (digits, _) = E::split_significant_zeros(self.digits);
         Self::from_slice(digits)
     }
+
+    #[cfg(rustc_1_75)]
+    pub fn iter_le(&self) -> impl LeBigDigitIterator<'_, &R::Base> {
+        E::iter_slice(self.digits)
+    }
+
+    #[cfg(not(rustc_1_75))]
+    pub fn iter_le(&self) -> LittleEndianBigDigitIter<'_, &R::Base> {
+        E::iter_slice(self.digits)
+    }
 }
 
 impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
@@ -478,6 +508,26 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     /// Add bigdigit into vector, storing overflow back in c
     pub fn addassign_carry(&mut self, c: &mut R::Base) {
         E::addassign_carry_into_slice_at::<R>(self.digits, c, 0);
+    }
+
+    #[cfg(rustc_1_75)]
+    pub fn iter_le(&self) -> impl LeBigDigitIterator<'_, &R::Base> {
+        E::iter_slice(self.digits)
+    }
+
+    #[cfg(not(rustc_1_75))]
+    pub fn iter_le(&self) -> LittleEndianBigDigitIter<'_, &R::Base> {
+        E::iter_slice(self.digits)
+    }
+
+    #[cfg(rustc_1_75)]
+    pub fn iter_le_mut(&mut self) -> impl LeBigDigitIterator<'_, &mut R::Base> {
+        E::iter_slice_mut(self.digits)
+    }
+
+    #[cfg(not(rustc_1_75))]
+    pub fn iter_le_mut(&mut self) -> LittleEndianBigDigitIter<'_, &mut R::Base> {
+        E::iter_slice_mut(self.digits)
     }
 }
 
