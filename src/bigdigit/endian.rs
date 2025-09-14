@@ -13,6 +13,9 @@ use super::radix::RadixType;
 
 /// Trait to allow generic parameterization of significant digit ordering
 pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
+    /// Name to use for debugging
+    const NAME: &'static str;
+
     /// Iterate over digits in vec from least to most significance
     #[cfg(rustc_1_75)]
     fn into_iter<'a, D: 'a>(digits: Vec<D>) -> impl LeBigDigitIterator<'a, D>;
@@ -81,6 +84,8 @@ pub(crate) struct BigEndian {}
 pub(crate) struct LittleEndian {}
 
 impl Endianness for BigEndian {
+    const NAME: &'static str = "BE";
+
     #[cfg(rustc_1_75)]
     fn into_iter<'a, D: 'a>(digits: Vec<D>) -> impl LeBigDigitIterator<'a, D> {
         digits.into_iter().rev()
@@ -160,6 +165,8 @@ impl Endianness for BigEndian {
 
 
 impl Endianness for LittleEndian {
+    const NAME: &'static str = "LE";
+
     #[cfg(rustc_1_75)]
     fn into_iter<'a, D: 'a>(digits: Vec<D>) -> impl LeBigDigitIterator<'a, D> {
         digits.into_iter()

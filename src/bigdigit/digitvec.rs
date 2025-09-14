@@ -13,7 +13,7 @@ use super::endian::*;
 /// Value of the integer is defined by the radix and endianness
 /// type parameters.
 ///
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub(crate) struct DigitVec<R: RadixType, E: Endianness> {
     pub digits: Vec<R::Base>,
     _radix: PhantomData<R>,
@@ -388,7 +388,7 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, Littl
 /// Operations on the bigdigit values are defined by the
 /// radix and endianness traits.
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub(crate) struct DigitSlice<'a, R: RadixType, E: Endianness> {
     pub digits: &'a [R::Base],
     _radix: PhantomData<R>,
@@ -464,7 +464,6 @@ impl DigitSlice<'_, RADIX_10_u8, LittleEndian> {
 }
 
 /// Mutable slice of bigdigit values
-#[derive(Debug)]
 pub(crate) struct DigitSliceMut<'a, R: RadixType, E: Endianness> {
     pub digits: &'a mut [R::Base],
     _radix: PhantomData<R>,
@@ -534,5 +533,23 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
 impl<'a, R: RadixType, E: Endianness> From<&'a mut Vec<R::Base>> for DigitSliceMut<'a, R, E> {
     fn from(digits: &'a mut Vec<R::Base>) -> Self {
         Self::from_slice(&mut digits[..])
+    }
+}
+
+impl<R: RadixType, E: Endianness> fmt::Debug for DigitVec<R, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DigitVec({}, {:?})", E::NAME, self.digits)
+    }
+}
+
+impl<R: RadixType, E: Endianness> fmt::Debug for DigitSlice<'_, R, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DigitSlice({}, {:?})", E::NAME, self.digits)
+    }
+}
+
+impl<R: RadixType, E: Endianness> fmt::Debug for DigitSliceMut<'_, R, E> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DigitSliceMut({}, {:?})", E::NAME, self.digits)
     }
 }
