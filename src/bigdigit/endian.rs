@@ -282,6 +282,21 @@ impl<D> Iterator for LittleEndianBigDigitIter<'_, D> {
     }
 }
 
+#[cfg(not(rustc_1_75))]
+impl<D> DoubleEndedIterator for LittleEndianBigDigitIter<'_, D>  {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.digits.next_back()
+    }
+}
+
+#[cfg(not(rustc_1_75))]
+impl<D> ExactSizeIterator for LittleEndianBigDigitIter<'_, D>  {
+    fn len(&self) -> usize {
+        self.digits.len()
+    }
+}
+
+
 impl<'a> LeBigDigitIterator<'a, u64> for num_bigint::U64Digits<'a> {}
 impl<'a> LeBigDigitIterator<'a, u32> for num_bigint::U32Digits<'a> {}
 
