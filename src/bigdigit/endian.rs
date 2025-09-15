@@ -72,6 +72,11 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// Remove any zeros at the location of highest significance, if all zeros
     /// the vector will be cleared
     fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>);
+
+    /// return number of consecutive zeros starting at significant
+    fn count_significant_zeros<D: Zero>(digits: &[D]) -> usize {
+        Self::iter_slice(digits).rev().position(|d| !d.is_zero()).unwrap_or(digits.len())
+    }
 }
 
 
