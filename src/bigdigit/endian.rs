@@ -69,6 +69,14 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// Split significant zeros from digits returning pair (digits, zeros)
     fn split_significant_zeros<D: Zero>(digits: &[D]) -> (&[D], &[D]);
 
+    /// Split slice into 'count' low-significant digits, and remaining
+    /// significant digits
+    fn split_least_significant<D>(digits: &[D], count: usize) -> (&[D], &[D]);
+
+    /// Split mutable slice into 'count' low-significant digits, and
+    /// remaining significant digits
+    fn split_least_significant_mut<D>(digits: &mut [D], count: usize) -> (&mut [D], &mut [D]);
+
     /// Remove any zeros at the location of highest significance, if all zeros
     /// the vector will be cleared
     fn strip_significant_zeros<D: Copy + Zero>(digits: &mut Vec<D>);
@@ -143,6 +151,16 @@ impl Endianness for BigEndian {
 
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
         digits.insert(0, d);
+    }
+
+    fn split_least_significant<D>(digits: &[D], count: usize) -> (&[D], &[D]) {
+        let (hi, lo) = digits.split_at(digits.len() - count);
+        (lo, hi)
+    }
+
+    fn split_least_significant_mut<D>(digits: &mut [D], count: usize) -> (&mut [D], &mut [D]) {
+        let (hi, lo) = digits.split_at_mut(digits.len() - count);
+        (lo, hi)
     }
 
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
@@ -224,6 +242,14 @@ impl Endianness for LittleEndian {
 
     fn push_significant_digit<D>(digits: &mut Vec<D>, d: D) {
         digits.push(d);
+    }
+
+    fn split_least_significant<D>(digits: &[D], count: usize) -> (&[D], &[D]) {
+        digits.split_at(count)
+    }
+
+    fn split_least_significant_mut<D>(digits: &mut [D], count: usize) -> (&mut [D], &mut [D]) {
+        digits.split_at_mut(count)
     }
 
     fn split_most_significant_digit<D: Copy + Zero>(digits: &[D]) -> (D, &[D]) {
