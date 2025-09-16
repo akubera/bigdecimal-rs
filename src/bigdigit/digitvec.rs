@@ -84,6 +84,29 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         }
     }
 
+    /// Split slice at 'pos' least-significant digits
+    pub fn split_le_at(
+        &self,
+        pos: usize
+    ) -> (DigitSlice<'_, R, E>, DigitSlice<'_, R, E>) {
+        let (lo, hi) = E::split_least_significant(&self.digits[..], pos);
+        (DigitSlice::from_slice(lo), DigitSlice::from_slice(hi))
+    }
+
+    /// Split slice at 'pos' least-significant digits
+    pub fn split_le_at_mut(
+        &mut self,
+        pos: usize,
+    ) -> (DigitSliceMut<'_, R, E>, DigitSliceMut<'_, R, E>) {
+        let (lo, hi) = E::split_least_significant_mut(&mut self.digits[..], pos);
+        (DigitSliceMut::from_slice(lo), DigitSliceMut::from_slice(hi))
+    }
+
+    /// Return the number of significant zeros in vector
+    pub fn count_significant_zeros(&self) -> usize {
+        E::count_significant_zeros(self.digits.as_slice())
+    }
+
     /// Convert to inner vector
     pub fn into_vec(self) -> Vec<R::Base> {
         self.digits
@@ -427,6 +450,17 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
         Self::from_slice(digits)
     }
 
+    /// Split splice into 'pos' least-significant bigdigits, and remaining
+    pub fn split_le_at(&'a self, pos: usize) -> (Self, Self) {
+        let (lo, hi) = E::split_least_significant(self.digits, pos);
+        (Self::from_slice(lo), Self::from_slice(hi))
+    }
+
+    /// Return the number of significant zeros
+    pub fn count_significant_zeros(&self) -> usize {
+        E::count_significant_zeros(self.digits)
+    }
+
     #[cfg(rustc_1_75)]
     pub fn iter_le(&self) -> impl LeBigDigitIterator<'_, &R::Base> {
         E::iter_slice(self.digits)
@@ -493,6 +527,18 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     /// Cast to immutable slice
     pub fn as_digit_slice(&'a self) -> DigitSlice<'a, R, E> {
         DigitSlice::from_slice(self.digits)
+    }
+
+    /// Split, returning 'pos' little-endian
+    pub fn split_le_at(&'a self, pos: usize) -> (DigitSlice<'a, R, E>, DigitSlice<'a, R, E>) {
+        let (lo, hi) = E::split_least_significant(&self.digits[..], pos);
+        (DigitSlice::from_slice(lo), DigitSlice::from_slice(hi))
+    }
+
+    /// Split, returning 'pos' little-endian
+    pub fn split_le_at_mut(&'a mut self, pos: usize) -> (Self, Self) {
+        let (lo, hi) = E::split_least_significant_mut(self.digits, pos);
+        (Self::from_slice(lo), Self::from_slice(hi))
     }
 
     /// Add bigdigit 'n' into this slice, returning overflow
