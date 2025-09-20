@@ -34,7 +34,7 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
         } else if rhs.is_zero() {
             self.scale = 0;
             self.int_val.set_zero();
-        } else if !self.is_zero() && !rhs.is_one() {
+        } else if !self.is_zero() && rhs.is_one_quickcheck() != Some(true) {
             self.scale += rhs.scale;
             self.int_val *= &rhs.int_val;
         }
