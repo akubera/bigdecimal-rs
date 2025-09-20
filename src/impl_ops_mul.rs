@@ -10,9 +10,9 @@ impl Mul<BigDecimal> for BigDecimal {
 
     #[inline]
     fn mul(mut self, rhs: BigDecimal) -> BigDecimal {
-        if self.is_one() {
+        if self.is_one_quickcheck() == Some(true) {
             rhs
-        } else if rhs.is_one() {
+        } else if rhs.is_one_quickcheck() == Some(true) {
             self
         } else {
             self.scale += rhs.scale;
@@ -27,7 +27,7 @@ impl<'a> Mul<&'a BigDecimal> for BigDecimal {
 
     #[inline]
     fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
-        if self.is_one() {
+        if self.is_one_quickcheck() == Some(true) {
             self.scale = rhs.scale;
             self.int_val.set_zero();
             self.int_val += &rhs.int_val;
@@ -56,9 +56,9 @@ impl Mul<&BigDecimal> for &BigDecimal {
 
     #[inline]
     fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
+        if self.is_one_quickcheck() == Some(true) {
             rhs.normalized()
-        } else if rhs.is_one() {
+        } else if rhs.is_one_quickcheck() == Some(true) {
             self.normalized()
         } else {
             let scale = self.scale + rhs.scale;
@@ -104,7 +104,7 @@ impl Mul<&BigInt> for &BigDecimal {
     fn mul(self, rhs: &BigInt) -> BigDecimal {
         if rhs.is_one() {
             self.normalized()
-        } else if self.is_one() {
+        } else if self.is_one_quickcheck() == Some(true) {
             BigDecimal::new(rhs.clone(), 0)
         } else {
             let value = &self.int_val * rhs;
@@ -118,7 +118,7 @@ impl Mul<BigDecimal> for BigInt {
 
     #[inline]
     fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
-        if rhs.is_one() {
+        if rhs.is_one_quickcheck() == Some(true) {
             rhs.scale = 0;
             swap(&mut rhs.int_val, &mut self);
         } else if !self.is_one() {
@@ -135,7 +135,7 @@ impl Mul<BigDecimal> for &BigInt {
     fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
         if self.is_one() {
             rhs.normalized()
-        } else if rhs.is_one() {
+        } else if rhs.is_one_quickcheck() == Some(true) {
             rhs.int_val.set_zero();
             rhs.int_val += self;
             rhs.scale = 0;
@@ -154,7 +154,7 @@ impl Mul<&BigDecimal> for &BigInt {
     fn mul(self, rhs: &BigDecimal) -> BigDecimal {
         if self.is_one() {
             rhs.normalized()
-        } else if rhs.is_one() {
+        } else if rhs.is_one_quickcheck() == Some(true) {
             BigDecimal::new(self.clone(), 0)
         } else {
             let value = &rhs.int_val * self;
@@ -170,7 +170,7 @@ impl Mul<&BigDecimal> for BigInt {
     fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
         if self.is_one() {
             rhs.normalized()
-        } else if rhs.is_one() {
+        } else if rhs.is_one_quickcheck() == Some(true) {
             BigDecimal::new(self, 0)
         } else {
             self *= &rhs.int_val;
@@ -184,7 +184,7 @@ forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 impl MulAssign<&BigDecimal> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: &BigDecimal) {
-        if rhs.is_one() {
+        if rhs.is_one_quickcheck() == Some(true) {
             return;
         }
         self.scale += rhs.scale;
