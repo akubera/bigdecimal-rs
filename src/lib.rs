@@ -1518,7 +1518,7 @@ impl<T: Zero> WithScale<&T> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod bigdecimal_tests {
-    use crate::{stdlib, BigDecimal, ToString, FromStr, TryFrom};
+    use super::*;
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
