@@ -2,6 +2,23 @@
 mod is_one {
     use super::*;
 
+    #[test]
+    fn all_from_1_1000() {
+        let mut i = BigUint::from(1u8);
+
+        for s in 1..1000 {
+            i *= 10u8;
+            let d = BigDecimalRef::from(WithScale { value: &i, scale: s });
+            assert!(d.is_one(), "{}", s);
+
+            i += 1u8;
+            let d = BigDecimalRef::from(WithScale { value: &i, scale: s });
+            assert!(!d.is_one(), "{}", s);
+
+            i -= 1u8;
+        }
+    }
+
     macro_rules! impl_case {
         ($name:ident: $input:literal => $expected:literal) => {
             #[test]
@@ -27,6 +44,52 @@ mod is_one {
     impl_case!(case_1d00000000000000000000000000000000: "1.00000000000000000000000000000000" => true);
     impl_case!(case_1d00000000000000000000000000000001: "1.00000000000000000000000000000001" => false);
     impl_case!(case_10d0000000000000000000000000000000000: "10.00000000000000000000000000000000000" => false);
+}
+
+mod is_one_quickcheck {
+    use super::*;
+
+    #[test]
+    fn all_from_1_1000() {
+        let mut i = BigUint::from(1u8);
+
+        for s in 1..39 {
+            i *= 10u8;
+            let d = BigDecimalRef::from(WithScale { value: &i, scale: s });
+            assert_eq!(d.is_one_quickcheck(), Some(true), "{}", s);
+
+            i += 1u8;
+            let d = BigDecimalRef::from(WithScale { value: &i, scale: s });
+            assert_eq!(d.is_one_quickcheck(), Some(false), "{}", s);
+
+            i -= 1u8;
+        }
+    }
+
+    macro_rules! impl_case {
+        ($name:ident: $input:literal => $expected:expr) => {
+            #[test]
+            fn $name() {
+                let d: BigDecimal = $input.parse().unwrap();
+                assert_eq!(d.is_one_quickcheck(), $expected);
+            }
+        };
+    }
+
+    impl_case!(case_0: "0" => Some(false));
+    impl_case!(case_1: "1" => Some(true));
+    impl_case!(case_n1: "-1" => Some(false));
+    impl_case!(case_10000000000000000000en19:   "10000000000000000000e-19" => Some(true));
+    impl_case!(case_1d00000000000000000000:   "1.00000000000000000000" => Some(true));
+    impl_case!(case_1d00000000000000000000000000000001: "1.00000000000000000000000000000001" => Some(false));
+
+    impl_case!(case_pi15: "3.141592653589793" => Some(false));
+    impl_case!(case_pi20: "3.14159265358979323846" => Some(false));
+    impl_case!(case_pi50: "3.1415926535897932384626433832795028841971693993751" => None);
+
+    impl_case!(case_10d00000000000000000000:   "10.00000000000000000000" => Some(false));
+    impl_case!(case_1000000000d00000000000000000000:   "1000000000.00000000000000000000" => Some(false));
+    impl_case!(case_10000000000000000000000000d0000000000000000000000000000000000000000000:   "10000000000000000000000000.0000000000000000000000000000000000000000000" => Some(false));
 }
 
 

@@ -710,7 +710,7 @@ impl BigDecimal {
     /// assert_eq!(n.square(), "8.5351685337567832225E+169".parse().unwrap());
     /// ```
     pub fn square(&self) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             self.clone()
         } else {
             BigDecimal {
@@ -737,7 +737,7 @@ impl BigDecimal {
     /// assert_eq!(n.cube(), "-7.88529874035334084567570176625E+254".parse().unwrap());
     /// ```
     pub fn cube(&self) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             self.clone()
         } else {
             BigDecimal {
@@ -770,7 +770,7 @@ impl BigDecimal {
     /// Take the square root of the number, using context for precision and rounding
     ///
     pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return Some(self.clone());
         }
         if self.is_negative() {
@@ -792,7 +792,7 @@ impl BigDecimal {
 
     /// Take cube root of self, using properties of context
     pub fn cbrt_with_context(&self, ctx: &Context) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return self.clone();
         }
 
@@ -807,7 +807,7 @@ impl BigDecimal {
 
     /// Return inverse of self, rounding with ctx
     pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return self.clone();
         }
 
@@ -839,6 +839,11 @@ impl BigDecimal {
         } else {
             (self.int_val.clone() % ten_to_the(self.scale as u64)).is_zero()
         }
+    }
+
+    /// Try to determine if decimal is 1.0, without allocating
+    pub fn is_one_quickcheck(&self) -> Option<bool> {
+        self.to_ref().is_one_quickcheck()
     }
 
     /// Evaluate the natural-exponential function e<sup>x</sup>
@@ -1381,35 +1386,56 @@ impl BigDecimalRef<'_> {
 
     /// Return if the referenced decimal is one
     pub fn is_one(&self) -> bool {
+        if let Some(is_one) = self.is_one_quickcheck() {
+            return is_one;
+        }
+
+        // full comparison of {int} == 10^{scale}
+        // (because actual value is {int} * 10^{-scale})
+        self.digits == &ten_to_the_uint(self.scale as u64)
+    }
+
+    /// A check if this decimal is equal to one for purposes of optimization
+    /// Returns None if the computation would be expensive
+    pub fn is_one_quickcheck(&self) -> Option<bool> {
         if self.sign() != Sign::Plus || self.scale < 0 {
-            return false;
+            return Some(false);
         }
         let value = self.digits;
 
         // special case for standard integers (scale == 0)
         if self.scale == 0 {
-            return value.to_u32() == Some(1);
+            return Some(value.is_one());
         }
 
         // scale required to represent a value of 10^{pow} for
         // an int_val with this number of bits, quickly filter
         // any integers with wrong number of digits for the scale
-        let approx_digits = (value.bits() as f64 * LOG10_2).ceil() as i64 - 1;
+        let approx_digits = (value.bits() as f64 * LOG10_2).floor() as i64;
         if approx_digits != self.scale {
-            return false;
+            return Some(false);
         }
 
-        if let Some(n) = value.to_u64() {
-            // small value optimization, compare with 10^{scale}
-            self.scale.to_u32()
-                      .and_then(|scale| 10u64.checked_pow(scale))
-                      .map(|ten_pow_scale| n == ten_pow_scale)
-                      .unwrap_or(false)
-        } else {
-            // full comparison of {int} == 10^{scale}
-            // (because actual value is {int} * 10^{-scale})
-            value == &ten_to_the_uint(self.scale as u64)
+        // small value optimizations: compare with 10^{scale} using primitives
+        //
+        // TODO: benchmark to determine if is it worth separating u64 and u128
+        //
+        match self.scale.to_u32() {
+            Some(scale) if scale <= 19 => {
+                let ten_pow_scale = 10u64.pow(scale);
+                return value.to_u64().map(|n| n == ten_pow_scale).or(Some(false));
+            }
+            Some(scale) if scale <= 38 => {
+                let ten_pow_scale = 10u128.pow(scale);
+                return value.to_u128().map(|n| n == ten_pow_scale).or(Some(false));
+            }
+            _ => {}
         }
+
+        // Indicate the calculation of '1.0' at this scale
+        // is probably more expensive than the operation
+        // being avoided
+        None
     }
 
     /// Clone this value into dest
@@ -1492,7 +1518,7 @@ impl<T: Zero> WithScale<&T> {
 #[cfg(test)]
 #[allow(non_snake_case)]
 mod bigdecimal_tests {
-    use crate::{stdlib, BigDecimal, ToString, FromStr, TryFrom};
+    use super::*;
     use num_traits::{ToPrimitive, FromPrimitive, Signed, Zero, One};
     use num_bigint;
     use paste::paste;
