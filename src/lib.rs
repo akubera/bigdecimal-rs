@@ -710,7 +710,7 @@ impl BigDecimal {
     /// assert_eq!(n.square(), "8.5351685337567832225E+169".parse().unwrap());
     /// ```
     pub fn square(&self) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             self.clone()
         } else {
             BigDecimal {
@@ -737,7 +737,7 @@ impl BigDecimal {
     /// assert_eq!(n.cube(), "-7.88529874035334084567570176625E+254".parse().unwrap());
     /// ```
     pub fn cube(&self) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             self.clone()
         } else {
             BigDecimal {
@@ -770,7 +770,7 @@ impl BigDecimal {
     /// Take the square root of the number, using context for precision and rounding
     ///
     pub fn sqrt_with_context(&self, ctx: &Context) -> Option<BigDecimal> {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return Some(self.clone());
         }
         if self.is_negative() {
@@ -792,7 +792,7 @@ impl BigDecimal {
 
     /// Take cube root of self, using properties of context
     pub fn cbrt_with_context(&self, ctx: &Context) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return self.clone();
         }
 
@@ -807,7 +807,7 @@ impl BigDecimal {
 
     /// Return inverse of self, rounding with ctx
     pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
-        if self.is_zero() || self.is_one() {
+        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
             return self.clone();
         }
 
