@@ -1387,7 +1387,7 @@ impl BigDecimalRef<'_> {
     /// Return if the referenced decimal is one
     pub fn is_one(&self) -> bool {
         if let Some(is_one) = self.is_one_quickcheck() {
-           return is_one;
+            return is_one;
         }
 
         // full comparison of {int} == 10^{scale}
@@ -1411,21 +1411,30 @@ impl BigDecimalRef<'_> {
         // scale required to represent a value of 10^{pow} for
         // an int_val with this number of bits, quickly filter
         // any integers with wrong number of digits for the scale
-        let approx_digits = (value.bits() as f64 * LOG10_2).ceil() as i64 - 1;
+        let approx_digits = (value.bits() as f64 * LOG10_2).floor() as i64;
         if approx_digits != self.scale {
             return Some(false);
         }
 
-        if let Some(n) = value.to_u64() {
-            // small value optimization, compare with 10^{scale}
-            let is_one = self.scale.to_u32()
-                      .and_then(|scale| 10u64.checked_pow(scale))
-                      .map(|ten_pow_scale| n == ten_pow_scale)
-                      .unwrap_or(false);
-            return Some(is_one);
+        // small value optimizations: compare with 10^{scale} using primitives
+        //
+        // TODO: benchmark to determine if is it worth separating u64 and u128
+        //
+        match self.scale.to_u32() {
+            Some(scale) if scale <= 19 => {
+                let ten_pow_scale = 10u64.pow(scale);
+                return value.to_u64().map(|n| n == ten_pow_scale).or(Some(false));
+            }
+            Some(scale) if scale <= 38 => {
+                let ten_pow_scale = 10u128.pow(scale);
+                return value.to_u128().map(|n| n == ten_pow_scale).or(Some(false));
+            }
+            _ => {}
         }
 
-        // unknown
+        // Indicate the calculation of '1.0' at this scale
+        // is probably more expensive than the operation
+        // being avoided
         None
     }
 
