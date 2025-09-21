@@ -173,6 +173,60 @@ impl Mul<&BigDecimal> for BigInt {
     }
 }
 
+impl Mul<BigUint> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: BigUint) -> BigDecimal {
+        self *= rhs;
+        self
+    }
+}
+
+impl Mul<&BigUint> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: &BigUint) -> BigDecimal {
+        self *= rhs;
+        self
+    }
+}
+
+impl Mul<BigUint> for &BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: BigUint) -> BigDecimal {
+        self * BigInt::from_biguint(Sign::Plus, rhs)
+    }
+}
+
+impl Mul<&BigUint> for &BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: &BigUint) -> BigDecimal {
+        if rhs.is_one() {
+            self.normalized()
+        } else if self.is_one_quickcheck() == Some(true) {
+            let value = BigInt::from_biguint(Sign::Plus, rhs.clone());
+            BigDecimal::new(value, 0)
+        } else {
+            let biguint = self.int_val.magnitude() * rhs;
+            let value = BigInt::from_biguint(self.sign(), biguint);
+            BigDecimal::new(value, self.scale)
+        }
+    }
+}
+
+// swap (lhs * rhs) to (rhs * lhs) for (BigUint * BigDecimal)
+forward_communative_binop!(impl Mul<BigDecimal>::mul for BigUint);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigUint);
+forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigUint);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigUint);
+
+
 impl MulAssign<BigDecimal> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: BigDecimal) {
@@ -214,6 +268,27 @@ impl MulAssign<BigInt> for BigDecimal {
     }
 }
 
+impl MulAssign<BigUint> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: BigUint) {
+        if rhs.is_one() {
+            return;
+        }
+        *self *= BigInt::from_biguint(Sign::Plus, rhs);
+        // *self *= &rhs
+    }
+}
+
+impl MulAssign<&BigUint> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &BigUint) {
+        if rhs.is_one() {
+            return;
+        }
+        // No way to multiply bigint and biguint, we have to clone
+        *self *= BigInt::from_biguint(Sign::Plus, rhs.clone());
+    }
+}
 
 #[cfg(test)]
 #[allow(non_snake_case)]
@@ -315,4 +390,7 @@ mod bigdecimal_tests {
 
     impl_test!(case_1d000000_7848321491728058276; BigInt; "1.000000" * "7848321491728058276" => "7848321491728058276.000000");
     impl_test!(case_16535178640845d04844_1; BigInt; "16535178640845.04844" * "1" => "16535178640845.04844");
+
+    impl_test!(case_1d000000_u7848321491728058276; BigUint; "1.000000" * "7848321491728058276" => "7848321491728058276.000000");
+    impl_test!(case_16535178640845d04844_u1; BigUint; "16535178640845.04844" * "1" => "16535178640845.04844");
 }

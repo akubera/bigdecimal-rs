@@ -30,6 +30,25 @@ macro_rules! forward_ref_val_binop {
     };
 }
 
+macro_rules! forward_communative_binop {
+    (impl $trait:ident<$t1:ty>::$method:ident for $t2:ty) => {
+        forward_communative_binop!(
+            impl $trait<$t1>::$method for $t2; Output=BigDecimal
+        );
+    };
+    (impl $trait:ident<$t1:ty>::$method:ident for $t2:ty; Output=$output:ty) => {
+        impl $trait<$t1> for $t2 {
+            type Output = $output;
+
+            #[inline]
+            fn $method(self, rhs: $t1) -> Self::Output {
+                // swap operands
+                $trait::$method(rhs, self)
+            }
+        }
+    };
+}
+
 /*
 macro_rules! forward_val_ref_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
