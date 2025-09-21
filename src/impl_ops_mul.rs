@@ -112,66 +112,12 @@ impl Mul<&BigInt> for &BigDecimal {
     }
 }
 
-impl Mul<BigDecimal> for BigInt {
-    type Output = BigDecimal;
+// swap (lhs * rhs) to (rhs * lhs) for (BigInt * BigDecimal)
+forward_communative_binop!(impl Mul<BigDecimal>::mul for BigInt);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigInt);
+forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigInt);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigInt);
 
-    #[inline]
-    fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
-        rhs.int_val *= self;
-        rhs
-    }
-}
-
-impl Mul<BigDecimal> for &BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            rhs.int_val.set_zero();
-            rhs.int_val += self;
-            rhs.scale = 0;
-            rhs
-        } else {
-            rhs.int_val *= self;
-            rhs
-        }
-    }
-}
-
-impl Mul<&BigDecimal> for &BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            BigDecimal::new(self.clone(), 0)
-        } else {
-            let value = &rhs.int_val * self;
-            BigDecimal::new(value, rhs.scale)
-        }
-    }
-}
-
-impl Mul<&BigDecimal> for BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            BigDecimal::new(self, 0)
-        } else {
-            self *= &rhs.int_val;
-            BigDecimal::new(self, rhs.scale)
-        }
-    }
-}
 
 impl Mul<BigUint> for BigDecimal {
     type Output = BigDecimal;
