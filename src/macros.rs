@@ -54,15 +54,3 @@ macro_rules! forward_all_binop_to_ref_ref {
     };
 }
 */
-
-macro_rules! forward_val_assignop {
-    (impl $imp:ident for $res:ty, $method:ident) => {
-        impl $imp<$res> for $res {
-            #[inline]
-            fn $method(&mut self, other: $res) {
-                // forward to mutref-ref
-                $imp::$method(self, &other)
-            }
-        }
-    };
-}
