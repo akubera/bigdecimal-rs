@@ -132,7 +132,7 @@ mod impl_num;
 mod impl_fmt;
 
 // Implementations for deserializations and serializations
-#[cfg(any(feature = "serde", feature="serde_json"))]
+#[cfg(any(feature = "serde", feature = "serde_json"))]
 pub mod impl_serde;
 
 /// re-export serde-json derive modules
@@ -143,7 +143,6 @@ pub mod serde {
     /// Parse JSON (number | null) directly to Option<BigDecimal>
     pub use impl_serde::arbitrary_precision_option as json_num_option;
 }
-
 
 // construct BigDecimals from strings and floats
 mod parsing;
@@ -386,7 +385,8 @@ impl BigDecimal {
                         let low_digit = digits[scale_diff - 1];
                         let high_digit = digits[scale_diff];
                         let trailing_zeros = digits[0..scale_diff-1].iter().all(Zero::is_zero);
-                        let rounded_digit = mode.round_pair(sign, (high_digit, low_digit), trailing_zeros);
+                        let rounded_digit =
+                            mode.round_pair(sign, (high_digit, low_digit), trailing_zeros);
 
                         debug_assert!(rounded_digit <= 10);
 
@@ -454,7 +454,7 @@ impl BigDecimal {
                     self.int_val /= ten_to_the(scale_diff);
                 }
             }
-            (Ordering::Equal, _) => {},
+            (Ordering::Equal, _) => {}
         }
     }
 
@@ -526,9 +526,13 @@ impl BigDecimal {
     }
 
     /// Return this BigDecimal with the given precision, rounding if needed
-    #[cfg(rustc_1_46)]  // Option::zip
+    #[cfg(rustc_1_46)] // Option::zip
     #[allow(clippy::incompatible_msrv)]
-    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+    pub fn with_precision_round(
+        &self,
+        prec: stdlib::num::NonZeroU64,
+        round: RoundingMode,
+    ) -> BigDecimal {
         let digit_count = self.digits();
         let new_prec = prec.get().to_i64();
         let new_scale = new_prec
@@ -541,7 +545,11 @@ impl BigDecimal {
     }
 
     #[cfg(not(rustc_1_46))]
-    pub fn with_precision_round(&self, prec: stdlib::num::NonZeroU64, round: RoundingMode) -> BigDecimal {
+    pub fn with_precision_round(
+        &self,
+        prec: stdlib::num::NonZeroU64,
+        round: RoundingMode,
+    ) -> BigDecimal {
         let new_scale = self.digits().to_i64().and_then(
                             |old_prec| {
                                 prec.get().to_i64().and_then(
@@ -595,7 +603,6 @@ impl BigDecimal {
     pub fn into_bigint_and_scale(self) -> (BigInt, i64) {
         (self.int_val, self.scale)
     }
-
 
     /// Return digits as borrowed Cow of integer digits, and its scale
     ///
@@ -969,7 +976,6 @@ impl BigDecimal {
     pub fn write_engineering_notation<W: fmt::Write>(&self, w: &mut W) -> fmt::Result {
         impl_fmt::write_engineering_notation(self, w)
     }
-
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -1041,7 +1047,6 @@ impl Hash for BigDecimal {
     }
 }
 
-
 impl Default for BigDecimal {
     #[inline]
     fn default() -> BigDecimal {
@@ -1070,7 +1075,6 @@ impl One for BigDecimal {
         self.to_ref().is_one()
     }
 }
-
 
 fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
     // quick zero check
@@ -1122,12 +1126,8 @@ fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u
         quotient += get_rounding_term(&remainder.div(den));
     }
 
-    let result = BigDecimal::new(quotient, scale);
-    // println!(" {} / {}\n = {}\n", self, other, result);
-    return result;
+    return BigDecimal::new(quotient, scale);
 }
-
-
 
 impl Signed for BigDecimal {
     #[inline]
@@ -1323,7 +1323,7 @@ impl BigDecimalRef<'_> {
         }
 
         let digit_pairs = self.digits.to_radix_le(100);
-        let loc =  digit_pairs.iter().position(|&d| d != 0).unwrap_or(0);
+        let loc = digit_pairs.iter().position(|&d| d != 0).unwrap_or(0);
 
         2 * loc + usize::from(digit_pairs[loc] % 10 == 0)
     }
