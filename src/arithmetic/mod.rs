@@ -2,6 +2,7 @@
 
 use crate::*;
 use num_traits::CheckedSub;
+use num_traits::AsPrimitive;
 
 pub(crate) mod decimal;
 
@@ -134,12 +135,15 @@ where
 
 /// Return difference of two numbers, returning diff as usize
 #[allow(dead_code)]
-pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
+pub(crate) fn diff_usize<T>(a: T, b: T) -> (Ordering, usize)
+where
+    T: AsPrimitive<usize> + stdlib::ops::Sub<Output = T> + stdlib::cmp::Ord
+{
     use stdlib::cmp::Ordering::*;
 
     match a.cmp(&b) {
-        Less => (Less, b - a),
-        Greater => (Greater, a - b),
+        Less => (Less, (b - a).as_()),
+        Greater => (Greater, (a - b).as_()),
         Equal => (Equal, 0),
     }
 }
