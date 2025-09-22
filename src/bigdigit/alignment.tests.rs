@@ -36,6 +36,58 @@ mod from_lengths_and_scales {
 
     macro_rules! impl_test {
         (($x:literal, -$y:literal) += $($t:tt)*) => {
+            paste! { impl_test!([< case_ $x _n$y >]; ($x, -$y); $($t)*); }
+        };
+        (($x:literal, $y:literal) += $($t:tt)*) => {
+            paste! { impl_test!([< case_ $x _$y >]; ($x, $y); $($t)*); }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, -$b:literal) => $e:expr ) => {
+            paste! { impl_test!([< $name _ $a _n $b >]; ($x, $y); ($a, -$b); $e); }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, $b:literal) => $e:expr ) => {
+            paste! { impl_test!([< $name _ $a _ $b >]; ($x, $y); ($a, $b); $e); }
+        };
+        ($name:ident; ($x:literal, $y:literal); ($a:literal, $b:literal); $expected:expr) => {
+            #[test]
+            fn $name() {
+                use self::AddAssignSliceAlignment::*;
+
+                let alignment = AddAssignSliceAlignment::from_lengths_and_scales(
+                    WithScale { value: $x, scale: $y },
+                    WithScale { value: $a, scale: $b },
+                );
+                assert_eq!(alignment, $expected);
+            }
+        };
+    }
+
+    // ll.llllllll
+    //  r.rrrrrrr
+    impl_test!((10, 8) += (8, 7) => RightOverlap { count: 1 });
+
+    // lllllll.
+    //  rrrrr0.
+    impl_test!((7, 0) += (5, -1) => RightOverlap { count: 1 });
+
+    //     lll.
+    //  rrrrrr.rrr
+    impl_test!((3, 0) += (9, 3) => LeftOverlap { count: 3 });
+
+    // lll.l
+    //    .000000rrr
+    impl_test!((4, 1) += (3, 9) => LeftDisjoint { count: 8 });
+
+    //    0.00000llll
+    // rrrr.rr
+    impl_test!((4, 9) += (6, 2) => RightDisjoint{ count: 7 });
+}
+
+mod from_lengths_and_icount {
+    use super::*;
+    use paste::*;
+
+    macro_rules! impl_test {
+        (($x:literal, -$y:literal) += $($t:tt)*) => {
             paste! {
                 impl_test!([< case_ $x _n$y >]; ($x, -$y); $($t)*);
             }
@@ -60,9 +112,9 @@ mod from_lengths_and_scales {
             fn $name() {
                 use self::AddAssignSliceAlignment::*;
 
-                let alignment = AddAssignSliceAlignment::from_lengths_and_scales(
-                    WithScale { value: $x, scale: $y},
-                    WithScale { value: $a, scale: $b},
+                let alignment = AddAssignSliceAlignment::from_lengths_and_icount(
+                    WithIntCount { value: $x, count: $y },
+                    WithIntCount { value: $a, count: $b },
                 );
                 assert_eq!(alignment, $expected);
             }
