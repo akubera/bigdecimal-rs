@@ -74,6 +74,22 @@ impl AddAssignSliceAlignment {
             }
         }
     }
+
+    /// Determine relative alignment of digit-arrays of given length
+    /// and number of integer bigdigits
+    pub fn from_lengths_and_icount(lhs: WithIntCount<usize>, rhs: WithIntCount<usize>) -> Self {
+        // position of least-significant digits
+        Self::from_lengths_and_scales(
+            WithScale {
+                scale: lhs.value as i64 - lhs.count as i64,
+                value: lhs.value,
+            },
+            WithScale {
+                scale: rhs.value as i64 - rhs.count as i64,
+                value: rhs.value,
+            },
+        )
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -454,6 +470,19 @@ impl<R: RadixPowerOfTen> BigDigitSplitter<R> {
     pub fn div(&self, n: R::Base) -> R::Base {
         n / self.mask
     }
+}
+
+/// Wrap a container of bigidigts with a count of how
+/// many are integer
+///
+/// i.e. The digits are aligned with zero
+///
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct WithIntCount<T> {
+    /// number of big-digits in value to treat as integer
+    count: i32,
+    /// Slice of bigdigits
+    value: T,
 }
 
 #[cfg(test)]
