@@ -424,6 +424,23 @@ impl From<&num_bigint::BigUint> for DigitVec<RADIX_10_u8, LittleEndian> {
 
 /// Vector of base-10 digits
 impl DigitVec<RADIX_10_u8, LittleEndian> {
+    /// splits digits into `prec` significant digits, returning the lowest significant digit,
+    /// highest insignificant digit, and the remaining insignificant digits in little endian order
+    ///
+    pub fn get_rounding_digits_at_prec(
+        &self,
+        prec: NonZeroU64,
+    ) -> (u8, u8, DigitSlice<'_, RADIX_10_u8, LittleEndian>) {
+        let trimmed = self.digits.len().saturating_sub(prec.get() as usize);
+        if trimmed == 0 {
+            return (0, 0, DigitSlice::from_slice(&[]));
+        }
+
+        let (insig_digits, sig_digits) = self.digits.split_at(trimmed);
+        debug_assert_eq!(trimmed, insig_digits.len());
+        let (insig_digit, trailing_digits) = insig_digits.split_last().unwrap_or((&0, &[]));
+        (sig_digits[0], *insig_digit, DigitSlice::from_slice(trailing_digits))
+    }
 
     /// Round the digits in this vec, returning slice of the digits
     ///
