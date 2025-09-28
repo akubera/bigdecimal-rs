@@ -11,14 +11,14 @@ use crate::rounding::{NonDigitRoundingData, InsigData};
 use super::log10;
 
 use crate::bigdigit::{
-    radix::{RadixType, RADIX_u64, RADIX_10_u8, RADIX_10p19_u64},
+    radix::{RadixType, RadixPowerOfTen, RADIX_u64, RADIX_10_u8, RADIX_10p19_u64},
     endian::{Endianness, LittleEndian, BigEndian},
     digitvec::{DigitVec, DigitSlice},
 };
 
 type BigDigitVec = DigitVec<RADIX_u64, LittleEndian>;
 type BigDigitVecBe = DigitVec<RADIX_u64, BigEndian>;
-type BigDigitSlice<'a> = DigitSlice<'a, RADIX_u64, LittleEndian>;
+type BigDigitSliceU64<'a> = DigitSlice<'a, RADIX_u64, LittleEndian>;
 
 type BigDigitVecP19 = DigitVec<RADIX_10p19_u64, LittleEndian>;
 type BigDigitSliceP19<'a> = DigitSlice<'a, RADIX_10p19_u64, LittleEndian>;
@@ -142,8 +142,6 @@ pub(crate) fn multiply_at_idx_into<R: RadixType>(
 }
 
 pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) -> WithScale<BigInt> {
-    use bigdigit::radix::RadixPowerOfTen;
-
     let sign = a.sign() * b.sign();
     // Rounding prec: usize
     let rounding_data = NonDigitRoundingData {
@@ -160,29 +158,17 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
     let a_p19_vec = BigDigitVecP19::from_biguint_using_tmp(a.magnitude(), &mut tmp);
     let b_p19_vec = BigDigitVecP19::from_biguint_using_tmp(b.magnitude(), &mut tmp);
 
-    // trim the trailing zeros from the multiplication
-    let a_tz = a_p19_vec.digits.iter()
-                               .position(|&d| d != 0)
-                               .unwrap_or(a_p19_vec.len());
-    let b_tz = b_p19_vec.digits.iter()
-                               .position(|&d| d != 0)
-                               .unwrap_or(b_p19_vec.len());
-
     let mut result = WithScale::default();
     multiply_slices_with_prec_into_p19(
         &mut result,
-        a_p19_vec.as_digit_slice_at(a_tz),
-        b_p19_vec.as_digit_slice_at(b_tz),
+        a_p19_vec.as_digit_slice(),
+        b_p19_vec.as_digit_slice(),
         ctx.precision(),
         rounding_data
     );
 
-    // increase scale by this many trailing-zeros
-    let trailing_zero_bigdigit_count = a_tz + b_tz;
-    let trailing_zero_scale = (RADIX_10p19_u64::DIGITS * trailing_zero_bigdigit_count) as i64;
-
     WithScale {
-        scale: result.scale - trailing_zero_scale,
+        scale: result.scale,
         value: result.value.into_bigint(sign),
     }
 }
@@ -196,7 +182,6 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     prec: NonZeroU64,
     rounding: NonDigitRoundingData
 ) {
-    use crate::bigdigit::radix::RadixPowerOfTen;
     use super::bigdigit::alignment::BigDigitSplitter;
     use super::bigdigit::alignment::BigDigitSliceSplitterIter;
     type R = RADIX_10p19_u64;
@@ -206,17 +191,30 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
         return multiply_slices_with_prec_into_p19(dest, b, a, prec, rounding);
     }
 
+    // trim the trailing zeros from the multiplication
+    let a_tz = a.digits.iter()
+                .position(|&d| d != 0)
+                .unwrap_or(a.len());
+    let b_tz = b.digits.iter()
+                .position(|&d| d != 0)
+                .unwrap_or(b.len());
+
+    // increase scale by this many trailing-zeros
+    let trailing_zero_bigdigit_count = a_tz + b_tz;
+    let trailing_zero_scale = (R::DIGITS * trailing_zero_bigdigit_count) as i64;
+
+    dest.value.clear();
+    // dest.scale -= trailing_zero_scale;
+
+    if b.len() == b_tz || a.len() == a_tz {
+        // multiplication by zero: return after clearing dest
+        return;
+    }
+
     debug_assert_ne!(a.len(), 0);
     debug_assert_ne!(b.len(), 0);
-    debug_assert_ne!(a.digits.first().unwrap(), &0);
-    debug_assert_ne!(b.digits.first().unwrap(), &0);
 
     let WithScale { value: dest, scale: result_scale } = dest;
-
-    // we need at least this many bigdigits to resolve 'prec' base-10 digits
-    // let a_digit_count = a.count_decimal_digits();
-    // let b_digit_count = b.count_decimal_digits();
-    // let product_digit_count = a_digit_count + b_digit_count;
 
     // minimum possible length of each integer, given length of bigdigit vecs
     let pessimistic_product_digit_count = (a.len() + b.len() - 2) * R::DIGITS + 1;
@@ -329,8 +327,8 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
 /// Store `a * b` into dest, to limited precision
 pub(crate) fn multiply_slices_with_prec_into(
     dest: &mut WithScale<BigDigitVec>,
-    a: BigDigitSlice,
-    b: BigDigitSlice,
+    a: BigDigitSliceU64,
+    b: BigDigitSliceU64,
     prec: NonZeroU64,
     rounding: NonDigitRoundingData,
 ) {
@@ -361,7 +359,6 @@ fn calculate_partial_product_trailing_zeros(
     product_idx: usize,
     digits_to_remove: usize,
 ) -> bool {
-    use bigdigit::radix::RadixPowerOfTen;
     type R = RADIX_10p19_u64;
     type D = <R as RadixType>::Base;
 
