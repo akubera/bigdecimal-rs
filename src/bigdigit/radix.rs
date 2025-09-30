@@ -204,6 +204,17 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
         }
     }
 
+    /// a = a * b + c, storing
+    fn mulassign_add_carry(
+        a: &mut Self::Base,
+        b: Self::Base,
+        carry: &mut Self::Base,
+    ) {
+        let (hi, lo) = Self::expanding_mul(*a, b);
+        *a = Self::add_carry(lo, carry);
+        *carry += hi;
+    }
+
     /// return value of (lhs - rhs + carry - borrow)
     fn sub_with_carry_borrow(
         lhs: Self::Base,

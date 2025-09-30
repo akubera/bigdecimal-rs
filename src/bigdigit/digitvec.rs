@@ -192,6 +192,19 @@ impl<R: RadixType> DigitVec<R, BigEndian> {
     }
 }
 
+impl<E: Endianness> DigitVec<RADIX_u64, E> {
+    /// multiply this vector by 'n'
+    fn mulassign_u64(&mut self, n: u64) {
+        let mut carry = 0u64;
+        for digit in self.iter_le_mut() {
+            RADIX_u64::mulassign_add_carry(digit, n, &mut carry);
+        }
+        if !carry.is_zero() {
+            E::push_significant_digit(&mut self.digits, carry);
+        }
+    }
+}
+
 impl DigitVec<RADIX_u64, LittleEndian> {
     /// Convert to signed big integer
     pub fn into_bigint(self, sign: Sign) -> BigInt {
