@@ -191,17 +191,9 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
         return multiply_slices_with_prec_into_p19(dest, b, a, prec, rounding);
     }
 
-    // trim the trailing zeros from the multiplication
-    let a_tz = a.digits.iter()
-                .position(|&d| d != 0)
-                .unwrap_or(a.len());
-    let b_tz = b.digits.iter()
-                .position(|&d| d != 0)
-                .unwrap_or(b.len());
-
     dest.value.clear();
 
-    if b.len() == b_tz || a.len() == a_tz {
+    if b.is_all_zeros() || a.is_all_zeros() {
         // multiplication by zero: return after clearing dest
         return;
     }
