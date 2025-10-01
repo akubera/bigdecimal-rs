@@ -1,5 +1,126 @@
 use paste::paste;
 
+mod multiply_scaled_u64_slices_with_prec_into {
+    use super::*;
+
+    macro_rules! impl_case {
+        ($name:ident: $prec:literal => $expected:expr, E $exp:literal) => {
+            impl_case!($name: round=Up; $prec => $expected, E $exp);
+        };
+        ($name:ident: round=$round:ident; $prec:literal => $expected:expr, E $exp:literal) => {
+            #[test]
+            fn $name() {
+                let (a, b) = test_input();
+                let a = WithScale {
+                    value: a.value.as_digit_slice(),
+                    scale: a.scale,
+                };
+                let b = WithScale {
+                    value: b.value.as_digit_slice(),
+                    scale: b.scale,
+                };
+                let prec = NonZeroU64::new($prec).unwrap();
+                let expected: &[u64] = &$expected;
+                let expected_scale = -$exp;
+
+                let rounding = NonDigitRoundingData {
+                    mode: RoundingMode::$round,
+                    sign: Sign::Plus,
+                };
+
+                let mut product = WithScale::default();
+                multiply_scaled_u64_slices_with_prec_into(&mut product, a, b, prec, rounding);
+                assert_eq!(&product.value.digits[..], &expected[..]);
+                assert_eq!(product.scale, expected_scale);
+            }
+        };
+    }
+
+    mod xuaz {
+        use super::*;
+
+        fn test_input() -> (WithScale<BigDigitVec>, WithScale<BigDigitVec>) {
+            let a = vec![
+                16175263208544711346,
+                5279606946643537445,
+                15341572592040251541,
+                10541804148642044343,
+                7522665456306621740,
+                13427633752471237939,
+                16469249152156353442,
+                11787750781150891403,
+                3583949032441389106,
+                18383297448742447850,
+                365519312995810676,
+            ];
+            let b = vec![16568107915372457172, 39594627279977552];
+            (
+                WithScale {
+                    value: BigDigitVec::from_vec(a),
+                    scale: 34,
+                },
+                WithScale {
+                    value: BigDigitVec::from_vec(b),
+                    scale: 7,
+                },
+            )
+        }
+        impl_case!(scales_5_n9_prec11: 11 => [12180455666], E 195);
+        impl_case!(scales_5_n9_prec25: 25 => [7055331922361162211, 66030], E 181);
+    }
+
+    mod random_values {
+        use super::*;
+
+        fn test_input() -> (WithScale<BigDigitVec>, WithScale<BigDigitVec>) {
+            let a = vec![
+                1745623865429447471,
+                9152528756446785169,
+                791242510259261833,
+                8695454801466577396,
+                8392994416015036890,
+                2912771882945679798,
+                8993891992610859856,
+                8294679885144779824,
+                8631634693823981953,
+                366928013,
+            ];
+            let b = vec![
+                518171251856216712,
+                8211715648977239115,
+                1585852536764360977,
+                1552672896608399639,
+                1044291249247,
+            ];
+            (
+                WithScale {
+                    value: BigDigitVec::from_vec(a),
+                    scale: 100,
+                },
+                WithScale {
+                    value: BigDigitVec::from_vec(b),
+                    scale: -5,
+                },
+            )
+        }
+
+        impl_case!(prec100: 100 => [
+            7841754692876239913,
+            2960052148898606502,
+            16409584969160271562,
+            16913806906493283056,
+            14019529503395454758,
+            513 ], E 77);
+
+        impl_case!(prec10_rd: round=Down; 10 => [ 1097384700 ], E 167);
+        impl_case!(prec20_rd: round=Down; 20 => [ 10973847000387492259 ], E 157);
+        impl_case!(prec20_ru: round=Up;   20 => [ 10973847000387492260 ], E 157);
+
+        impl_case!(prec45: 45 => [ 14618765252943857298, 6989353086943465649, 322492 ], E 132);
+        impl_case!(prec46: 46 => [ 17060444013471711666, 14553298648306001649, 3224923 ], E 131);
+    }
+}
+
 mod multiply_at_product_index {
     use super::*;
 
@@ -12,9 +133,7 @@ mod multiply_at_product_index {
                 let b = BigDigitSliceP19::from_slice(&b);
                 let mut product = DigitVec::new();
                 let expected: &[u64] = &$expected;
-                multiply_at_product_index(
-                    &mut product, a, b, $idx
-                );
+                multiply_at_product_index(&mut product, a, b, $idx);
                 assert_eq!(product.digits, expected);
             }
         };
@@ -34,14 +153,14 @@ mod multiply_at_product_index {
                 8993891992610859856,
                 8294679885144779824,
                 8631634693823981953,
-                366928013
+                366928013,
             ];
             let b = vec![
                 518171251856216712,
                 8211715648977239115,
                 1585852536764360977,
                 1552672896608399639,
-                1044291249247
+                1044291249247,
             ];
             (a, b)
         }
@@ -220,7 +339,6 @@ mod multiply_big_int_with_ctx {
         impl_case!(401 => "32893633126030082513378632456028104243338158146601751534822570641115861940893690474203736021657204584394456560452273117013862292944834269220913901434456366640765512794407601501204644375698772310462659595240672712968083946415944676232524453019368460583076233422452053267394081654933088569072574309446551869537537085955808336137944176420693881753901339121561334586231165213326029020686758979692139589175" E 38);
         impl_case!(400; HalfUp   => "3289363312603008251337863245602810424333815814660175153482257064111586194089369047420373602165720458439445656045227311701386229294483426922091390143445636664076551279440760150120464437569877231046265959524067271296808394641594467623252445301936846058307623342245205326739408165493308856907257430944655186953753708595580833613794417642069388175390133912156133458623116521332602902068675897969213958918" E 39);
         impl_case!(400; HalfDown => "3289363312603008251337863245602810424333815814660175153482257064111586194089369047420373602165720458439445656045227311701386229294483426922091390143445636664076551279440760150120464437569877231046265959524067271296808394641594467623252445301936846058307623342245205326739408165493308856907257430944655186953753708595580833613794417642069388175390133912156133458623116521332602902068675897969213958917" E 39);
-
     }
 
     mod mul_166282988e757_855704757e288 {
@@ -310,7 +428,6 @@ mod multiply_big_int_with_ctx {
     }
 }
 
-
 mod test_multiply_quad_spread_into {
     use super::*;
 
@@ -353,7 +470,6 @@ mod test_multiply_quad_spread_into {
         [2559712337, 684026673, 1163340730, 1823138616]
          => [1059648540u32, 580714756, 0, 0, 0, 0, 3001179060, 4203670869]);
 }
-
 
 #[cfg(all(test, property_tests))]
 mod props {
