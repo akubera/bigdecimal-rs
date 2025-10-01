@@ -61,10 +61,10 @@ where
     let digit_vec = BigDigitVec::new();
     let mut digit_vec_scale = WithScale::from((digit_vec, 0));
 
-    multiply_slices_with_prec_into(
+    multiply_scaled_u64_slices_with_prec_into(
         &mut digit_vec_scale,
-        a_vec.as_digit_slice(),
-        b_vec.as_digit_slice(),
+        WithScale { value: a_vec.as_digit_slice(), scale: a.scale },
+        WithScale { value: b_vec.as_digit_slice(), scale: b.scale },
         ctx.precision(),
         rounding_data
     );
@@ -199,12 +199,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
                 .position(|&d| d != 0)
                 .unwrap_or(b.len());
 
-    // increase scale by this many trailing-zeros
-    let trailing_zero_bigdigit_count = a_tz + b_tz;
-    let trailing_zero_scale = (R::DIGITS * trailing_zero_bigdigit_count) as i64;
-
     dest.value.clear();
-    // dest.scale -= trailing_zero_scale;
 
     if b.len() == b_tz || a.len() == a_tz {
         // multiplication by zero: return after clearing dest
@@ -325,17 +320,17 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
 }
 
 /// Store `a * b` into dest, to limited precision
-pub(crate) fn multiply_slices_with_prec_into(
+pub(crate) fn multiply_scaled_u64_slices_with_prec_into(
     dest: &mut WithScale<BigDigitVec>,
-    a: BigDigitSliceU64,
-    b: BigDigitSliceU64,
+    a: WithScale<BigDigitSliceU64>,
+    b: WithScale<BigDigitSliceU64>,
     prec: NonZeroU64,
     rounding: NonDigitRoundingData,
 ) {
-    let a_base10: BigDigitVecP19 = a.into();
-    let b_base10: BigDigitVecP19 = b.into();
+    let a_base10: BigDigitVecP19 = a.value.into();
+    let b_base10: BigDigitVecP19 = b.value.into();
 
-    let mut product = Default::default();
+    let mut product = WithScale::default();
     multiply_slices_with_prec_into_p19(
         &mut product,
         a_base10.as_digit_slice(),
@@ -344,10 +339,8 @@ pub(crate) fn multiply_slices_with_prec_into(
         rounding,
     );
 
-    let WithScale { value: product_digits, scale: result_scale } = product;
-
-    dest.scale = result_scale;
-    dest.value = product_digits.into();
+    dest.scale = a.scale + b.scale + product.scale;
+    dest.value = product.value.into();
 }
 
 /// return if the number has all trailing zeros
