@@ -518,6 +518,9 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, Littl
                 let (sum, overflow) = src.digits[0].overflowing_add(lo);
                 src.digits[0] = sum;
                 src.digits[1] = hi + u64::from(overflow);
+                if src.digits[1] == 0 {
+                    src.digits.truncate(1);
+                }
                 Self::from_vec(src.digits)
             }
             _ => {
