@@ -91,6 +91,11 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// Reverses for BigEndian, no-op for LittleEndian
     fn reorder_le_digits<D: Copy>(digits: &mut [D]);
 
+    /// Reorder vector of big-endian digits to this endianness
+    ///
+    /// Removes trailing zeros
+    fn reorder_be_vec<D: Zero + Copy>(digits: &mut Vec<D>);
+
     /// Consider digits in slice past 'idx' to be little-endian digits
     /// of higher significance than those below; move them to correct
     /// position in the slice
@@ -208,6 +213,17 @@ impl Endianness for BigEndian {
         digits.reverse()
     }
 
+    fn reorder_be_vec<D: Zero + Copy>(digits: &mut Vec<D>) {
+        match digits.iter().position(|&d| !d.is_zero()) {
+            Some(0) => {}
+            Some(idx) => {
+                digits.copy_within(idx.., 0);
+                digits.truncate(digits.len() - idx);
+            }
+            None => digits.clear(),
+        }
+    }
+
     fn rotate_trailing_le_digits_at<D: Copy>(digits: &mut [D], idx: usize) {
         Self::reorder_le_digits(&mut digits[idx..]);
         digits.rotate_left(idx);
@@ -306,6 +322,17 @@ impl Endianness for LittleEndian {
             (digits, sig_zeros)
         } else {
             (&[], digits)
+        }
+    }
+
+    fn reorder_be_vec<D: Zero + Copy>(digits: &mut Vec<D>) {
+        match digits.iter().position(|&d| !d.is_zero()) {
+            None => digits.clear(),
+            Some(idx) => {
+                digits.copy_within(idx.., 0);
+                digits.truncate(digits.len() - idx);
+                digits.reverse();
+            }
         }
     }
 
