@@ -69,6 +69,20 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         self.digits.truncate(n);
     }
 
+    /// Remove 'n' insignificant from the vector
+    ///
+    /// BigEndian vectors truncate. LittleEndian vectors shift and truncate, and
+    /// remove significant zeros to reduce potential copy space
+    ///
+    /// If 'n' is larger than the vector, the vector is cleared.
+    ///
+    pub fn remove_insignificant_digits(&mut self, n: usize) {
+        if n == 0 {
+            return;
+        }
+        E::remove_insignificant_digits(&mut self.digits, n)
+    }
+
     /// Borrow inner vectory as immutable digit-slice
     pub fn as_digit_slice(&self) -> DigitSlice<'_, R, E> {
         DigitSlice::from_slice(&self.digits[..])
