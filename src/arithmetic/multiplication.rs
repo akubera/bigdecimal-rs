@@ -88,35 +88,39 @@ where
 /// Carrying from lower digits is not calculated, so care must be given
 /// to ensure data enough digits are provided.
 ///
-pub(crate) fn multiply_at_product_index<R: RadixType>(
-    dest: &mut DigitVec<R, LittleEndian>,
-    a: DigitSlice<R, LittleEndian>,
-    b: DigitSlice<R, LittleEndian>,
+pub(crate) fn multiply_at_product_index<R, E, EA, EB>(
+    dest: &mut DigitVec<R, E>,
+    a: DigitSlice<R, EA>,
+    b: DigitSlice<R, EB>,
     idx: usize,
-) {
+) where
+    R: RadixType,
+    E: Endianness,
+    EA: Endianness,
+    EB: Endianness,
+{
     debug_assert!(b.len() <= a.len());
 
     dest.resize((a.len() + b.len()).saturating_sub(idx));
 
     let b_idx_min = idx.saturating_sub(a.len() - 1);
 
-    for b_idx in (b_idx_min..b.len()).rev() {
+    for (b_idx, &x) in b.iter_le().enumerate().skip(b_idx_min).rev() {
         let a_idx_min = idx.saturating_sub(b_idx);
         debug_assert!(a_idx_min < a.len());
 
-        let mut dest_idx = a_idx_min + b_idx - idx;
+        let dest_idx = a_idx_min + b_idx - idx;
 
+        let mut dest_digits = dest.iter_le_mut().skip(dest_idx);
         let mut carry = Zero::zero();
-        let x = b.digits[b_idx];
-        for &y in a.digits.iter().skip(a_idx_min) {
+        for &y in a.iter_le().skip(a_idx_min) {
             R::carrying_mul_add_inplace(
-                x, y, &mut dest.digits[dest_idx], &mut carry
+                x, y, dest_digits.next().unwrap(), &mut carry
             );
-            dest_idx += 1;
         }
-        R::add_carry_into(dest.digits.iter_mut().skip(dest_idx), &mut carry);
+        R::add_carry_into(dest_digits, &mut carry);
         if !carry.is_zero() {
-            dest.digits.push(carry);
+            dest.push_significant_digit(carry);
         }
     }
 }
