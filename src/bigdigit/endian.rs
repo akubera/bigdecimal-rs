@@ -86,6 +86,9 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
         Self::iter_slice(digits).rev().position(|d| !d.is_zero()).unwrap_or(digits.len())
     }
 
+    /// Remove 'n' insignificant digits from the vector, and MAY remove leading significant zeros
+    fn remove_insignificant_digits<D: Zero + Copy>(digits: &mut Vec<D>, n: usize);
+
     /// Correctly order a slice of little endian digits
     ///
     /// Reverses for BigEndian, no-op for LittleEndian
@@ -209,6 +212,11 @@ impl Endianness for BigEndian {
         }
     }
 
+    fn remove_insignificant_digits<D: Zero + Copy>(digits: &mut Vec<D>, n: usize) {
+        // TODO: Does truncate need - 1?
+        digits.truncate(digits.len() - n);
+    }
+
     fn reorder_le_digits<D: Copy>(digits: &mut [D]) {
         digits.reverse()
     }
@@ -322,6 +330,20 @@ impl Endianness for LittleEndian {
             (digits, sig_zeros)
         } else {
             (&[], digits)
+        }
+    }
+
+    fn remove_insignificant_digits<D: Zero + Copy>(digits: &mut Vec<D>, n: usize) {
+        let last_nonzero_idx = digits.iter().rposition(|&d| !d.is_zero());
+
+        match (last_nonzero_idx, n > digits.len()) {
+            (Some(idx), false) => {
+                digits.copy_within(n..=idx, 0);
+                digits.truncate(idx - n + 1);
+            }
+            _ => {
+                digits.clear();
+            }
         }
     }
 
