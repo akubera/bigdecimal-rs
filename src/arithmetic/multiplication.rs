@@ -177,8 +177,13 @@ pub(crate) fn multiply_big_int_with_ctx(a: &BigInt, b: &BigInt, ctx: Context) ->
     }
 }
 
-
-#[allow(unreachable_code)]
+/// Store product of 'a' & 'b' into dest, only calculating 'prec'
+/// number of digits
+///
+/// Use 'rounding' to round at requested position.
+/// Assumes 'a' & 'b' are full numbers, so all insignificant digits
+/// are zero.
+///
 pub(crate) fn multiply_slices_with_prec_into_p19(
     dest: &mut WithScale<BigDigitVecP19>,
     a: BigDigitSliceP19,
@@ -186,13 +191,32 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     prec: NonZeroU64,
     rounding: NonDigitRoundingData
 ) {
+    multiply_slices_with_prec_into_p19_z(dest, a, b, prec, rounding, true)
+}
+
+
+/// Store product of 'a' & 'b' into dest, only calculating 'prec' number of digits
+///
+/// Use 'rounding' information to round at requested position.
+/// The 'assume_trailing_zeros' parameter determines proper rounding technique if
+/// 'a' & 'b' are partial numbers, where trailing insignificant digits may or may
+/// not be zero.
+///
+pub(crate) fn multiply_slices_with_prec_into_p19_z(
+    dest: &mut WithScale<BigDigitVecP19>,
+    a: BigDigitSliceP19,
+    b: BigDigitSliceP19,
+    prec: NonZeroU64,
+    rounding: NonDigitRoundingData,
+    assume_trailing_zeros: bool,
+) {
     use super::bigdigit::alignment::BigDigitSplitter;
     use super::bigdigit::alignment::BigDigitSliceSplitterIter;
     type R = RADIX_10p19_u64;
 
     if a.len() < b.len() {
         // ensure a is the longer of the two digit slices
-        return multiply_slices_with_prec_into_p19(dest, b, a, prec, rounding);
+        return multiply_slices_with_prec_into_p19_z(dest, b, a, prec, rounding, assume_trailing_zeros);
     }
 
     dest.value.clear();
@@ -270,7 +294,7 @@ pub(crate) fn multiply_slices_with_prec_into_p19(
     // keep adding more multiplication terms if the number ends with 999999...., until
     // the nines stop or it overflows.
     // NOTE: the insignificant digits in 'product' will be _wrong_ and must be ignored
-    let trailing_zeros = calculate_partial_product_trailing_zeros(
+    let trailing_zeros = assume_trailing_zeros && calculate_partial_product_trailing_zeros(
         &mut product, a, b, bigdigits_to_skip, digits_to_remove
     );
 
@@ -339,7 +363,24 @@ pub(crate) fn multiply_scaled_u64_slices_with_prec_into(
     dest.value = product.value.into();
 }
 
-/// return if the number has all trailing zeros
+/// Calculate the 'backwards' product of a & b, stoping when it can be
+/// proven that no further overflow can happen
+///
+/// Return true if the product after overflow-calculation has all
+/// trailing zeros.
+///
+/// Parameter 'v' here is the pre-calculated "extended" product of a & b,
+/// extended meaning it has incorrect insignificant digits that were
+/// calculated to add overflow/carrys into the significant digits.
+/// This function continues multiplying trailing digits if there is a
+/// chance that a rounding.
+///
+/// 'product_idx' is the index of the true product where v starts
+/// (i.e. v[0] corresponds to true_product[product_idx], used here for
+/// calculating the insignificant product of a and b, backwards.
+///
+/// 'digits_to_remove' is the number of digits in v that should be
+/// considered insignificant, and may be changed by this function.
 ///
 fn calculate_partial_product_trailing_zeros(
     v: &mut BigDigitVecP19,
