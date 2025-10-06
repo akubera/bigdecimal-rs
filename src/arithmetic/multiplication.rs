@@ -526,6 +526,67 @@ fn calculate_partial_product_trailing_zeros(
     return false;
 }
 
+/// Calculate dest = a * b to at most 'prec' number of bigdigits, truncating (not rounding)
+/// the results.
+///
+/// The scale of these vector/slices is number of *bigdigits*, not number of digits.
+///
+pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
+    dest: &mut WithScale<DigitVec<R, E>>,
+    a: WithScale<DigitSlice<'_, R, EA>>,
+    b: WithScale<DigitSlice<'_, R, EB>>,
+    prec: u64,
+) where
+    R: RadixType,
+    E: Endianness,
+    EA: Endianness,
+    EB: Endianness,
+{
+    use super::bigdigit::alignment::BigDigitSplitter;
+    use super::bigdigit::alignment::BigDigitSliceSplitterIter;
+    type R = RADIX_10p19_u64;
+
+    if a.value.len() < b.value.len() {
+        // ensure a is the longer of the two digit slices
+        return mul_scaled_slices_truncating_into(dest, b, a, prec);
+    }
+
+    let WithScale { value: product, scale: dest_scale } = dest;
+    let WithScale { value: a, scale: a_scale } = a;
+    let WithScale { value: b, scale: b_scale } = b;
+
+    *dest_scale = a_scale + b_scale;
+    product.clear();
+
+    if b.is_all_zeros() || a.is_all_zeros() {
+        // multiplication by zero: return after clearing dest
+        return;
+    }
+
+    debug_assert_ne!(a.len(), 0);
+    debug_assert_ne!(b.len(), 0);
+
+    // require more digits of precision for overflow and rounding
+    // max number of digits produced by adding all bigdigits at any
+    // particular "digit-index" i of the product
+    //  log10( Σ a_m × b_n (∀ m+n=i) )
+    let max_digit_sum_width = (2.0 * log10(R::max() as f64) + log10(b.len() as f64)).ceil() as usize;
+    let max_bigdigit_sum_width = R::divceil_digit_count(max_digit_sum_width);
+
+    let max_product_size = a.len() + b.len();
+    let max_vector_size = prec as usize + max_bigdigit_sum_width;
+    let bigdigits_to_skip = max_product_size.saturating_sub(max_vector_size);
+
+    *dest_scale -= bigdigits_to_skip as i64;
+
+    multiply_at_product_index(product, a, b, bigdigits_to_skip);
+    product.remove_leading_zeros();
+    let extra_digit_count = product.len().saturating_sub(prec as usize);
+    product.remove_insignificant_digits(extra_digit_count);
+    *dest_scale -= extra_digit_count as i64;
+}
+
+
 /// split u64 into high and low bits
 fn split_u64(x: u64) -> (u64, u64) {
     x.div_rem(&(1 << 32))

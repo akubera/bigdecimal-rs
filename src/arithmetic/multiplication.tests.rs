@@ -131,7 +131,7 @@ mod multiply_at_product_index {
                 let (a, b) = test_input();
                 let a = BigDigitSliceP19::from_slice(&a);
                 let b = BigDigitSliceP19::from_slice(&b);
-                let mut product = DigitVec::new();
+                let mut product = DigitVec::<RADIX_10p19_u64, LittleEndian>::new();
                 let expected: &[u64] = &$expected;
                 multiply_at_product_index(&mut product, a, b, $idx);
                 assert_eq!(product.digits, expected);
