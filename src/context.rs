@@ -130,6 +130,32 @@ impl Context {
     ) -> u8 {
         self.rounding.round_pair_with_carry(sign, (x, y), trailing_zeros, carry)
     }
+
+    /// Multiply two decimals, returning product rounded to this context's precision
+    ///
+    /// ```
+    /// # use bigdecimal::{BigDecimal, Context};
+    /// let x: BigDecimal = "1.5".parse().unwrap();
+    /// let y: BigDecimal = "3.1415926".parse().unwrap();
+    /// let ctx = Context::default().with_prec(5).unwrap();
+    /// let z = ctx.multiply(&x, &y);
+    /// // rounds to 5 digits of precision
+    /// assert_eq!(z, "4.7124".parse().unwrap());
+    /// // does not equal the 'full' precision
+    /// assert_ne!(z, "4.71238890".parse().unwrap());
+    /// ```
+    ///
+    pub fn multiply<'a, L, R>(&self, lhs: L, rhs: R) -> BigDecimal
+    where
+        L: Into<BigDecimalRef<'a>>,
+        R: Into<BigDecimalRef<'a>>,
+    {
+        use arithmetic::multiplication::multiply_decimals_with_context;
+
+        let mut result = BigDecimal::zero();
+        multiply_decimals_with_context(&mut result, lhs, rhs, self);
+        result
+    }
 }
 
 impl stdlib::default::Default for Context {

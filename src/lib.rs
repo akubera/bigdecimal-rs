@@ -829,6 +829,11 @@ impl BigDecimal {
         result.take_with_sign(self.sign())
     }
 
+    /// Multiply by rhs, limiting precision using context
+    pub fn mul_with_context<'a, T: Into<BigDecimalRef<'a>>>(&'a self, rhs: T, ctx: &Context) -> BigDecimal {
+        ctx.multiply(self, rhs)
+    }
+
     /// Return given number rounded to 'round_digits' precision after the
     /// decimal point, using default rounding mode
     ///
@@ -1232,7 +1237,7 @@ pub struct BigDecimalRef<'a> {
     scale: i64,
 }
 
-impl BigDecimalRef<'_> {
+impl<'a> BigDecimalRef<'a> {
     /// Clone digits to make this reference a full BigDecimal object
     pub fn to_owned(&self) -> BigDecimal {
         BigDecimal {
@@ -1352,6 +1357,13 @@ impl BigDecimalRef<'_> {
     ///
     pub fn round_with_context(&self, ctx: &Context) -> BigDecimal {
         ctx.round_decimal_ref(*self)
+    }
+
+    /// Multiply another decimal-ref, limiting the precision using Context
+    pub fn mul_with_context<T: Into<BigDecimalRef<'a>>>(
+        self, rhs: T, ctx: &Context
+    ) -> BigDecimal {
+        ctx.multiply(self, rhs)
     }
 
     /// Take square root of this number
