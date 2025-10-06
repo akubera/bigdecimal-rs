@@ -783,7 +783,7 @@ impl BigDecimal {
             return self.clone();
         }
 
-        arithmetic::pow::impl_powi_with_context(&self, exp, ctx)
+        arithmetic::pow::impl_powi_with_context(self.to_ref(), exp, ctx)
     }
 
     /// Take the square root of the number
