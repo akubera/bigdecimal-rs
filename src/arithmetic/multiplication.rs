@@ -33,8 +33,7 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     a: A,
     b: B,
     ctx: &Context,
-)
-where
+) where
     A: Into<BigDecimalRef<'a>>,
     B: Into<BigDecimalRef<'a>>,
 {
@@ -55,6 +54,17 @@ where
     let a_uint = a.digits;
     let b_uint = b.digits;
 
+    if let (Some(x), Some(y)) = (a_uint.to_u64(), b_uint.to_u64()) {
+        multiply_scaled_u64_into_decimal(
+            dest,
+            WithScale { value: x, scale: a.scale },
+            WithScale { value: y, scale: b.scale },
+            ctx.precision(),
+            rounding_data,
+        );
+        return;
+    }
+
     let a_vec = BigDigitVec::from(a_uint);
     let b_vec = BigDigitVec::from(b_uint);
 
@@ -66,13 +76,62 @@ where
         WithScale { value: a_vec.as_digit_slice(), scale: a.scale },
         WithScale { value: b_vec.as_digit_slice(), scale: b.scale },
         ctx.precision(),
-        rounding_data
+        rounding_data,
     );
 
     dest.int_val = BigInt::from_biguint(sign, digit_vec_scale.value.into());
     dest.scale = a.scale + b.scale - digit_vec_scale.scale;
 }
 
+pub(crate) fn multiply_scaled_u64_into_decimal(
+    dest: &mut BigDecimal,
+    a: WithScale<u64>,
+    b: WithScale<u64>,
+    prec: NonZeroU64,
+    rounding_data: NonDigitRoundingData,
+) {
+    use crate::arithmetic::decimal::count_digits_u128;
+
+    let mut product = a.value as u128 * b.value as u128;
+    let digit_count = count_digits_u128(product) as u64;
+
+    let mut digits_to_remove = digit_count.saturating_sub(prec.get()) as u32;
+
+    if digits_to_remove == 0 {
+        dest.int_val = product.into();
+        dest.scale = a.scale + b.scale;
+        return;
+    }
+
+    let shifter = 10u128.pow(digits_to_remove - 1);
+    let (hi, trailing) = product.div_rem(&shifter);
+    let (shifted_product, insig_digit) = hi.div_rem(&10);
+    let sig_digit = (shifted_product % 10) as u8;
+
+    let rounded_digit = rounding_data.round_pair(
+        (sig_digit, insig_digit as u8),
+        trailing == 0,
+    );
+
+    product = shifted_product - sig_digit as u128 + rounded_digit as u128;
+
+    if rounded_digit >= 10 {
+        debug_assert_eq!(rounded_digit, 10);
+
+        let old_digit_count = digit_count - digits_to_remove as u64;
+        debug_assert_eq!(old_digit_count, count_digits_u128(shifted_product) as u64);
+
+        let rounded_digit_count = count_digits_u128(product) as u64;
+        if old_digit_count != rounded_digit_count {
+            debug_assert_eq!(rounded_digit_count, old_digit_count + 1);
+            product /= 10;
+            digits_to_remove += 1;
+        }
+    }
+
+    dest.scale = a.scale + b.scale - digits_to_remove as i64;
+    dest.int_val = product.into();
+}
 
 /// Multiply digits in slices a and b, ignoring all factors that come from
 /// digits "below" the given index (which is stored at index 0 in the dest)
