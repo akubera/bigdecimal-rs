@@ -382,7 +382,7 @@ impl Endianness for LittleEndian {
 /// Can be applied to slice, vecs, and num_bigint::{U32Digits, U64Digits}
 /// allowing "easy" access to the digits.
 pub(crate) trait LeBigDigitIterator<'a, D>
-                    : Iterator<Item=D>
+                    : Iterator<Item = D>
                     + ExactSizeIterator
                     + DoubleEndedIterator
 {
@@ -412,14 +412,14 @@ impl<D> Iterator for LittleEndianBigDigitIter<'_, D> {
 }
 
 #[cfg(not(rustc_1_75))]
-impl<D> DoubleEndedIterator for LittleEndianBigDigitIter<'_, D>  {
+impl<D> DoubleEndedIterator for LittleEndianBigDigitIter<'_, D> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.digits.next_back()
     }
 }
 
 #[cfg(not(rustc_1_75))]
-impl<D> ExactSizeIterator for LittleEndianBigDigitIter<'_, D>  {
+impl<D> ExactSizeIterator for LittleEndianBigDigitIter<'_, D> {
     fn len(&self) -> usize {
         self.digits.len()
     }

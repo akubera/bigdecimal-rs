@@ -57,12 +57,7 @@ impl Context {
         precision
             .to_u64()
             .and_then(NonZeroU64::new)
-            .map(|prec| {
-                Self {
-                    precision: prec,
-                    ..*self
-                }
-            })
+            .map(|prec| self.with_precision(prec))
     }
 
     /// Copy context with new rounding mode

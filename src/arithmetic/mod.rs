@@ -109,8 +109,9 @@ pub(crate) fn ten_to_the_uint(pow: u64) -> BigUint {
 }
 
 pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
-    where T: MulAssign<u64> + MulAssign<BigUint>,
-          P: ToPrimitive
+where
+    T: MulAssign<u64> + MulAssign<BigUint>,
+    P: ToPrimitive,
 {
     let pow = pow.to_u64().expect("exponent overflow error");
     if pow < 20 {
@@ -118,13 +119,12 @@ pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
     } else {
         *n *= ten_to_the_uint(pow);
     }
-
 }
 
 /// Return difference of two numbers, returning diff as u64
 pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)
 where
-    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord,
 {
     use stdlib::cmp::Ordering::*;
 
@@ -136,11 +136,11 @@ where
 /// Return difference of two numbers. If num doesn't fit in u64, return None
 pub(crate) fn checked_diff<T>(a: T, b: T) -> (Ordering, Option<u64>)
 where
-    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord,
 {
     use stdlib::cmp::Ordering::*;
 
-    let _try_subtracting = |x:T, y:T| x.checked_sub(&y).and_then(|diff| diff.to_u64());
+    let _try_subtracting = |x: T, y: T| x.checked_sub(&y).and_then(|diff| diff.to_u64());
 
     match a.cmp(&b) {
         Less => (Less, _try_subtracting(b, a)),
@@ -152,7 +152,7 @@ where
 /// Return difference of two numbers, returning diff as usize
 pub(crate) fn diff_usize<T>(a: T, b: T) -> (Ordering, usize)
 where
-    T: AsPrimitive<usize> + stdlib::ops::Sub<Output = T> + stdlib::cmp::Ord
+    T: AsPrimitive<usize> + stdlib::ops::Sub<Output = T> + stdlib::cmp::Ord,
 {
     use stdlib::cmp::Ordering::*;
 
@@ -177,7 +177,6 @@ pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
     (x as i128 - y as i128).to_u64().unwrap_or(0)
 }
 
-
 /// Add carry to given number, returning trimmed value and storing overflow back in carry
 ///
 pub(crate) fn add_carry(n: u8, carry: &mut u8) -> u8 {
@@ -191,7 +190,6 @@ pub(crate) fn add_carry(n: u8, carry: &mut u8) -> u8 {
         s - 10
     }
 }
-
 
 /// If n is greater than 10, split and store overflow in carry
 ///
@@ -210,12 +208,11 @@ pub(crate) fn store_carry(n: u8, carry: &mut u8) -> u8 {
     }
 }
 
-
 /// Extend destination vector with values in D, adding carry while carry is not zero
 ///
 /// If carry overflows, it is NOT pushed into the destination vector.
 ///
-pub(crate) fn extend_adding_with_carry<D: Iterator<Item=u8>>(
+pub(crate) fn extend_adding_with_carry<D: Iterator<Item = u8>>(
     dest: &mut Vec<u8>,
     mut digits: D,
     carry: &mut u8,

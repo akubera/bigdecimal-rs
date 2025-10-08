@@ -1354,7 +1354,6 @@ impl<'a> BigDecimalRef<'a> {
     /// Create BigDecimal from this reference, rounding to precision and
     /// with rounding-mode of the given context
     ///
-    ///
     pub fn round_with_context(&self, ctx: &Context) -> BigDecimal {
         ctx.round_decimal_ref(*self)
     }

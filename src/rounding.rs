@@ -268,7 +268,7 @@ impl Default for RoundingMode {
 ///
 /// Just the mode and the sign.
 ///
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct NonDigitRoundingData {
     /// Rounding mode
     pub mode: RoundingMode,

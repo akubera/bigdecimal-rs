@@ -422,7 +422,7 @@ pub(crate) fn multiply_scaled_u64_slices_with_prec_into(
     dest.value = product.value.into();
 }
 
-/// Calculate the 'backwards' product of a & b, stoping when it can be
+/// Calculate the 'backwards' product of a & b, stopping when it can be
 /// proven that no further overflow can happen
 ///
 /// Return true if the product after overflow-calculation has all

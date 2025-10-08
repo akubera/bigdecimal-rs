@@ -232,7 +232,7 @@ impl DigitVec<RADIX_u64, LittleEndian> {
 
     /// Construct vector from iterator of base-10^{19} bigdigits
     #[allow(dead_code)]
-    pub fn from_10p19_digits<I: Iterator<Item=u64>>(mut digits: I) -> Self {
+    pub fn from_10p19_digits<I: Iterator<Item = u64>>(mut digits: I) -> Self {
         type R2p64 = RADIX_u64;
         type R10p19 = RADIX_10p19_u64;
 
@@ -352,7 +352,7 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
     /// remove the bottom 'n' digits in the vector, returning the highest
     pub fn shift_n_digits_returning_high(&mut self, n: usize) -> u8 {
         use bigdigit::alignment::BigDigitSplitter;
-        type Splitter = BigDigitSplitter::<RADIX_10p19_u64>;
+        type Splitter = BigDigitSplitter<RADIX_10p19_u64>;
 
         if n == 0 {
             return 0;
@@ -456,7 +456,7 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
         for digit in digits {
             scale *= radix;
             match digit {
-                0 => {},
+                0 => {}
                 1 => {
                     result += &scale;
                 }
@@ -497,7 +497,7 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for num_bigint::BigUint {
                 let mut shifter = Self::one();
                 let mut digits = v.digits.iter().rev();
 
-                let mut result: Self = digits.next().unwrap().clone().into();
+                let mut result: Self = digits.next().copied().unwrap().into();
 
                 for &d in digits {
                     shifter *= radix;
@@ -563,7 +563,7 @@ impl From<DigitVec<RADIX_10p19_u64, LittleEndian>> for DigitVec<RADIX_u64, Littl
 
                     match base10_digits.next() {
                         None => break,
-                        Some(&d) => { base10_digit = d }
+                        Some(&d) => base10_digit = d,
                     }
                     scaler *= radix;
                 }
@@ -596,7 +596,7 @@ mod test_from_biguint_using_tmp {
                 let expected: &[u64] = &$result;
                 assert_eq!(vec.digits.as_slice(), expected);
             }
-        }
+        };
     }
 
     impl_case!(test_zero: "0" => []);

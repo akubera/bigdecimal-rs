@@ -309,7 +309,6 @@ fn format_ascii_digits_with_integer_and_fraction(
                                   .to_usize()
                                   .expect("Number of digits exceeds maximum usize");
 
-
         digits_ascii_be.insert(integer_digit_count, b'.');
     }
 
@@ -344,7 +343,7 @@ fn format_ascii_digits_no_integer(
 
     match arithmetic::diff(target_scale, leading_zeros) {
         // handle rounding point before the start of digits
-        (Less, intermediate_zeros) | (Equal, intermediate_zeros)  => {
+        (Less, intermediate_zeros) | (Equal, intermediate_zeros) => {
             // get insignificant digit
             let (insig_digit, trailing_digits) = if intermediate_zeros > 0 {
                 (0, digits_ascii_be.as_slice())
@@ -729,10 +728,12 @@ mod test {
     /// Required work-around due to lack of constructor in fmt::Formatter
     ///
     struct Fmt<F>(F)
-        where F: Fn(&mut fmt::Formatter) -> fmt::Result;
+    where
+        F: Fn(&mut fmt::Formatter) -> fmt::Result;
 
     impl<F> fmt::Display for Fmt<F>
-        where F: Fn(&mut fmt::Formatter) -> fmt::Result
+    where
+        F: Fn(&mut fmt::Formatter) -> fmt::Result,
     {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             // call closure with given formatter
@@ -741,7 +742,8 @@ mod test {
     }
 
     impl<F> fmt::Debug for Fmt<F>
-        where F: Fn(&mut fmt::Formatter) -> fmt::Result
+    where
+        F: Fn(&mut fmt::Formatter) -> fmt::Result,
     {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             (self.0)(f)
@@ -1357,7 +1359,7 @@ mod test {
                         assert_eq!(y, $expected_alt);
                     }
                 }
-            }
+            };
         }
 
         impl_case!(case_0: "0" => r#"BigDecimal(sign=NoSign, scale=0, digits=[])"#

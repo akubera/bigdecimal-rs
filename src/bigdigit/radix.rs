@@ -61,7 +61,6 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
 
     /// Check contents of iterable contains values less than the radix
     fn validate_digits<'a, I: IntoIterator<Item = &'a Self::Base>>(i: I) -> bool {
-        use num_traits::Zero;
         i.into_iter().map(|&d| d.into()).all(|d| Self::BaseDouble::zero() <= d && d < Self::RADIX)
     }
 
@@ -191,8 +190,6 @@ pub trait RadixType: Copy + Clone + Default + fmt::Debug {
     /// the carry value will not be zero.
     ///
     fn add_carry_into<'a, I: Iterator<Item=&'a mut Self::Base>>(dest: I, c: &mut Self::Base) {
-        use num_traits::Zero;
-
         for d in dest {
             if c.is_zero() {
                 return;
@@ -333,7 +330,6 @@ mod test_validate {
     impl_case!(invalid case_p9_toobig: RADIX_10p9_u32 ~ [3330199352]);
 }
 
-
 impl RadixType for RADIX_u32 {
     type Base = u32;
     type BaseDouble = u64;
@@ -370,7 +366,6 @@ impl RadixType for RADIX_u64 {
     }
 }
 
-
 impl RadixType for RADIX_10p4_i16 {
     type Base = i16;
     type BaseDouble = i32;
@@ -378,7 +373,6 @@ impl RadixType for RADIX_10p4_i16 {
 
     const RADIX: Self::BaseDouble = 10_000;
 }
-
 
 impl RadixType for RADIX_10p9_u32 {
     type Base = u32;
@@ -388,7 +382,6 @@ impl RadixType for RADIX_10p9_u32 {
     const RADIX: Self::BaseDouble = 1_000_000_000;
 }
 
-
 impl RadixType for RADIX_10p19_u64 {
     type Base = u64;
     type BaseDouble = u128;
@@ -397,7 +390,6 @@ impl RadixType for RADIX_10p19_u64 {
     const RADIX: Self::BaseDouble = 10_000_000_000_000_000_000;
 }
 
-
 impl RadixType for RADIX_10_u8 {
     type Base = u8;
     type BaseDouble = u8;
@@ -405,8 +397,6 @@ impl RadixType for RADIX_10_u8 {
 
     const RADIX: Self::BaseDouble = 10;
 }
-
-
 
 #[cfg(test)]
 mod tests {

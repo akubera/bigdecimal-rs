@@ -131,7 +131,7 @@ mod test {
                     let decimal: BigDecimal = $input.parse().unwrap();
                     assert_tokens(&decimal, &[expected]);
                 }
-            }
+            };
         }
 
         impl_case!(case_1d0: "1.0" => "1.0");
@@ -237,7 +237,7 @@ mod test {
         use impl_serde::{Serialize, Deserialize};
         use serde_json;
 
-        #[derive(Serialize,Deserialize)]
+        #[derive(Serialize, Deserialize)]
         struct TestStruct {
             name: String,
             value: BigDecimal,
@@ -259,7 +259,6 @@ mod test {
             let s = serde_json::to_string(&my_struct).unwrap();
             assert_eq!(s, r#"{"name":"foo","value":"0.0008741329382918","number":12.34}"#);
         }
-
     }
 }
 

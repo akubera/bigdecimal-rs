@@ -7,7 +7,7 @@ pub(crate) fn mod_ten_uint(n: &BigUint) -> u8 {
 }
 
 /// optimized calculation of n % 10
-pub(crate) fn mod_ten_2p64_le(mut digits: impl Iterator<Item=u64>) -> u8 {
+pub(crate) fn mod_ten_2p64_le(mut digits: impl Iterator<Item = u64>) -> u8 {
     let d0 = digits.next().unwrap_or(0) % 10;
     let mut acc: u64 = digits.map(|d| d % 10).sum();
     acc *= 6;
@@ -22,7 +22,7 @@ pub(crate) fn mod_100_uint(n: &BigUint) -> u8 {
 
 /// optimized calculation of n % 100
 /// TODO: compare implementations: https://rust.godbolt.org/z/Kcxor1MT5
-pub(crate) fn mod_100_2p64_le(mut digits: impl Iterator<Item=u64>) -> u8 {
+pub(crate) fn mod_100_2p64_le(mut digits: impl Iterator<Item = u64>) -> u8 {
     let mods_2p64 = [16, 56, 96, 36, 76];
     let mut acc_v = [ 0,  0,  0,  0,  0];
     let d0 = digits.next().unwrap_or(0) % 100;
