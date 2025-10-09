@@ -55,6 +55,20 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     let a_uint = a.digits;
     let b_uint = b.digits;
 
+    match (a, b.is_one_quickcheck(), b, a.is_one_quickcheck()) {
+        (x, Some(true), _, _) | (_, _, x, Some(true)) => {
+            let WithScale {
+                value: rounded_uint,
+                scale: rounded_scale,
+            } = rounding_data.round_biguint_to_prec(x.digits.clone(), ctx.precision());
+
+            dest.scale = x.scale + rounded_scale;
+            dest.int_val = BigInt::from_biguint(sign, rounded_uint);
+            return;
+        }
+        _ => {}
+    }
+
     if let (Some(x), Some(y)) = (a_uint.to_u64(), b_uint.to_u64()) {
         multiply_scaled_u64_into_decimal(
             dest,
