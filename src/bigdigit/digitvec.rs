@@ -678,6 +678,7 @@ impl DigitVec<RADIX_10_u8, LittleEndian> {
 }
 
 #[cfg(rustc_1_50)]
+#[allow(clippy::incompatible_msrv)]
 fn fill_slice_with_zero<D: Zero + Clone>(s: &mut [D]) {
     s.fill(Zero::zero());
 }

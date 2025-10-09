@@ -1,6 +1,7 @@
 //! Routines for multiplying numbers
 //!
 #![allow(dead_code)]
+#![allow(clippy::identity_op)]
 
 use stdlib::num::NonZeroU64;
 use num_traits::AsPrimitive;

@@ -51,7 +51,9 @@
 #![allow(clippy::redundant_field_names)]
 #![allow(clippy::approx_constant)]
 #![allow(clippy::wrong_self_convention)]
+#![allow(clippy::doc_overindented_list_items)]
 #![cfg_attr(test, allow(clippy::useless_vec))]
+#![allow(non_shorthand_field_patterns)]
 #![allow(unused_imports)]
 
 
