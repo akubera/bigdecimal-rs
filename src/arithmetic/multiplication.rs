@@ -62,6 +62,7 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
             ctx.precision(),
             rounding_data,
         );
+        debug_assert_eq!(dest.sign(), sign);
         return;
     }
 
@@ -80,7 +81,7 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     );
 
     dest.int_val = BigInt::from_biguint(sign, digit_vec_scale.value.into());
-    dest.scale = a.scale + b.scale - digit_vec_scale.scale;
+    dest.scale = digit_vec_scale.scale;
 }
 
 pub(crate) fn multiply_scaled_u64_into_decimal(
@@ -98,7 +99,7 @@ pub(crate) fn multiply_scaled_u64_into_decimal(
     let mut digits_to_remove = digit_count.saturating_sub(prec.get()) as u32;
 
     if digits_to_remove == 0 {
-        dest.int_val = product.into();
+        dest.int_val = BigInt::from_biguint(rounding_data.sign, product.into());
         dest.scale = a.scale + b.scale;
         return;
     }
@@ -129,8 +130,10 @@ pub(crate) fn multiply_scaled_u64_into_decimal(
         }
     }
 
+    let digit_array = mul_split_u128_to_u32x4(product);
+    dest.int_val.assign_from_slice(rounding_data.sign, &digit_array);
+
     dest.scale = a.scale + b.scale - digits_to_remove as i64;
-    dest.int_val = product.into();
 }
 
 /// Multiply digits in slices a and b, ignoring all factors that come from
