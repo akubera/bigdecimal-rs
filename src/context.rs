@@ -5,6 +5,7 @@ use crate::*;
 use stdlib::num::NonZeroU64;
 
 use arithmetic::store_carry;
+use rounding::NonDigitRoundingData;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
@@ -104,7 +105,8 @@ impl Context {
     pub(crate) fn round_biguint(
         self, n: num_bigint::BigUint
     ) -> WithScale<num_bigint::BigUint> {
-        self.rounding.round_biguint_to_prec(n, self.precision)
+        let ndrd = NonDigitRoundingData { mode: self.rounding, sign: Sign::Plus };
+        ndrd.round_biguint_to_prec(n, self.precision)
     }
 
     /// Round digits x and y with the rounding mode

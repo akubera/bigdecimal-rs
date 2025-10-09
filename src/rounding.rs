@@ -229,16 +229,6 @@ impl RoundingMode {
         WithScale::from((result, -ndigits))
     }
 
-    /// Round the biguint to prec digits
-    #[allow(dead_code)]
-    pub(crate) fn round_biguint_to_prec(
-        self, mut n: num_bigint::BigUint, prec: NonZeroU64
-    ) -> WithScale<num_bigint::BigUint> {
-        let ndrd = NonDigitRoundingData { mode: self, sign: Sign::Plus };
-        let ndigits = round_biguint_inplace(&mut n, prec, ndrd);
-        WithScale::from((n, -ndigits))
-    }
-
     /// Hint used to skip calculating trailing_zeros if they don't matter
     fn needs_trailing_zeros(&self, insig_digit: u8) -> bool {
         use RoundingMode::*;
@@ -291,6 +281,19 @@ impl NonDigitRoundingData {
     pub fn default_with_sign(sign: Sign) -> Self {
         NonDigitRoundingData { sign, mode: RoundingMode::default() }
     }
+
+    /// Round BigUint to requested precision, using mode and sign in self
+    ///
+    /// Returns the biguint with at most 'prec' digits, and scale
+    /// indicating how many decimal digits were removed.
+    ///
+    pub(crate) fn round_biguint_to_prec(
+        self, mut n: num_bigint::BigUint, prec: NonZeroU64
+    ) -> WithScale<num_bigint::BigUint> {
+        let ndigits = round_biguint_inplace(&mut n, prec, self);
+        WithScale::from((n, -ndigits))
+    }
+
 }
 
 
