@@ -1413,14 +1413,30 @@ impl<'a> BigDecimalRef<'a> {
     /// A check if this decimal is equal to one for purposes of optimization
     /// Returns None if the computation would be expensive
     pub fn is_one_quickcheck(&self) -> Option<bool> {
-        if self.sign() != Sign::Plus || self.scale < 0 {
+        if self.sign() != Sign::Plus {
+            return Some(false);
+        }
+        self.is_abs_one_quickcheck()
+    }
+
+    /// Check if this decimal is equal to ±1, return None if it would
+    /// require allocating to fully check
+    pub(crate) fn is_abs_one_quickcheck(&self) -> Option<bool> {
+        if self.scale < 0 {
             return Some(false);
         }
         let value = self.digits;
 
-        // special case for standard integers (scale == 0)
-        if self.scale == 0 {
-            return Some(value.is_one());
+        // special case for very small scales: 1 == 10e-1, 100e-2, etc
+        match (self.scale, value.to_u16()) {
+            (0, Some(n)) => return Some(n == 1),
+            (1, Some(n)) => return Some(n == 10),
+            (2, Some(n)) => return Some(n == 100),
+            (3, Some(n)) => return Some(n == 1000),
+            (4, Some(n)) => return Some(n == 10000),
+            // small scale but large integer: certainly not '1'
+            (s, None) if s < 5 => return Some(false),
+            _ => {}
         }
 
         // scale required to represent a value of 10^{pow} for
