@@ -906,3 +906,13 @@ impl<R: RadixType, E: Endianness> fmt::Debug for DigitSliceMut<'_, R, E> {
         write!(f, "DigitSliceMut({}, {:?})", E::NAME, self.digits)
     }
 }
+
+/// Add method to easily transform scaled DigitVec to scaled DigitSlice
+impl<R: RadixType, E: Endianness> crate::WithScale<DigitVec<R, E>> {
+    pub fn as_digit_slice(&self) -> crate::WithScale<DigitSlice<'_, R, E>> {
+        WithScale {
+            scale: self.scale,
+            value: self.value.as_digit_slice(),
+        }
+    }
+}
