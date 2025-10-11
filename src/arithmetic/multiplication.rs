@@ -608,12 +608,15 @@ fn calculate_partial_product_trailing_zeros(
 ///
 /// The scale of these vector/slices is number of *bigdigits*, not number of digits.
 ///
+/// Returns the number of 'skipped' bigdigits in the result.
+///
 pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
     dest: &mut WithScale<DigitVec<R, E>>,
     a: WithScale<DigitSlice<'_, R, EA>>,
     b: WithScale<DigitSlice<'_, R, EB>>,
     prec: u64,
-) where
+) -> usize
+where
     R: RadixType,
     E: Endianness,
     EA: Endianness,
@@ -637,7 +640,7 @@ pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
 
     if b.is_all_zeros() || a.is_all_zeros() {
         // multiplication by zero: return after clearing dest
-        return;
+        return 0;
     }
 
     debug_assert_ne!(a.len(), 0);
@@ -661,6 +664,8 @@ pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
     let extra_digit_count = product.len().saturating_sub(prec as usize);
     product.remove_insignificant_digits(extra_digit_count);
     *dest_scale -= extra_digit_count as i64;
+
+    return bigdigits_to_skip;
 }
 
 
