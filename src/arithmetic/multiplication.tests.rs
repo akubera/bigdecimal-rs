@@ -4,75 +4,144 @@ mod multiply_scaled_u64_slices_with_prec_into {
     use super::*;
 
     macro_rules! impl_case {
-        ($name:ident: $prec:literal => $expected:expr, E $exp:literal) => {
-            impl_case!($name: round=Up; $prec => $expected, E $exp);
+        ($name:ident: $prec:literal => [$($le_d:literal),*] E $exp:literal) => {
+            impl_case!($name: round=Up; $prec => [$($le_d),*] E $exp);
         };
-        ($name:ident: round=$round:ident; $prec:literal => $expected:expr, E $exp:literal) => {
+        ($name:ident: round=$round:ident; $prec:literal => [$($le_d:literal),*] E $exp:literal) => {
+            impl_case!($name: round=$round; $prec => Plus [$($le_d),*] E $exp);
+        };
+        ($name:ident: round=$round:ident; $prec:literal => $sign:ident [$($expected:literal),*] E $exp:literal) => {
             #[test]
             fn $name() {
-                let (a, b) = test_input();
-                let a = WithScale {
-                    value: a.value.as_digit_slice(),
-                    scale: a.scale,
-                };
-                let b = WithScale {
-                    value: b.value.as_digit_slice(),
-                    scale: b.scale,
-                };
+                let a = input_a();
+                let b = input_b();
+
                 let prec = NonZeroU64::new($prec).unwrap();
-                let expected: &[u64] = &$expected;
+                let expected: &[u64] = &[$($expected),*];
                 let expected_scale = -$exp;
 
                 let rounding = NonDigitRoundingData {
                     mode: RoundingMode::$round,
-                    sign: Sign::Plus,
+                    sign: Sign::$sign,
                 };
 
                 let mut product = WithScale::default();
-                multiply_scaled_u64_slices_with_prec_into(&mut product, a, b, prec, rounding);
+                multiply_scaled_u64_slices_with_prec_into(
+                    &mut product, a.as_digit_slice(), b.as_digit_slice(), prec, rounding
+                );
                 assert_eq!(&product.value.digits[..], &expected[..]);
                 assert_eq!(product.scale, expected_scale);
             }
         };
     }
 
-    mod xuaz {
+    mod case_1667660160137446952e158 {
         use super::*;
 
-        fn test_input() -> (WithScale<BigDigitVec>, WithScale<BigDigitVec>) {
-            let a = vec![
-                16175263208544711346,
-                5279606946643537445,
-                15341572592040251541,
-                10541804148642044343,
-                7522665456306621740,
-                13427633752471237939,
-                16469249152156353442,
-                11787750781150891403,
-                3583949032441389106,
-                18383297448742447850,
-                365519312995810676,
-            ];
-            let b = vec![16568107915372457172, 39594627279977552];
-            (
-                WithScale {
-                    value: BigDigitVec::from_vec(a),
-                    scale: 34,
-                },
-                WithScale {
-                    value: BigDigitVec::from_vec(b),
-                    scale: 7,
-                },
-            )
+        fn input_a() -> WithScale<DigitVec<RADIX_u64, LittleEndian>> {
+            WithScale {
+                scale: 34,
+                value: DigitVec::from_vec(vec![
+                    16175263208544711346,
+                    5279606946643537445,
+                    15341572592040251541,
+                    10541804148642044343,
+                    7522665456306621740,
+                    13427633752471237939,
+                    16469249152156353442,
+                    11787750781150891403,
+                    3583949032441389106,
+                    18383297448742447850,
+                    365519312995810676,
+                ]),
+            }
         }
-        impl_case!(scales_5_n9_prec11: 11 => [12180455666], E 195);
-        impl_case!(scales_5_n9_prec25: 25 => [7055331922361162211, 66030], E 181);
+
+        mod times_2d998213en173 {
+            use super::*;
+
+            fn input_b() -> WithScale<DigitVec<RADIX_u64, LittleEndian>> {
+                WithScale {
+                    scale: 272,
+                    value: DigitVec::from_vec(vec![
+                        1344009339610453499,
+                        6464650240578252661,
+                        13739370975302393952,
+                        1107949409989368443,
+                        12288971738008765224,
+                        1403
+                    ]),
+                }
+            }
+
+            impl_case!(prec19_roundup: round=Up;
+                19 => [5000000000000000001] E -15);
+            impl_case!(prec20_roundup: round=Up;
+                20 => [13106511852580896769, 2] E -16);
+            impl_case!(prec100_roundup: round=Up;
+                100 => [1, 6059390473091416064, 5120748075179647364, 14006871066438625056, 15461642991872345491, 2340] E -96);
+            impl_case!(neg_prec100_roundceiling: round=Ceiling;
+                100 => Minus [0, 6059390473091416064, 5120748075179647364, 14006871066438625056, 15461642991872345491, 2340] E -96);
+            impl_case!(neg_prec100_roundfloor: round=Floor;
+                100 => Minus [1, 6059390473091416064, 5120748075179647364, 14006871066438625056, 15461642991872345491, 2340] E -96);
+        }
+
+        mod times_5996425554en186 {
+            use super::*;
+
+            fn input_b() -> WithScale<DigitVec<RADIX_u64, LittleEndian>> {
+                WithScale {
+                    scale: 204,
+                    value: DigitVec::from_vec(
+                        vec![12019064456476625820, 325066880]
+                    ),
+                }
+            }
+
+            impl_case!(prec1_roundup: round=Up; 1 => [1] E 0);
+            impl_case!(prec1_rounddown: round=Down; 1 => [9] E -1);
+            impl_case!(prec1_roundfloor: round=Floor; 1 => [9] E -1);
+
+            impl_case!(neg_prec1_rounddown: round=Down; 1 => Minus [9] E -1);
+            impl_case!(neg_prec1_roundfloor: round=Floor; 1 => Minus [1] E 0);
+
+            impl_case!(prec10_roundup: round=Floor; 10 => Minus [1000000000] E -9);
+            impl_case!(prec25_roundup: round=Floor; 25 => Minus [2003764205206896640, 54210] E -24);
+
+            impl_case!(prec40_roundup: round=Up;
+                40 => [13399721896776114178, 7145508105175220139, 29] E -40);
+        }
+
+        mod times_7303919561276644672e10 {
+            use super::*;
+
+            fn input_b() -> WithScale<DigitVec<RADIX_u64, LittleEndian>> {
+                WithScale {
+                    scale: 7,
+                    value: DigitVec::from_vec(
+                        vec![16568107915372457172, 39594627279977552]
+                    ),
+                }
+            }
+
+            impl_case!(prec1_up: round=Up; 1 => [2] E 205);
+            impl_case!(prec1_down: round=Down; 1 => [1] E 205);
+            impl_case!(prec11_up: round=Up; 11 => [12180455666] E 195);
+            impl_case!(prec25: 25 => [7055331922361162211, 66030] E 181);
+
+            impl_case!(prec_30_up: 30 => [571648947000381622, 6603038247] E 176);
+            impl_case!(prec_31_up: 31 => [5716489470003816211, 66030382470] E 175);
+            impl_case!(prec_57_up: 57 =>
+                [3586467374344137641, 14971304827359975165, 357951420621793766] E 149);
+            impl_case!(prec_75_up: 75 =>
+                [16970166308972310451, 15246513073646694077, 13267213422529722744, 19404585394121069] E 131);
+        }
     }
 
     mod random_values {
         use super::*;
 
-        fn test_input() -> (WithScale<BigDigitVec>, WithScale<BigDigitVec>) {
+        fn input_a() -> WithScale<BigDigitVec> {
             let a = vec![
                 1745623865429447471,
                 9152528756446785169,
@@ -85,6 +154,14 @@ mod multiply_scaled_u64_slices_with_prec_into {
                 8631634693823981953,
                 366928013,
             ];
+
+            WithScale {
+                value: BigDigitVec::from_vec(a),
+                scale: 100,
+            }
+        }
+
+        fn input_b() -> WithScale<BigDigitVec> {
             let b = vec![
                 518171251856216712,
                 8211715648977239115,
@@ -92,16 +169,10 @@ mod multiply_scaled_u64_slices_with_prec_into {
                 1552672896608399639,
                 1044291249247,
             ];
-            (
-                WithScale {
-                    value: BigDigitVec::from_vec(a),
-                    scale: 100,
-                },
-                WithScale {
-                    value: BigDigitVec::from_vec(b),
-                    scale: -5,
-                },
-            )
+            WithScale {
+                value: BigDigitVec::from_vec(b),
+                scale: -5,
+            }
         }
 
         impl_case!(prec100: 100 => [
@@ -110,14 +181,14 @@ mod multiply_scaled_u64_slices_with_prec_into {
             16409584969160271562,
             16913806906493283056,
             14019529503395454758,
-            513 ], E 77);
+            513 ] E 77);
 
-        impl_case!(prec10_rd: round=Down; 10 => [ 1097384700 ], E 167);
-        impl_case!(prec20_rd: round=Down; 20 => [ 10973847000387492259 ], E 157);
-        impl_case!(prec20_ru: round=Up;   20 => [ 10973847000387492260 ], E 157);
+        impl_case!(prec10_rd: round=Down; 10 => [ 1097384700 ] E 167);
+        impl_case!(prec20_rd: round=Down; 20 => [ 10973847000387492259 ] E 157);
+        impl_case!(prec20_ru: round=Up;   20 => [ 10973847000387492260 ] E 157);
 
-        impl_case!(prec45: 45 => [ 14618765252943857298, 6989353086943465649, 322492 ], E 132);
-        impl_case!(prec46: 46 => [ 17060444013471711666, 14553298648306001649, 3224923 ], E 131);
+        impl_case!(prec45: 45 => [ 14618765252943857298, 6989353086943465649, 322492 ] E 132);
+        impl_case!(prec46: 46 => [ 17060444013471711666, 14553298648306001649, 3224923 ] E 131);
     }
 }
 
