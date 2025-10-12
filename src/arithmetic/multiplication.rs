@@ -482,7 +482,7 @@ fn calculate_partial_product_trailing_zeros(
     let trailing_zeros;
     let trailing_nines;
 
-    // index  of the first "full" insignificant big-digit
+    // index of the first "full" insignificant big-digit
     let top_insig_idx;
 
     match (insig_bd_count, insig_d_count as u8) {
@@ -516,7 +516,8 @@ fn calculate_partial_product_trailing_zeros(
             let insig = v.digits[i - 1];
             let splitter = ten_to_the_u64(R::DIGITS as u8 - 1);
             let insig_digits = insig % splitter;
-            trailing_zeros = insig_digits == 0;
+            trailing_zeros = insig_digits == 0
+                             && v.iter_le().take(i - 1).all(Zero::is_zero);
             trailing_nines = insig_digits == splitter - 1;
             top_insig_idx = i - 2;
         }
@@ -524,7 +525,8 @@ fn calculate_partial_product_trailing_zeros(
             let insig = v.digits[i];
             let splitter = ten_to_the_u64(n - 1);
             let insig_digits = insig % splitter;
-            trailing_zeros = insig_digits == 0;
+            trailing_zeros = insig_digits == 0
+                             && v.iter_le().take(i).all(Zero::is_zero);
             trailing_nines = insig_digits == splitter - 1;
             top_insig_idx = i - 1;
         }
