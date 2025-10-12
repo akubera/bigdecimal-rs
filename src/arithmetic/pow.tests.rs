@@ -1,3 +1,133 @@
+use paste::paste;
+
+#[allow(non_snake_case)]
+mod powi_with_context {
+    use super::*;
+
+    macro_rules! impl_cases {
+        ( pow= - $pow:literal : $( prec=$prec:literal, round=$round:ident => $expected:literal ; )+ ) => {
+            $( paste!{ impl_cases!([<pow_n$pow>]; -$pow; $round; $prec; $expected); } )*
+        };
+        ( pow=$pow:literal : $( prec=$prec:literal, round=$round:ident => $expected:literal ; )+ ) => {
+            $( paste!{ impl_cases!([<pow_$pow>]; $pow; $round; $prec; $expected); } )*
+        };
+        ($name:ident; $pow:literal; $round:ident; $prec:literal; $expected:literal) => {
+            paste!{
+                #[test]
+                fn [< $name _prec $prec _round_ $round >]() {
+                    let n = test_input();
+                    let prec = $prec;
+                    let exp = $pow;
+                    let ctx = Context::default()
+                                    .with_rounding_mode(RoundingMode::$round)
+                                    .with_prec(prec).unwrap();
+                    let value = n.powi_with_context(exp, &ctx);
+                    let expected = $expected.parse().unwrap();
+                    assert_eq!(value, expected);
+                    assert_eq!(value.scale, expected.scale);
+                }
+            }
+        };
+    }
+
+    mod case_999en3 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "0.999".parse().unwrap()
+        }
+
+        impl_cases!(
+            pow=100 :
+                prec=1, round=Up   => "1";
+                prec=1, round=Down => "0.9";
+                prec=2, round=Up   => "0.91";
+                prec=2, round=Down => "0.90";
+                prec=10, round=Up  => "0.9047921472";
+        );
+
+        impl_cases!(
+            pow=1001 :
+                prec=30, round=Up  => "0.367327729346193080582179333082";
+                prec=38, round=Up  => "0.36732772934619308058217933308124088263";
+        );
+
+        impl_cases!(
+            pow=30_000_000 :
+                prec=1, round=Up   => "5E-13036";
+                prec=1, round=Down => "4E-13036";
+                prec=2, round=Down => "4.4E-13036";
+                prec=20, round=Up  => "4.4338344072941502620E-13036";
+        );
+    }
+
+    mod case_4d135846964 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "4.135846964236207374549487108400332686443027446631549764347102855558635985583587468810645966176878292".parse().unwrap()
+        }
+
+        impl_cases!(
+            pow=52 :
+                prec=30, round=Up => "1.15173335866675718975392626426e32";
+                prec=52, round=Up => "115173335866675718975392626425044.8429283056873556580";
+                prec=100, round=Up   => "115173335866675718975392626425044.8429283056873556579339935191839667843520503303080335324003379361749";
+                prec=100, round=Down => "115173335866675718975392626425044.8429283056873556579339935191839667843520503303080335324003379361748";
+                prec=220, round=Up => "115173335866675718975392626425044.8429283056873556579339935191839667843520503303080335324003379361748091953445157717419294900287105759027634531967229789408468617796286936526237706376914237296824445112814900146493371906508";
+        );
+
+        impl_cases!(
+            pow=400 :
+                prec=30,  round=Down => "4.22458642351596686588868351991e246";
+                prec=50,  round=Up   => "4.2245864235159668658886835199155003081243046945638e246";
+                prec=100, round=Down => "4.224586423515966865888683519915500308124304694563763586647543454119991635745909994893495905909587954e246";
+        );
+
+        impl_cases!(
+            pow=527 :
+                prec=1, round=Up     => "9e324";
+                prec=1, round=HalfUp => "9e324";
+                prec=15, round=Down   => "8.50101303706824E+324";
+                prec=19, round=Down   => "8.501013037068242474E+324";
+                prec=20, round=Down   => "8.5010130370682424747E+324";
+        );
+
+        impl_cases!(
+            pow=550 :
+                prec=1, round=Up   => "2e339";
+                prec=5, round=Down => "1.2895e339";
+                prec=15, round=Down => "1.28959480113192E+339";
+        );
+    }
+
+    mod case_23994 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "23994".parse().unwrap()
+        }
+
+        impl_cases!(
+            pow=6 :
+                prec=1, round=Up   => "2e26";
+                prec=6, round=Down => "1.90816E+26";
+                prec=6, round=HalfDown => "1.90817E+26";
+                prec=15, round=Down => "1.90816500635331E+26";
+                prec=30, round=Up => "190816500635331516320302656";
+        );
+
+        impl_cases!(
+            pow=20 :
+                prec=2, round=Down     => "3.9E+87";
+                prec=2, round=HalfEven => "4.0E+87";
+                prec=6, round=Down  => "3.99993E+87";
+                prec=15, round=Down => "3.99993644008739E+87";
+                prec=30, round=Down => "3.99993644008739657595647874758E+87";
+        );
+    }
+}
+
 #[cfg(not(feature = "std"))]
 macro_rules! println {
     ( $( $x:expr ),* ) => {}
