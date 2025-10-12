@@ -104,11 +104,11 @@ pub(crate) fn impl_powi_with_context<'a>(
             trailing_zeros = trailing_zeros
                 && {
                     let skipped = skipped_bigdigit_count.saturating_sub(digits_y.value.len() - 1);
-                    digits_x.value.iter_le().take(skipped).all(Zero::is_zero)
+                    digits_x.value.least_n_are_zero(skipped)
                 }
                 && {
                     let skipped = skipped_bigdigit_count.saturating_sub(digits_x.value.len() - 1);
-                    digits_y.value.iter_le().take(skipped).all(Zero::is_zero)
+                    digits_y.value.least_n_are_zero(skipped)
                 };
             stdlib::mem::swap(&mut prod, &mut digits_y);
             margin -= margin_per_mul;
@@ -122,7 +122,7 @@ pub(crate) fn impl_powi_with_context<'a>(
         trailing_zeros = trailing_zeros
             && {
                 let skipped = skipped_bigdigits.saturating_sub(digits_x.value.len() - 1);
-                digits_x.value.iter_le().take(skipped).all(Zero::is_zero)
+                digits_x.value.least_n_are_zero(skipped)
             };
 
         // store 'prod' in 'digits_x'

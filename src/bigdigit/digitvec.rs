@@ -126,6 +126,11 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         self.digits.iter().all(|&d| d.is_zero())
     }
 
+    /// Return self, ignoring any significant zeros
+    pub fn least_n_are_zero(&self, n: usize) -> bool {
+        self.iter_le().take(n).all(Zero::is_zero)
+    }
+
     /// Convert to inner vector
     pub fn into_vec(self) -> Vec<R::Base> {
         self.digits
@@ -749,6 +754,11 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
     /// true if empty or all zeros
     pub fn is_all_zeros(&self) -> bool {
         self.digits.iter().all(|&d| d.is_zero())
+    }
+
+    /// Return self, ignoring any significant zeros
+    pub fn least_n_are_zero(&self, n: usize) -> bool {
+        self.iter_le().take(n).all(Zero::is_zero)
     }
 
     #[cfg(rustc_1_75)]

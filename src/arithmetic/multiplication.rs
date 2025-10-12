@@ -590,9 +590,9 @@ fn calculate_partial_product_trailing_zeros(
         let top_insig = v.digits[top_insig_idx];
         if top_insig != R::max() {
             // we have overflowed!
-            return v.digits[..top_insig_idx].iter().all(|&d| d == 0)
-                && a.digits[..a_start].iter().all(|&d| d == 0)
-                && b.digits[..b_start].iter().all(|&d| d == 0);
+            return v.least_n_are_zero(top_insig_idx)
+                && a.least_n_are_zero(a_start)
+                && b.least_n_are_zero(b_start);
         }
 
         // shift the insignificant digits in the vector by one
