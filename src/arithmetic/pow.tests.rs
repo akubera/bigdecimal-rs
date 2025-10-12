@@ -25,7 +25,7 @@ macro_rules! impl_case {
 
             println!("Compute {}**{}", start, exp);
 
-            let bd = start.pow_with_context(exp, &ctx);
+            let bd = start.powi_with_context(exp, &ctx);
             let bd_expected = BigDecimal::from_str(expected).unwrap();
 
             compare(bd, bd_expected, &ctx);
@@ -61,8 +61,8 @@ macro_rules! impl_case {
 
             println!("Compute {}**{}", start, exp);
 
-            let bd = start.pow_with_context(exp, &ctx);
-            let bd_expected = start.pow_with_context(exp, &ctx_large);
+            let bd = start.powi_with_context(exp, &ctx);
+            let bd_expected = start.powi_with_context(exp, &ctx_large);
 
             compare(bd, bd_expected, &ctx);
         }

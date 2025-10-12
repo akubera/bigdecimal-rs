@@ -8,7 +8,7 @@ use crate::*;
 /// precision specified in ctx (the number of digits would otherwise explode).
 ///
 /// Algorithm comes from https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-pub(crate) fn impl_pow_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) -> BigDecimal {
+pub(crate) fn impl_powi_with_context(bd: &BigDecimal, exp: i64, ctx: &Context) -> BigDecimal {
     if exp == 0 {
         return 1.into();
     }

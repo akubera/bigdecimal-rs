@@ -768,22 +768,22 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = 2.into();
-    /// assert_eq!(n.pow(3000000000), "9.816204233623505350831385407878283564899139328691307267002649220552261820356883420275966921502700387e903089986".parse().unwrap());
+    /// assert_eq!(n.powi(3000000000), "9.816204233623505350831385407878283564899139328691307267002649220552261820356883420275966921502700387e903089986".parse().unwrap());
     /// ```
     #[inline]
-    pub fn pow(&self, exp: i64) -> BigDecimal {
-        self.pow_with_context(exp, &Context::default())
+    pub fn powi(&self, exp: i64) -> BigDecimal {
+        self.powi_with_context(exp, &Context::default())
     }
 
     /// Raises the number to an integer power, using context for precision and rounding
     ///
     #[inline]
-    pub fn pow_with_context(&self, exp: i64, ctx: &Context) -> BigDecimal {
+    pub fn powi_with_context(&self, exp: i64, ctx: &Context) -> BigDecimal {
         if self.is_zero() || self.is_one() {
             return self.clone();
         }
 
-        arithmetic::pow::impl_pow_with_context(&self, exp, ctx)
+        arithmetic::pow::impl_powi_with_context(&self, exp, ctx)
     }
 
     /// Take the square root of the number
