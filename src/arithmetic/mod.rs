@@ -12,6 +12,7 @@ pub(crate) mod modulo;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
+pub(crate) mod pow;
 
 pub(crate) use self::decimal::{
     count_digits_bigint as count_decimal_digits,
