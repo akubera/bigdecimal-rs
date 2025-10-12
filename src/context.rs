@@ -5,6 +5,7 @@ use crate::*;
 use stdlib::num::NonZeroU64;
 
 use arithmetic::store_carry;
+use rounding::NonDigitRoundingData;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
@@ -57,12 +58,7 @@ impl Context {
         precision
             .to_u64()
             .and_then(NonZeroU64::new)
-            .map(|prec| {
-                Self {
-                    precision: prec,
-                    ..*self
-                }
-            })
+            .map(|prec| self.with_precision(prec))
     }
 
     /// Copy context with new rounding mode
@@ -94,6 +90,25 @@ impl Context {
         d.with_precision_round(self.precision(), self.rounding_mode())
     }
 
+    /// Round the bigint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_bigint(
+        self, n: num_bigint::BigInt
+    ) -> WithScale<num_bigint::BigInt> {
+        self.rounding.round_bigint_to_prec(n, self.precision)
+    }
+
+    /// Round the biguint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_biguint(
+        self, n: num_bigint::BigUint
+    ) -> WithScale<num_bigint::BigUint> {
+        let ndrd = NonDigitRoundingData { mode: self.rounding, sign: Sign::Plus };
+        ndrd.round_biguint_to_prec(n, self.precision)
+    }
+
     /// Round digits x and y with the rounding mode
     #[allow(dead_code)]
     pub(crate) fn round_pair(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool) -> u8 {
@@ -111,6 +126,32 @@ impl Context {
         carry: &mut u8,
     ) -> u8 {
         self.rounding.round_pair_with_carry(sign, (x, y), trailing_zeros, carry)
+    }
+
+    /// Multiply two decimals, returning product rounded to this context's precision
+    ///
+    /// ```
+    /// # use bigdecimal::{BigDecimal, Context};
+    /// let x: BigDecimal = "1.5".parse().unwrap();
+    /// let y: BigDecimal = "3.1415926".parse().unwrap();
+    /// let ctx = Context::default().with_prec(5).unwrap();
+    /// let z = ctx.multiply(&x, &y);
+    /// // rounds to 5 digits of precision
+    /// assert_eq!(z, "4.7124".parse().unwrap());
+    /// // does not equal the 'full' precision
+    /// assert_ne!(z, "4.71238890".parse().unwrap());
+    /// ```
+    ///
+    pub fn multiply<'a, L, R>(&self, lhs: L, rhs: R) -> BigDecimal
+    where
+        L: Into<BigDecimalRef<'a>>,
+        R: Into<BigDecimalRef<'a>>,
+    {
+        use arithmetic::multiplication::multiply_decimals_with_context;
+
+        let mut result = BigDecimal::zero();
+        multiply_decimals_with_context(&mut result, lhs, rhs, self);
+        result
     }
 }
 

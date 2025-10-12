@@ -190,17 +190,16 @@ mod test {
         impl_case!(case_prec11_round_ceiling: 11, Ceiling => "0.14285714286");
     }
 
-
     #[test]
     fn inv_random_number() {
-       let n = BigDecimal::try_from(0.08121970592310568).unwrap();
+        let n = BigDecimal::try_from(0.08121970592310568).unwrap();
 
-       let ctx = Context::new(NonZeroU64::new(40).unwrap(), RoundingMode::Down);
-       let i = n.inverse_with_context(&ctx);
-       assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse().unwrap());
+        let ctx = Context::new(NonZeroU64::new(40).unwrap(), RoundingMode::Down);
+        let i = n.inverse_with_context(&ctx);
+        assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse().unwrap());
 
-       let product = i * &n;
-       assert!(BigDecimal::one() - &product < "1e-39".parse().unwrap());
+        let product = i * &n;
+        assert!(BigDecimal::one() - &product < "1e-39".parse().unwrap());
     }
 
     #[cfg(property_tests)]

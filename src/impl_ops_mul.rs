@@ -11,22 +11,21 @@ impl Mul<BigDecimal> for BigDecimal {
     #[inline]
     fn mul(mut self, rhs: BigDecimal) -> BigDecimal {
         if self.is_one_quickcheck() == Some(true) {
-            rhs
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            self
-        } else {
+            return rhs;
+        }
+        if rhs.is_one_quickcheck() != Some(true) {
             self.scale += rhs.scale;
             self.int_val *= rhs.int_val;
-            self
         }
+        self
     }
 }
 
-impl<'a> Mul<&'a BigDecimal> for BigDecimal {
+impl Mul<&BigDecimal> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn mul(mut self, rhs: &'a BigDecimal) -> BigDecimal {
+    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
         if self.is_one_quickcheck() == Some(true) {
             self.scale = rhs.scale;
             self.int_val.set_zero();
@@ -113,73 +112,79 @@ impl Mul<&BigInt> for &BigDecimal {
     }
 }
 
-impl Mul<BigDecimal> for BigInt {
+// swap (lhs * rhs) to (rhs * lhs) for (BigInt * BigDecimal)
+forward_communative_binop!(impl Mul<BigDecimal>::mul for BigInt);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigInt);
+forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigInt);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigInt);
+
+
+impl Mul<BigUint> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn mul(mut self, mut rhs: BigDecimal) -> BigDecimal {
-        if rhs.is_one_quickcheck() == Some(true) {
-            rhs.scale = 0;
-            swap(&mut rhs.int_val, &mut self);
-        } else if !self.is_one() {
-            rhs.int_val *= self;
-        }
-        rhs
+    fn mul(mut self, rhs: BigUint) -> BigDecimal {
+        self *= rhs;
+        self
     }
 }
 
-impl Mul<BigDecimal> for &BigInt {
+impl Mul<&BigUint> for BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
-    fn mul(self, mut rhs: BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            rhs.int_val.set_zero();
-            rhs.int_val += self;
-            rhs.scale = 0;
-            rhs
+    fn mul(mut self, rhs: &BigUint) -> BigDecimal {
+        self *= rhs;
+        self
+    }
+}
+
+impl Mul<BigUint> for &BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: BigUint) -> BigDecimal {
+        self * BigInt::from_biguint(Sign::Plus, rhs)
+    }
+}
+
+impl Mul<&BigUint> for &BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: &BigUint) -> BigDecimal {
+        if rhs.is_one() {
+            self.normalized()
+        } else if self.is_one_quickcheck() == Some(true) {
+            let value = BigInt::from_biguint(Sign::Plus, rhs.clone());
+            BigDecimal::new(value, 0)
         } else {
-            rhs.int_val *= self;
-            rhs
+            let biguint = self.int_val.magnitude() * rhs;
+            let value = BigInt::from_biguint(self.sign(), biguint);
+            BigDecimal::new(value, self.scale)
         }
     }
 }
 
-impl Mul<&BigDecimal> for &BigInt {
-    type Output = BigDecimal;
+// swap (lhs * rhs) to (rhs * lhs) for (BigUint * BigDecimal)
+forward_communative_binop!(impl Mul<BigDecimal>::mul for BigUint);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigUint);
+forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigUint);
+forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigUint);
 
+
+impl MulAssign<BigDecimal> for BigDecimal {
     #[inline]
-    fn mul(self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            BigDecimal::new(self.clone(), 0)
-        } else {
-            let value = &rhs.int_val * self;
-            BigDecimal::new(value, rhs.scale)
+    fn mul_assign(&mut self, rhs: BigDecimal) {
+        if self.is_one_quickcheck() == Some(true) {
+            self.int_val = rhs.int_val;
+            self.scale = rhs.scale;
+        } else if rhs.is_one_quickcheck() != Some(true) {
+            self.scale += rhs.scale;
+            self.int_val *= rhs.int_val;
         }
     }
 }
-
-impl Mul<&BigDecimal> for BigInt {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one() {
-            rhs.normalized()
-        } else if rhs.is_one_quickcheck() == Some(true) {
-            BigDecimal::new(self, 0)
-        } else {
-            self *= &rhs.int_val;
-            BigDecimal::new(self, rhs.scale)
-        }
-    }
-}
-
-forward_val_assignop!(impl MulAssign for BigDecimal, mul_assign);
 
 impl MulAssign<&BigDecimal> for BigDecimal {
     #[inline]
@@ -188,7 +193,7 @@ impl MulAssign<&BigDecimal> for BigDecimal {
             return;
         }
         self.scale += rhs.scale;
-        self.int_val = &self.int_val * &rhs.int_val;
+        self.int_val *= &rhs.int_val;
     }
 }
 
@@ -209,6 +214,27 @@ impl MulAssign<BigInt> for BigDecimal {
     }
 }
 
+impl MulAssign<BigUint> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: BigUint) {
+        if rhs.is_one() {
+            return;
+        }
+        *self *= BigInt::from_biguint(Sign::Plus, rhs);
+        // *self *= &rhs
+    }
+}
+
+impl MulAssign<&BigUint> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: &BigUint) {
+        if rhs.is_one() {
+            return;
+        }
+        // No way to multiply bigint and biguint, we have to clone
+        *self *= BigInt::from_biguint(Sign::Plus, rhs.clone());
+    }
+}
 
 #[cfg(test)]
 #[allow(non_snake_case)]
@@ -230,9 +256,17 @@ mod bigdecimal_tests {
                 assert_eq!(prod, expected);
                 assert_eq!(prod.scale, expected.scale);
 
-                assert_eq!(a.clone() * &b, expected);
-                assert_eq!(&a * b.clone(), expected);
-                assert_eq!(&a * &b, expected);
+                let prod = a.clone() * &b;
+                assert_eq!(prod, expected);
+                // assert_eq!(prod.scale, expected.scale);
+
+                let prod = &a * b.clone();
+                assert_eq!(prod, expected);
+                // assert_eq!(prod.scale, expected.scale);
+
+                let prod = &a * &b;
+                assert_eq!(prod, expected);
+                assert_eq!(prod.scale, expected.scale);
 
                 a *= b;
                 assert_eq!(a, expected);
@@ -250,13 +284,33 @@ mod bigdecimal_tests {
                 assert_eq!(prod, c);
                 assert_eq!(prod.scale, c.scale);
 
-                assert_eq!(b.clone() * a.clone(), c);
-                assert_eq!(a.clone() * &b, c);
-                assert_eq!(b.clone() * &a, c);
-                assert_eq!(&a * b.clone(), c);
-                assert_eq!(&b * a.clone(), c);
-                assert_eq!(&a * &b, c);
-                assert_eq!(&b * &a, c);
+                let prod = b.clone() * a.clone();
+                assert_eq!(prod, c);
+                assert_eq!(prod.scale, c.scale);
+
+                let prod = a.clone() * &b;
+                assert_eq!(prod, c);
+                assert_eq!(prod.scale, c.scale);
+
+                let prod = b.clone() * &a;
+                assert_eq!(prod, c);
+                // assert_eq!(prod.scale, c.scale);
+
+                let prod = &a * b.clone();
+                assert_eq!(prod, c);
+                assert_eq!(prod.scale, c.scale);
+
+                let prod = &b * a.clone();
+                assert_eq!(prod, c);
+                // assert_eq!(prod.scale, c.scale);
+
+                let prod = &a * &b;
+                assert_eq!(prod, c);
+                // assert_eq!(prod.scale, c.scale);
+
+                let prod = &b * &a;
+                assert_eq!(prod, c);
+                // assert_eq!(prod.scale, c.scale);
             }
         };
     }
@@ -279,4 +333,10 @@ mod bigdecimal_tests {
     impl_test!(case_1en10_n9056180052657301; BigInt; "1e-10" * "-9056180052657301" => "-905618.0052657301");
     impl_test!(case_n9en1_n368408638655273892892437473; BigInt; "-9e-1" * "-368408638655273892892437473" => "331567774789746503603193725.7");
     impl_test!(case_n1d175470587012343730098_577575785; BigInt; "-1.175470587012343730098" * "577575785" => "-678923347.038065234601180476930");
+
+    impl_test!(case_1d000000_7848321491728058276; BigInt; "1.000000" * "7848321491728058276" => "7848321491728058276.000000");
+    impl_test!(case_16535178640845d04844_1; BigInt; "16535178640845.04844" * "1" => "16535178640845.04844");
+
+    impl_test!(case_1d000000_u7848321491728058276; BigUint; "1.000000" * "7848321491728058276" => "7848321491728058276.000000");
+    impl_test!(case_16535178640845d04844_u1; BigUint; "16535178640845.04844" * "1" => "16535178640845.04844");
 }
