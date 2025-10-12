@@ -153,6 +153,14 @@ impl Context {
         multiply_decimals_with_context(&mut result, lhs, rhs, self);
         result
     }
+
+    /// Calculate 1/n
+    ///
+    /// If n=zero, return zero
+    ///
+    pub fn invert<'a, T: Into<BigDecimalRef<'a>>>(&self, n: T) -> BigDecimal {
+        n.into().inverse_with_context(self)
+    }
 }
 
 impl stdlib::default::Default for Context {
