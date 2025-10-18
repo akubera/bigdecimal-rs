@@ -11,7 +11,7 @@ use super::multiplication::{
 };
 
 use bigdigit::digitvec::{DigitVec, DigitSlice};
-use bigdigit::radix::{RadixType, RADIX_u64, RADIX_10p19_u64};
+use bigdigit::radix::{RadixType, RadixPowerOfTen, RADIX_u64, RADIX_10p19_u64};
 use bigdigit::endian::{Endianness, LittleEndian};
 
 use arithmetic::multiplication::mul_scaled_slices_truncating_into;
@@ -26,81 +26,109 @@ pub(crate) fn impl_powi_with_context<'a>(
     exp: i64,
     ctx: &Context,
 ) -> BigDecimal {
-    use crate::bigdigit::radix::RadixPowerOfTen;
+    powi_with_context(bd.into(), exp, ctx)
+}
+
+/// Calculate BigDecimalRef `bd` to power of signed integer, using context
+/// to set precision
+fn powi_with_context(
+    bd: BigDecimalRef,
+    exp: i64,
+    ctx: &Context,
+) -> BigDecimal {
+    match exp.cmp(&0) {
+        Ordering::Equal => BigDecimal::one(),
+        Ordering::Greater => pow_u64_with_context(bd, exp as u64, ctx),
+        Ordering::Less => {
+            if exp == -1 {
+                return bd.inverse_with_context(&ctx);
+            }
+            let wide_prec = NonZeroU64::new(ctx.precision().get() * 2).unwrap();
+            let y = pow_u64_with_context(bd, unsigned_abs(exp), &ctx.with_precision(wide_prec));
+            y.inverse_with_context(&ctx)
+        }
+    }
+}
+
+
+/// Calculate BigDecimalRef `bd` to power of positive integer, using context
+/// to set precision
+///
+/// The case where exp==0 (therefore result is 1) must be handled
+/// before calling this pow impl
+fn pow_u64_with_context(
+    bd: BigDecimalRef,
+    exp: u64,
+    ctx: &Context,
+) -> BigDecimal {
     type R = RADIX_10p19_u64;
 
-    if exp == 0 {
-        return 1.into();
+    debug_assert_ne!(exp, 0);
+
+    if exp == 1 {
+        return ctx.round_decimal_ref(bd);
     }
-
-    let bd = bd.into();
-
-    // When performing a multiplication between 2 numbers, we may lose up to 2 digits
-    // of precision.
-    // "Proof": https://github.com/akubera/bigdecimal-rs/issues/147#issuecomment-2793431202
-    const MARGIN_PER_MUL: u64 = 2;
-    // When doing many multiplication, we still introduce additional errors, add 1 more digit
-    // per 10 multiplications.
-    const MUL_PER_MARGIN_EXTRA: u64 = 10;
-
-    // Count the number of multiplications we're going to perform, one per "1" binary digit
-    // in exp, and the number of times we can divide exp by 2.
-    let mut n = exp.abs() as u64;
-    // Note: 63 - n.leading_zeros() == n.ilog2, but that's only available in recent Rust versions.
-    let muls = (n.count_ones() + (63 - n.leading_zeros()) - 1) as u64;
-    let margin_extra = num_integer::div_ceil(muls, MUL_PER_MARGIN_EXTRA);
-    let margin = margin_extra + MARGIN_PER_MUL * muls;
-
-    let bigdigit_prec = R::divceil_digit_count(ctx.precision().get() as usize) as u64 + 1;
-
-    if exp < 0 {
-        let invert_prec = NonZeroU64::new(ctx.precision().get() + margin + MARGIN_PER_MUL).unwrap();
-        let invert_bd = bd.inverse_with_context(&ctx.with_precision(invert_prec));
-        return impl_powi_with_context(&invert_bd, exp.neg(), ctx);
-    };
 
     let mut tmp = Vec::new();
     let bd_as_base10p19 = DigitVec::from_biguint_using_tmp(bd.digits, &mut tmp);
-    tmp.clear();
 
-    let mut y_vec = Vec::with_capacity(bd_as_base10p19.len());
-    y_vec.push(1);
+    let mut prec = RunningPrecision::new(
+        bd_as_base10p19.as_digit_slice(),
+        NonZeroU64::new(exp).unwrap(),
+        ctx.precision(),
+    );
 
-    let mut digits_x = WithScale { value: bd_as_base10p19, scale: 0 };
-    let mut digits_y = WithScale { value: DigitVec::from_vec(y_vec), scale: 0 };
-    let mut prod = WithScale { value: DigitVec::from_vec(tmp), scale: 0 };
-
-    // estimation of number of RADIX-base bigdigits are in the bigdecimal
-    let bd_log_base = match bd.to_f64() {
-        Some(f) if f.is_normal() => log10(f) / (R::DIGITS as f64),
-        _ => {
-            // overestimate by just counting bits
-            let log2_ceil = bd.digits.bits() + 1;
-            log2_ceil as f64 / (R::DIGITS as f64 * LOG2_10)
-        }
-    };
+    // Count the number of multiplications we're going to perform, one per "1" binary digit
+    // in exp, and the number of times we can divide exp by 2.
+    let mut n = exp;
 
     // factor product into bdⁿ => bdˣ·bdʸ where x is largest
     // power of two which fits into 'n'
     let final_x_pow = 1 << (63 - n.leading_zeros() as u64);
     let final_y_pow = n - final_x_pow;
 
-    let estimated_final_y = bd_log_base * final_y_pow as f64;
-    let max_digit_sum_width = (
-        2.0 * log10(R::max() as f64) + log10(estimated_final_y)
-    ).ceil() as usize;
+    // if final_y_pow == 0, then 'y' digits is never used and
+    // we will use x*x as final multiplication, otherwise
+    // final product is x*y
+    let final_x_times_y = final_y_pow != 0;
 
-    let margin_per_mul = max_digit_sum_width as u64 + 2;
-    let mut margin = (muls + 1) * margin_per_mul + bigdigit_prec;
+    let mut y_vec = Vec::new();
+    if final_x_times_y {
+        y_vec.reserve(bd_as_base10p19.len());
+        y_vec.push(1);
+    } else {
+        // no final multiplication by y, so decrease number of squarings
+        // by one so we do (x/2 * x/2) rather than (x * 1)
+        n >>= 1;
+    }
 
-    // disable calculation of trailing zeros for rounding
+    let mut digits_x = WithScale {
+        value: bd_as_base10p19,
+        scale: 0,
+    };
+    let mut digits_y = WithScale {
+        value: DigitVec::from_vec(y_vec),
+        scale: 0,
+    };
+    // temporary storage for results of multiplications
+    let mut prod = WithScale {
+        value: DigitVec::from_vec(tmp),
+        scale: 0,
+    };
+
+    // tracks if skipped insignificant digits are zero for final rounding
     let mut trailing_zeros = true;
 
     while n > 1 {
         if n % 2 == 1 {
+            // 'prod' is now product y * x, swap with 'y'
             let skipped_bigdigit_count = mul_scaled_slices_truncating_into(
-                &mut prod, digits_y.as_digit_slice(), digits_x.as_digit_slice(), margin
+                &mut prod,
+                digits_y.as_digit_slice(),
+                digits_x.as_digit_slice(),
+                prec.next(),
             );
+
             trailing_zeros = trailing_zeros
                 && {
                     let skipped = skipped_bigdigit_count.saturating_sub(digits_y.value.len() - 1);
@@ -110,13 +138,16 @@ pub(crate) fn impl_powi_with_context<'a>(
                     let skipped = skipped_bigdigit_count.saturating_sub(digits_x.value.len() - 1);
                     digits_y.value.least_n_are_zero(skipped)
                 };
+
+            // now 'digits_y <- prod = digits_y * digits_x'
             stdlib::mem::swap(&mut prod, &mut digits_y);
-            margin -= margin_per_mul;
-            n -= 1;
         }
         // TODO: optimized algorithm for squaring a scaled digitslice to requested precision
         let skipped_bigdigits = mul_scaled_slices_truncating_into(
-            &mut prod, digits_x.as_digit_slice(), digits_x.as_digit_slice(), margin
+            &mut prod,
+            digits_x.as_digit_slice(),
+            digits_x.as_digit_slice(),
+            prec.next(),
         );
         // detect if truncated digits were non-zero
         trailing_zeros = trailing_zeros
@@ -125,13 +156,12 @@ pub(crate) fn impl_powi_with_context<'a>(
                 digits_x.value.least_n_are_zero(skipped)
             };
 
-        // store 'prod' in 'digits_x'
+        // digits_x <- prod = digits_x * digits_x
         stdlib::mem::swap(&mut prod, &mut digits_x);
 
-        margin -= margin_per_mul;
-        n /= 2;
+        // shift lowest bit out of multiplication counter
+        n >>= 1;
     }
-    // debug_assert_eq!(margin, margin_extra);
 
     let sign = if exp % 2 == 0 {
         Sign::Plus
@@ -146,19 +176,112 @@ pub(crate) fn impl_powi_with_context<'a>(
     prod.value.clear();
     prod.scale = 0;
 
+    let x_slice = digits_x.value.as_digit_slice();
+
+    let y_slice = if final_x_times_y {
+        digits_y.value.as_digit_slice()
+    } else {
+        // raised to a power-of-two: y-slice was never touched so
+        // we reuse x-slice here for final multiplication
+        debug_assert_eq!(digits_y.value.digits.capacity(), 0);
+        digits_y.scale = digits_x.scale;
+        x_slice
+    };
+
     multiply_slices_with_prec_into_p19_z(
         &mut prod,
-        digits_x.value.as_digit_slice(),
-        digits_y.value.as_digit_slice(),
+        x_slice,
+        y_slice,
         ctx.precision(),
         rounding,
         trailing_zeros,
     );
 
-    let scale = bd.scale * exp + prod.scale + (digits_x.scale + digits_y.scale) * R::DIGITS as i64;
+    let mut scale = bd.scale * exp as i64 + prod.scale;
+    scale += (digits_x.scale + digits_y.scale) * R::DIGITS as i64;
+
     let int_val = BigInt::from_biguint(sign, prod.value.into_biguint());
 
     BigDecimal::new(int_val, scale)
+}
+
+#[cfg(not(has_unsigned_abs))]
+fn unsigned_abs(n: i64) -> u64 {
+    if n != i64::MIN {
+        n.abs() as u64
+    } else {
+        (i64::MIN as i128).abs() as u64
+    }
+}
+
+#[cfg(has_unsigned_abs)]
+fn unsigned_abs(n: i64) -> u64 {
+    n.unsigned_abs()
+}
+
+/// Struct housing the 'margin' information for calculating the required
+/// precision while doing sequential multiplications for pow
+///
+/// Currently uses a naive scheme: calculating the widest required
+/// margin, and multiplying the number of multiplications by that width.
+/// Then we linearly decrease the margin so we end up near the requested
+/// precision by the time we get to the final product.
+///
+struct RunningPrecision {
+    /// Minimum precision
+    min: u64,
+    /// Current margin
+    margin: u64,
+    /// number of digits to decrease each time `next()` is called
+    margin_per_mul: u64,
+}
+
+impl RunningPrecision {
+    /// Create from requiring 'prec' digits of precision of digits^exp
+    fn new<'a, R: RadixPowerOfTen, E: Endianness>(
+        digits: DigitSlice<'a, R, E>,
+        exp: NonZeroU64,
+        prec: NonZeroU64,
+    ) -> Self {
+        // number of big-digits required to fit requested precision, plus a few
+        // extra for guaranteed rounding digits
+        let prec_bigdigit_count = R::divceil_digit_count(prec.get() as usize + 3) as u64;
+
+        // length of 'digits' in big digits (floating-point)
+        let digit_count_f = digits.count_decimal_digits() as f64 ;
+
+        let count_squarings = 63 - exp.get().leading_zeros();
+        let count_non_squarings = exp.get().count_ones() - 1;
+        // total number of multiplications
+        let muls = (count_non_squarings + count_squarings) as u64;
+
+        // aⁿ => aˣ·aʸ, n = x+y
+        let max_partial_pow = {
+            let x = 1 << count_squarings;
+            let y = exp.get() - x;
+            (x / 2).max(y)
+        };
+
+        // number of digits of multiplicand in the final product
+        let max_width_digits_f = digit_count_f * max_partial_pow as f64;
+
+        // length in digits of kmaximum sum of digits
+        let diag_sum_digit_len = 2.0 * log10(R::max().to_f64().unwrap()) + log10(max_width_digits_f);
+        let diag_sum_bigdigit_len = R::divceil_digit_count(diag_sum_digit_len.ceil() as usize) as u64;
+        let margin_per_mul = diag_sum_bigdigit_len + 1;
+
+        Self {
+            min: prec_bigdigit_count,
+            margin: (muls + 1) * margin_per_mul,
+            margin_per_mul: margin_per_mul,
+        }
+    }
+
+    /// update margin and return precision
+    fn next(&mut self) -> u64 {
+        self.margin = self.margin.saturating_sub(self.margin_per_mul);
+        self.margin + self.min
+    }
 }
 
 #[cfg(test)]
