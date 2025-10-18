@@ -69,6 +69,11 @@ fn pow_u64_with_context(
         return ctx.round_decimal_ref(bd);
     }
 
+    // bd^exp guaranteed to fit within precision: use roundless pow
+    if (bd.digits.bits() as f64 * exp as f64) < (ctx.precision().get() as f64 * LOG2_10) {
+        return pow_u64_no_context(bd, exp);
+    }
+
     let mut tmp = Vec::new();
     let bd_as_base10p19 = DigitVec::from_biguint_using_tmp(bd.digits, &mut tmp);
 
@@ -201,6 +206,41 @@ fn pow_u64_with_context(
     scale += (digits_x.scale + digits_y.scale) * R::DIGITS as i64;
 
     let int_val = BigInt::from_biguint(sign, prod.value.into_biguint());
+
+    BigDecimal::new(int_val, scale)
+}
+
+/// Simple implementation of exponentiation-by-squaring,
+/// with no precision/rounding involved
+fn pow_u64_no_context(bd: BigDecimalRef, exp: u64) -> BigDecimal {
+    debug_assert_ne!(exp, 0);
+    if exp == 1 {
+        return bd.to_owned();
+    }
+
+    let mut x = bd.digits.clone();
+    let mut y: BigUint = 1u8.into();
+
+    let mut n = exp;
+    while n > 1 {
+        if n % 2 == 1 {
+            y *= &x;
+        }
+        x = x.pow(2u8);
+        n >>= 1;
+    }
+
+    // final product
+    let p = x * y;
+
+    let sign = if exp % 2 == 0 {
+        Sign::Plus
+    } else {
+        bd.sign()
+    };
+
+    let scale = bd.scale * exp as i64;
+    let int_val = BigInt::from_biguint(sign, p);
 
     BigDecimal::new(int_val, scale)
 }
