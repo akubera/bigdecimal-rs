@@ -1392,7 +1392,7 @@ impl<'a> BigDecimalRef<'a> {
 
     /// Return inverse of self, rounding with ctx
     pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
-        if self.is_zero() || self.is_one_quickcheck() == Some(true) {
+        if self.is_zero() {
             return self.to_owned();
         }
 
