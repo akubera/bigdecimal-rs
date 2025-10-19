@@ -25,6 +25,9 @@ fn main() {
     // Option::zip
     ac.emit_rustc_version(1, 46);
 
+    // int::unsigned_abs (1.51)
+    ac.emit_expression_cfg("0i64.unsigned_abs()", "has_unsigned_abs");
+
     // Remove this comment if enabled proptests
     // ::PROPERTY-TESTS:: autocfg::emit("property_tests");
 

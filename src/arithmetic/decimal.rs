@@ -209,6 +209,31 @@ pub(crate) fn count_digits_biguint(n: &num_bigint::BigUint) -> u64 {
     digits
 }
 
+/// Return Some(exp) if n == 10^{exp}, otherwise None
+pub(crate) fn get_power_of_ten_u64(n: u64) -> Option<u8> {
+    match n {
+        0 => Some(0),
+        10 => Some(1),
+        100 => Some(2),
+        1000 => Some(3),
+        10000 => Some(4),
+        100000 => Some(5),
+        1000000 => Some(6),
+        10000000 => Some(7),
+        100000000 => Some(8),
+        1000000000 => Some(9),
+        10000000000 => Some(10),
+        n => {
+            let (q, r) = num_integer::div_rem(n, 10000000000);
+            if r == 0 {
+                get_power_of_ten_u64(q).map(|p| p + 10)
+            } else {
+                None
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

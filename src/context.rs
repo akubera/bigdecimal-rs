@@ -69,6 +69,15 @@ impl Context {
         }
     }
 
+    /// Rounding mode 'Down' for truncating results when
+    /// proper rounding is not necessary
+    pub(crate) fn new_truncating(prec: u64) -> Self {
+        Self {
+            rounding: RoundingMode::Down,
+            precision: NonZeroU64::new(prec.max(1)).unwrap(),
+        }
+    }
+
     /// Return maximum precision
     pub fn precision(&self) -> NonZeroU64 {
         self.precision
@@ -128,18 +137,20 @@ impl Context {
         self.rounding.round_pair_with_carry(sign, (x, y), trailing_zeros, carry)
     }
 
-    /// Multiply two decimals, returning product rounded to this context's precision
+    /// Multiply two decimals, returning product rounded to this Context's precision
     ///
     /// ```
     /// # use bigdecimal::{BigDecimal, Context};
     /// let x: BigDecimal = "1.5".parse().unwrap();
     /// let y: BigDecimal = "3.1415926".parse().unwrap();
+    ///
     /// let ctx = Context::default().with_prec(5).unwrap();
-    /// let z = ctx.multiply(&x, &y);
+    /// let product = ctx.multiply(&x, &y);
+    ///
     /// // rounds to 5 digits of precision
-    /// assert_eq!(z, "4.7124".parse().unwrap());
+    /// assert_eq!(product, "4.7124".parse().unwrap());
     /// // does not equal the 'full' precision
-    /// assert_ne!(z, "4.71238890".parse().unwrap());
+    /// assert_ne!(product, "4.71238890".parse().unwrap());
     /// ```
     ///
     pub fn multiply<'a, L, R>(&self, lhs: L, rhs: R) -> BigDecimal
@@ -152,6 +163,25 @@ impl Context {
         let mut result = BigDecimal::zero();
         multiply_decimals_with_context(&mut result, lhs, rhs, self);
         result
+    }
+
+    /// Calculate `1/n`, rounding at this Context's precision
+    ///
+    /// If n is zero, return zero.
+    ///
+    /// ```
+    /// # use bigdecimal::{BigDecimal, Context};
+    /// let x: BigDecimal = "3".parse().unwrap();
+    ///
+    /// let ctx = Context::default().with_prec(5).unwrap();
+    /// let one_over_three = ctx.invert(&x);
+    ///
+    /// // rounds to 5 digits of precision
+    /// assert_eq!(one_over_three, "0.33333".parse().unwrap());
+    /// ```
+    ///
+    pub fn invert<'a, T: Into<BigDecimalRef<'a>>>(&self, n: T) -> BigDecimal {
+        n.into().inverse_with_context(self)
     }
 }
 

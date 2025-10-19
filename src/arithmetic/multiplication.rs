@@ -41,6 +41,15 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     let a = a.into();
     let b = b.into();
 
+    impl_multiply_decimals_with_context(dest, a, b, ctx);
+}
+
+pub fn impl_multiply_decimals_with_context(
+    dest: &mut BigDecimal,
+    a: BigDecimalRef,
+    b: BigDecimalRef,
+    ctx: &Context,
+) {
     if a.is_zero() || b.is_zero() {
         *dest = BigDecimal::zero();
         return;
@@ -482,7 +491,7 @@ fn calculate_partial_product_trailing_zeros(
     let trailing_zeros;
     let trailing_nines;
 
-    // index  of the first "full" insignificant big-digit
+    // index of the first "full" insignificant big-digit
     let top_insig_idx;
 
     match (insig_bd_count, insig_d_count as u8) {
@@ -516,7 +525,8 @@ fn calculate_partial_product_trailing_zeros(
             let insig = v.digits[i - 1];
             let splitter = ten_to_the_u64(R::DIGITS as u8 - 1);
             let insig_digits = insig % splitter;
-            trailing_zeros = insig_digits == 0;
+            trailing_zeros = insig_digits == 0
+                             && v.iter_le().take(i - 1).all(Zero::is_zero);
             trailing_nines = insig_digits == splitter - 1;
             top_insig_idx = i - 2;
         }
@@ -524,7 +534,8 @@ fn calculate_partial_product_trailing_zeros(
             let insig = v.digits[i];
             let splitter = ten_to_the_u64(n - 1);
             let insig_digits = insig % splitter;
-            trailing_zeros = insig_digits == 0;
+            trailing_zeros = insig_digits == 0
+                             && v.iter_le().take(i).all(Zero::is_zero);
             trailing_nines = insig_digits == splitter - 1;
             top_insig_idx = i - 1;
         }
@@ -588,9 +599,9 @@ fn calculate_partial_product_trailing_zeros(
         let top_insig = v.digits[top_insig_idx];
         if top_insig != R::max() {
             // we have overflowed!
-            return v.digits[..top_insig_idx].iter().all(|&d| d == 0)
-                && a.digits[..a_start].iter().all(|&d| d == 0)
-                && b.digits[..b_start].iter().all(|&d| d == 0);
+            return v.least_n_are_zero(top_insig_idx)
+                && a.least_n_are_zero(a_start)
+                && b.least_n_are_zero(b_start);
         }
 
         // shift the insignificant digits in the vector by one
@@ -608,12 +619,15 @@ fn calculate_partial_product_trailing_zeros(
 ///
 /// The scale of these vector/slices is number of *bigdigits*, not number of digits.
 ///
+/// Returns the number of 'skipped' bigdigits in the result.
+///
 pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
     dest: &mut WithScale<DigitVec<R, E>>,
     a: WithScale<DigitSlice<'_, R, EA>>,
     b: WithScale<DigitSlice<'_, R, EB>>,
     prec: u64,
-) where
+) -> usize
+where
     R: RadixType,
     E: Endianness,
     EA: Endianness,
@@ -637,7 +651,7 @@ pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
 
     if b.is_all_zeros() || a.is_all_zeros() {
         // multiplication by zero: return after clearing dest
-        return;
+        return 0;
     }
 
     debug_assert_ne!(a.len(), 0);
@@ -661,6 +675,8 @@ pub(crate) fn mul_scaled_slices_truncating_into<R, E, EA, EB>(
     let extra_digit_count = product.len().saturating_sub(prec as usize);
     product.remove_insignificant_digits(extra_digit_count);
     *dest_scale -= extra_digit_count as i64;
+
+    return bigdigits_to_skip;
 }
 
 
