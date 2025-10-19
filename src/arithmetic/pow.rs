@@ -82,6 +82,7 @@ fn pow_u64_with_context(
 
     let mut tmp = Vec::new();
     let bd_as_base10p19 = DigitVec::from_biguint_using_tmp(bd.digits, &mut tmp);
+    debug_assert_eq!(tmp.len(), 0);
 
     let mut prec = RunningPrecision::new(
         bd_as_base10p19.as_digit_slice(),

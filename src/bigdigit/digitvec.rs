@@ -36,7 +36,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
 
     /// construct from vector of digits
     pub fn from_vec(v: Vec<R::Base>) -> Self {
-        debug_assert!(R::validate_digits(v.iter()));
+        debug_assert!(R::validate_digits(v.iter()), "{:?}", v);
         Self {
             digits: v,
             _radix: PhantomData {},
@@ -351,7 +351,10 @@ impl DigitVec<RADIX_10p19_u64, LittleEndian> {
     ) -> Self {
         tmp.clear();
         tmp.extend(n.iter_u64_digits());
-        Self::from_2p64le_vec(tmp)
+        let result = Self::from_2p64le_vec(tmp);
+        // clear tmp so any residual digits are not accessible
+        tmp.clear();
+        result
     }
 
     /// remove the bottom 'n' digits in the vector, returning the highest
