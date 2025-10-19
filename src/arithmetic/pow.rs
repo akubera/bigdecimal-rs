@@ -43,9 +43,15 @@ fn powi_with_context(
             if exp == -1 {
                 return bd.inverse_with_context(&ctx);
             }
-            let wide_prec = NonZeroU64::new(ctx.precision().get() * 2).unwrap();
-            let y = pow_u64_with_context(bd, unsigned_abs(exp), &ctx.with_precision(wide_prec));
-            y.inverse_with_context(&ctx)
+            // create truncating "double wide" context for inverting
+            let inv_ctx = Context::new_truncating(
+                (ctx.precision().get() * 2)
+                .max((bd.digits.bits() as f64 * LOG10_2 * 2.0).ceil() as u64)
+                .max(38) // always at least 2 u64 'big-digits' wide
+            );
+            let inverted_bd = bd.inverse_with_context(&inv_ctx);
+            // requested context when taking the power of inverted value
+            pow_u64_with_context(inverted_bd.to_ref(), unsigned_abs(exp), &ctx)
         }
     }
 }
