@@ -1,5 +1,4 @@
 //! Rounding structures and subroutines
-#![allow(dead_code)]
 
 use crate::*;
 use crate::arithmetic::{add_carry, store_carry, extend_adding_with_carry};
@@ -324,6 +323,7 @@ pub(crate) struct InsigData {
     pub rounding_data: NonDigitRoundingData
 }
 
+#[allow(dead_code)]
 impl InsigData {
     /// Build from insig data and lazily calculated trailing-zeros callable
     pub fn from_digit_and_lazy_trailing_zeros(

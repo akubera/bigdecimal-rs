@@ -3,10 +3,10 @@
 //! Note: Many bit-optimizations don't apply when doing decimal
 //!       math, as high-order bits affect low-order decimals
 //!
-#![allow(dead_code)]
 
 
 /// Shift u32 right by *n* decimal digits
+#[allow(dead_code)]
 pub fn dec_shift_right_u32(x: u32, n: usize) -> u32 {
     match n {
         0 => x,
@@ -25,6 +25,7 @@ pub fn dec_shift_right_u32(x: u32, n: usize) -> u32 {
 
 
 /// Shift u64 right by *n* decimal digits
+#[allow(dead_code)]
 pub fn dec_shift_right_u64(x: u64, n: usize) -> u64 {
     match n {
         0 => x,

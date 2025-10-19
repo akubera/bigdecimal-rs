@@ -262,6 +262,7 @@ fn unsigned_abs(n: i64) -> u64 {
 }
 
 #[cfg(has_unsigned_abs)]
+#[allow(clippy::incompatible_msrv)]
 fn unsigned_abs(n: i64) -> u64 {
     n.unsigned_abs()
 }

@@ -113,7 +113,6 @@ mod macros;
 mod arithmetic;
 
 // digit & radix routines
-#[allow(dead_code)]
 mod bigdigit;
 
 // From<T>, To<T>, TryFrom<T> impls

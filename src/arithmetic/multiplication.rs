@@ -476,7 +476,6 @@ fn calculate_partial_product_trailing_zeros(
     digits_to_remove: usize,
 ) -> bool {
     type R = RADIX_10p19_u64;
-    type D = <R as RadixType>::Base;
 
     if digits_to_remove == 0 {
         return true;

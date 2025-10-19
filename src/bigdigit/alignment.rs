@@ -1,5 +1,6 @@
 //! Splitting and shifting bigdigits for alignment
 //!
+#![allow(dead_code)]
 
 use crate::*;
 use super::radix::RadixPowerOfTen;

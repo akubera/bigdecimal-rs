@@ -2,6 +2,7 @@
 //!
 //! Empty structs used to make generic algorithms over kind of radix
 //!
+#![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
 use crate::*;

@@ -12,6 +12,7 @@ use num_traits::{Zero, PrimInt};
 use super::radix::RadixType;
 
 /// Trait to allow generic parameterization of significant digit ordering
+#[allow(dead_code)]
 pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
     /// Name to use for debugging
     const NAME: &'static str;

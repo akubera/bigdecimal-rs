@@ -23,6 +23,7 @@ pub(crate) struct DigitVec<R: RadixType, E: Endianness> {
     _endian: PhantomData<E>,
 }
 
+#[allow(dead_code)]
 impl<R: RadixType, E: Endianness> DigitVec<R, E> {
     /// Create new vector
     pub fn new() -> Self {
@@ -198,6 +199,7 @@ impl<R: RadixPowerOfTen, E: Endianness> DigitVec<R, E> {
     }
 }
 
+#[allow(dead_code)]
 impl<R: RadixType> DigitVec<R, LittleEndian> {
     /// allocate with n bigdigits and fill with zeros
     pub fn remove_significant_digits(&mut self) {
@@ -207,6 +209,7 @@ impl<R: RadixType> DigitVec<R, LittleEndian> {
     }
 }
 
+#[allow(dead_code)]
 impl<R: RadixType> DigitVec<R, BigEndian> {
     pub fn remove_significant_digits(&mut self) {
         if let Some(idx) = self.digits.iter().position(|d| !d.is_zero()) {
@@ -216,6 +219,7 @@ impl<R: RadixType> DigitVec<R, BigEndian> {
     }
 }
 
+#[allow(dead_code)]
 impl<E: Endianness> DigitVec<RADIX_u64, E> {
     /// multiply this vector by 'n'
     fn mulassign_u64(&mut self, n: u64) {
@@ -229,6 +233,7 @@ impl<E: Endianness> DigitVec<RADIX_u64, E> {
     }
 }
 
+#[allow(dead_code)]
 impl DigitVec<RADIX_u64, LittleEndian> {
     /// Convert to signed big integer
     pub fn into_bigint(self, sign: Sign) -> BigInt {
@@ -622,6 +627,7 @@ mod test_from_biguint_using_tmp {
 }
 
 /// Vector of base-10 digits
+#[allow(dead_code)]
 impl DigitVec<RADIX_10_u8, LittleEndian> {
     /// splits digits into `prec` significant digits, returning the lowest significant digit,
     /// highest insignificant digit, and the remaining insignificant digits in little endian order
@@ -687,11 +693,13 @@ impl DigitVec<RADIX_10_u8, LittleEndian> {
 
 #[cfg(rustc_1_50)]
 #[allow(clippy::incompatible_msrv)]
+#[allow(dead_code)]
 fn fill_slice_with_zero<D: Zero + Clone>(s: &mut [D]) {
     s.fill(Zero::zero());
 }
 
 #[cfg(not(rustc_1_50))]
+#[allow(dead_code)]
 fn fill_slice_with_zero<D: Zero + Clone>(s: &mut [D]) {
     for r in s.iter_mut() {
         *r = Zero::zero();
@@ -711,6 +719,7 @@ pub(crate) struct DigitSlice<'a, R: RadixType, E: Endianness> {
     _endian: PhantomData<E>,
 }
 
+#[allow(dead_code)]
 impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
     /// Wrap slice of numbers as a slice of big-digits with given radix
     /// and endianness
@@ -775,6 +784,7 @@ impl<'a, R: RadixType, E: Endianness> DigitSlice<'a, R, E> {
     }
 }
 
+#[allow(dead_code)]
 impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
     /// Return subslice of digits with the 'n' least significant bigdigits removed
     pub fn trim_insignificant(&self, n: usize) -> Self {
@@ -786,6 +796,7 @@ impl<R: RadixType> DigitSlice<'_, R, LittleEndian> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a, E: Endianness> From<&'a DigitVec<RADIX_u64, E>> for DigitSlice<'a, RADIX_u64, E> {
     fn from(v: &'a DigitVec<RADIX_u64, E>) -> Self {
         v.as_digit_slice()
@@ -804,6 +815,7 @@ impl<'a, R: RadixPowerOfTen, E: Endianness> DigitSlice<'a, R, E> {
 
 impl DigitSlice<'_, RADIX_10_u8, LittleEndian> {
     /// fill digitvec with value contained in this digit-slice
+    #[allow(dead_code)]
     pub fn fill_vec_u64(&self, dest: &mut DigitVec<RADIX_u64, LittleEndian>) {
         let n = num_bigint::BigUint::from_radix_le(self.digits, 10).unwrap();
         *dest = (&n).into();
@@ -817,6 +829,7 @@ pub(crate) struct DigitSliceMut<'a, R: RadixType, E: Endianness> {
     _endian: PhantomData<E>,
 }
 
+#[allow(dead_code)]
 impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     /// Construct from mutable slice of numbers
     pub fn from_slice(v: &'a mut [R::Base]) -> Self {
@@ -889,6 +902,7 @@ impl<'a, R: RadixType, E: Endianness> DigitSliceMut<'a, R, E> {
     }
 }
 
+#[allow(dead_code)]
 impl<R: RadixPowerOfTen, E: Endianness> DigitSliceMut<'_, R, E> {
     pub fn count_decimal_digits(&self) -> usize {
         self.as_digit_slice().count_decimal_digits()
