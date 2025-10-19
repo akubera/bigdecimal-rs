@@ -9,6 +9,7 @@ mod stdlib {
         default,
         fmt,
         hash,
+        marker,
         mem,
         num,
         ops,
@@ -24,6 +25,7 @@ mod stdlib {
     #[cfg(test)]
     pub use std::collections::hash_map::DefaultHasher;
 
-    pub use std::vec::Vec;
     pub use std::borrow;
+    pub use std::boxed::{self, Box};
+    pub use std::vec::{self, Vec};
 }

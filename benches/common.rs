@@ -1,11 +1,8 @@
 //! common routines to be included by benches
 
-use std::fs::File;
-use std::io::BufReader;
 use bigdecimal::BigDecimal;
 
 use std::str::FromStr;
-use std::io::BufRead;
 
 macro_rules! resolve_benchmark_data_file {
     ( $filename:literal ) => {
@@ -13,33 +10,10 @@ macro_rules! resolve_benchmark_data_file {
     }
 }
 
-macro_rules! open_benchmark_data_file {
-    ( $filename:literal ) => {{
-        let path = resolve_benchmark_data_file!($filename);
-        File::open(path).expect(&format!(concat!("Could not load random datafile ", $filename, " from path {:?}"), path))
-    }};
-}
-
-
 macro_rules! include_benchmark_data_file {
     ( $filename:literal ) => {{
         include_str!( resolve_benchmark_data_file!($filename) )
     }};
-}
-
-/// Read vector of big decimals from lines in file
-pub fn read_bigdecimal_file(file: File) -> Vec<BigDecimal> {
-    read_bigdecimals(BufReader::new(file))
-}
-
-/// Read bigdecaiml from buffered reader
-pub fn read_bigdecimals<R: BufRead>(reader: R) -> Vec<BigDecimal>
-{
-    reader
-        .lines()
-        .map(|maybe_string| maybe_string.unwrap())
-        .map(|line| BigDecimal::from_str(&line).unwrap())
-        .collect()
 }
 
 /// Collect big-decimals from lines in string

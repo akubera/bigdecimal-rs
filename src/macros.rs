@@ -30,6 +30,25 @@ macro_rules! forward_ref_val_binop {
     };
 }
 
+macro_rules! forward_communative_binop {
+    (impl $trait:ident<$t1:ty>::$method:ident for $t2:ty) => {
+        forward_communative_binop!(
+            impl $trait<$t1>::$method for $t2; Output=BigDecimal
+        );
+    };
+    (impl $trait:ident<$t1:ty>::$method:ident for $t2:ty; Output=$output:ty) => {
+        impl $trait<$t1> for $t2 {
+            type Output = $output;
+
+            #[inline]
+            fn $method(self, rhs: $t1) -> Self::Output {
+                // swap operands
+                $trait::$method(rhs, self)
+            }
+        }
+    };
+}
+
 /*
 macro_rules! forward_val_ref_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {
@@ -54,15 +73,3 @@ macro_rules! forward_all_binop_to_ref_ref {
     };
 }
 */
-
-macro_rules! forward_val_assignop {
-    (impl $imp:ident for $res:ty, $method:ident) => {
-        impl $imp<$res> for $res {
-            #[inline]
-            fn $method(&mut self, other: $res) {
-                // forward to mutref-ref
-                $imp::$method(self, &other)
-            }
-        }
-    };
-}

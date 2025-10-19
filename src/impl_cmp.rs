@@ -13,8 +13,7 @@ use crate::*;
 use stdlib::cmp::Ordering;
 use stdlib::iter;
 
-impl PartialEq for BigDecimal
-{
+impl PartialEq for BigDecimal {
     fn eq(&self, rhs: &BigDecimal) -> bool {
         self.to_ref() == rhs.to_ref()
     }
@@ -22,7 +21,7 @@ impl PartialEq for BigDecimal
 
 impl<'rhs, T> PartialEq<T> for BigDecimalRef<'_>
 where
-    T: Into<BigDecimalRef<'rhs>> + Copy
+    T: Into<BigDecimalRef<'rhs>> + Copy,
 {
     fn eq(&self, rhs: &T) -> bool {
         let rhs: BigDecimalRef<'rhs> = (*rhs).into();
@@ -101,7 +100,7 @@ fn check_equality_bigdecimal_ref(lhs: BigDecimalRef, rhs: BigDecimalRef) -> bool
                 }
                 (Some(a_digit), None) => {
                     if a_digit != (carry as u32) {
-                        return false
+                        return false;
                     }
                     carry = 0;
                 }
@@ -298,9 +297,13 @@ fn compare_scalar_biguints(a: &BigUint, b: &BigUint, scale_diff: u64) -> Option<
 }
 
 /// Implementation comparing biguints cast to generic type
-fn compare_scaled_uints<'a, T>(a: &'a BigUint, b: &'a BigUint, scale_diff: usize) -> Option<Ordering>
+fn compare_scaled_uints<'a, T>(
+    a: &'a BigUint,
+    b: &'a BigUint,
+    scale_diff: usize,
+) -> Option<Ordering>
 where
-    T: num_traits::PrimInt + TryFrom<&'a BigUint>
+    T: num_traits::PrimInt + TryFrom<&'a BigUint>,
 {
     let ten = T::from(10).unwrap();
 

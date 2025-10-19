@@ -7,7 +7,6 @@ extern crate lazy_static;
 
 use lazy_static::lazy_static;
 
-use std::fs::File;
 use std::time::Duration;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -175,10 +174,14 @@ fn bench_inverse(
 mod datafile_1f633481a742923ab65855c90157bbf7 {
     use super::*;
 
+    const SRC: &'static str = include_benchmark_data_file!("random-bigdecimals-1f633481a742923ab65855c90157bbf7.txt");
 
-    fn get_bigdecimals() -> Vec<BigDecimal> {
-        let file = open_benchmark_data_file!("random-bigdecimals-1f633481a742923ab65855c90157bbf7.txt");
-        super::read_bigdecimal_file(file)
+    lazy_static! {
+        static ref BIG_DECIMALS: Vec<BigDecimal> = super::collect_bigdecimals(SRC);
+    }
+
+    fn get_bigdecimals<'a>() -> &'a [BigDecimal] {
+        BIG_DECIMALS.as_slice()
     }
 
     pub fn addition(c: &mut Criterion) {
@@ -206,7 +209,7 @@ mod datafile_1f633481a742923ab65855c90157bbf7 {
 mod datafile_9a08ddaa6ce6693cdd7b8a524e088bd0 {
     use super::*;
 
-    const SRC: &'static str  = include_benchmark_data_file!("random-bigdecimals-9a08ddaa6ce6693cdd7b8a524e088bd0.txt");
+    const SRC: &'static str = include_benchmark_data_file!("random-bigdecimals-9a08ddaa6ce6693cdd7b8a524e088bd0.txt");
 
     lazy_static! {
         static ref BIG_DECIMALS: Vec<BigDecimal> = super::collect_bigdecimals(SRC);

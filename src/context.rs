@@ -5,6 +5,7 @@ use crate::*;
 use stdlib::num::NonZeroU64;
 
 use arithmetic::store_carry;
+use rounding::NonDigitRoundingData;
 
 
 // const DEFAULT_PRECISION: u64 = ${RUST_BIGDECIMAL_DEFAULT_PRECISION} or 100;
@@ -19,7 +20,7 @@ include!(concat!(env!("OUT_DIR"), "/default_precision.rs"));
 /// Defaults are defined at compile time, determined by environment
 /// variables:
 ///
-/// | Variable                                |   Descripiton   | default  |
+/// | Variable                                |   Description   | default  |
 /// |-----------------------------------------|-----------------|----------|
 /// | `RUST_BIGDECIMAL_DEFAULT_PRECISION`     | digit precision | 100      |
 /// | `RUST_BIGDECIMAL_DEFAULT_ROUNDING_MODE` | rounding-mode   | HalfEven |
@@ -57,12 +58,7 @@ impl Context {
         precision
             .to_u64()
             .and_then(NonZeroU64::new)
-            .map(|prec| {
-                Self {
-                    precision: prec,
-                    ..*self
-                }
-            })
+            .map(|prec| self.with_precision(prec))
     }
 
     /// Copy context with new rounding mode
@@ -70,6 +66,15 @@ impl Context {
         Self {
             rounding: mode,
             ..*self
+        }
+    }
+
+    /// Rounding mode 'Down' for truncating results when
+    /// proper rounding is not necessary
+    pub(crate) fn new_truncating(prec: u64) -> Self {
+        Self {
+            rounding: RoundingMode::Down,
+            precision: NonZeroU64::new(prec.max(1)).unwrap(),
         }
     }
 
@@ -94,6 +99,25 @@ impl Context {
         d.with_precision_round(self.precision(), self.rounding_mode())
     }
 
+    /// Round the bigint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_bigint(
+        self, n: num_bigint::BigInt
+    ) -> WithScale<num_bigint::BigInt> {
+        self.rounding.round_bigint_to_prec(n, self.precision)
+    }
+
+    /// Round the biguint to the context's precision, returning it along with
+    /// the scale indicating how man digits were removed
+    #[allow(dead_code)]
+    pub(crate) fn round_biguint(
+        self, n: num_bigint::BigUint
+    ) -> WithScale<num_bigint::BigUint> {
+        let ndrd = NonDigitRoundingData { mode: self.rounding, sign: Sign::Plus };
+        ndrd.round_biguint_to_prec(n, self.precision)
+    }
+
     /// Round digits x and y with the rounding mode
     #[allow(dead_code)]
     pub(crate) fn round_pair(&self, sign: Sign, x: u8, y: u8, trailing_zeros: bool) -> u8 {
@@ -111,6 +135,53 @@ impl Context {
         carry: &mut u8,
     ) -> u8 {
         self.rounding.round_pair_with_carry(sign, (x, y), trailing_zeros, carry)
+    }
+
+    /// Multiply two decimals, returning product rounded to this Context's precision
+    ///
+    /// ```
+    /// # use bigdecimal::{BigDecimal, Context};
+    /// let x: BigDecimal = "1.5".parse().unwrap();
+    /// let y: BigDecimal = "3.1415926".parse().unwrap();
+    ///
+    /// let ctx = Context::default().with_prec(5).unwrap();
+    /// let product = ctx.multiply(&x, &y);
+    ///
+    /// // rounds to 5 digits of precision
+    /// assert_eq!(product, "4.7124".parse().unwrap());
+    /// // does not equal the 'full' precision
+    /// assert_ne!(product, "4.71238890".parse().unwrap());
+    /// ```
+    ///
+    pub fn multiply<'a, L, R>(&self, lhs: L, rhs: R) -> BigDecimal
+    where
+        L: Into<BigDecimalRef<'a>>,
+        R: Into<BigDecimalRef<'a>>,
+    {
+        use arithmetic::multiplication::multiply_decimals_with_context;
+
+        let mut result = BigDecimal::zero();
+        multiply_decimals_with_context(&mut result, lhs, rhs, self);
+        result
+    }
+
+    /// Calculate `1/n`, rounding at this Context's precision
+    ///
+    /// If n is zero, return zero.
+    ///
+    /// ```
+    /// # use bigdecimal::{BigDecimal, Context};
+    /// let x: BigDecimal = "3".parse().unwrap();
+    ///
+    /// let ctx = Context::default().with_prec(5).unwrap();
+    /// let one_over_three = ctx.invert(&x);
+    ///
+    /// // rounds to 5 digits of precision
+    /// assert_eq!(one_over_three, "0.33333".parse().unwrap());
+    /// ```
+    ///
+    pub fn invert<'a, T: Into<BigDecimalRef<'a>>>(&self, n: T) -> BigDecimal {
+        n.into().inverse_with_context(self)
     }
 }
 
@@ -152,7 +223,7 @@ mod test_context {
     use super::*;
 
     #[test]
-    fn contstructor_and_setters() {
+    fn constructor_and_setters() {
         let ctx = Context::default();
         let c = ctx.with_prec(44).unwrap();
         assert_eq!(c.precision.get(), 44);

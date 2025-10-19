@@ -20,6 +20,7 @@ mod stdlib {
         default,
         fmt,
         hash,
+        marker,
         mem,
         num,
         ops,
@@ -36,5 +37,6 @@ mod stdlib {
 
     pub use alloc::borrow;
     pub use alloc::string;
-    pub use alloc::vec::Vec;
+    pub use alloc::boxed::{self, Box};
+    pub use alloc::vec::{self, Vec};
 }

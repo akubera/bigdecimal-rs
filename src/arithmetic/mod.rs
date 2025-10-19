@@ -2,11 +2,49 @@
 
 use crate::*;
 use num_traits::CheckedSub;
+use num_traits::AsPrimitive;
+
+pub(crate) mod decimal;
 
 pub(crate) mod addition;
+pub(crate) mod multiplication;
+pub(crate) mod modulo;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
+pub(crate) mod pow;
+
+pub(crate) use self::decimal::{
+    count_digits_bigint as count_decimal_digits,
+    count_digits_biguint as count_decimal_digits_uint,
+};
+
+#[cfg(not(feature = "std"))]
+mod funcs {
+    // f64::exp2 is only available in std, we have to use an external crate like libm
+    pub fn exp2(x: f64) -> f64 {
+        libm::exp2(x)
+    }
+
+    // f64::log10 is only available in std, we have to use an external crate like libm
+    pub fn log10(x: f64) -> f64 {
+        libm::log10(x)
+    }
+}
+
+#[cfg(feature = "std")]
+mod funcs {
+    pub fn exp2(x: f64) -> f64 {
+        x.exp2()
+    }
+
+    pub fn log10(x: f64) -> f64 {
+        x.log10()
+    }
+}
+
+// rexport all funcs into this module
+pub(crate) use self::funcs::*;
 
 /// Return 10^pow
 ///
@@ -20,6 +58,15 @@ pub(crate) fn ten_to_the(pow: u64) -> BigInt {
 pub(crate) fn ten_to_the_u64(pow: u8) -> u64 {
     debug_assert!(pow < 20);
     10u64.pow(pow as u32)
+}
+
+/// Return 10^{pow} as output
+pub(crate) fn ten_to_the_t<T>(pow: u8) -> T
+where
+    T: From<u8> + num_traits::Pow<u8, Output = T>
+{
+    debug_assert!((pow as f64) < stdlib::mem::size_of::<T>() as f64 * 8.0 / LOG2_10);
+    T::from(10u8).pow(pow)
 }
 
 /// Return 10^pow
@@ -63,8 +110,9 @@ pub(crate) fn ten_to_the_uint(pow: u64) -> BigUint {
 }
 
 pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
-    where T: MulAssign<u64> + MulAssign<BigUint>,
-          P: ToPrimitive
+where
+    T: MulAssign<u64> + MulAssign<BigUint>,
+    P: ToPrimitive,
 {
     let pow = pow.to_u64().expect("exponent overflow error");
     if pow < 20 {
@@ -72,34 +120,12 @@ pub(crate) fn multiply_by_ten_to_the_uint<T, P>(n: &mut T, pow: P)
     } else {
         *n *= ten_to_the_uint(pow);
     }
-
 }
-
-/// Return number of decimal digits in integer
-pub(crate) fn count_decimal_digits(int: &BigInt) -> u64 {
-    count_decimal_digits_uint(int.magnitude())
-}
-
-/// Return number of decimal digits in unsigned integer
-pub(crate) fn count_decimal_digits_uint(uint: &BigUint) -> u64 {
-    if uint.is_zero() {
-        return 1;
-    }
-    let mut digits = (uint.bits() as f64 / LOG2_10) as u64;
-    // guess number of digits based on number of bits in UInt
-    let mut num = ten_to_the_uint(digits);
-    while *uint >= num {
-        num *= 10u8;
-        digits += 1;
-    }
-    digits
-}
-
 
 /// Return difference of two numbers, returning diff as u64
 pub(crate) fn diff<T>(a: T, b: T) -> (Ordering, u64)
 where
-    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord,
 {
     use stdlib::cmp::Ordering::*;
 
@@ -111,11 +137,11 @@ where
 /// Return difference of two numbers. If num doesn't fit in u64, return None
 pub(crate) fn checked_diff<T>(a: T, b: T) -> (Ordering, Option<u64>)
 where
-    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord
+    T: ToPrimitive + CheckedSub + stdlib::cmp::Ord,
 {
     use stdlib::cmp::Ordering::*;
 
-    let _try_subtracting = |x:T, y:T| x.checked_sub(&y).and_then(|diff| diff.to_u64());
+    let _try_subtracting = |x: T, y: T| x.checked_sub(&y).and_then(|diff| diff.to_u64());
 
     match a.cmp(&b) {
         Less => (Less, _try_subtracting(b, a)),
@@ -126,12 +152,15 @@ where
 
 /// Return difference of two numbers, returning diff as usize
 #[allow(dead_code)]
-pub(crate) fn diff_usize(a: usize, b: usize) -> (Ordering, usize) {
+pub(crate) fn diff_usize<T>(a: T, b: T) -> (Ordering, usize)
+where
+    T: AsPrimitive<usize> + stdlib::ops::Sub<Output = T> + stdlib::cmp::Ord,
+{
     use stdlib::cmp::Ordering::*;
 
     match a.cmp(&b) {
-        Less => (Less, b - a),
-        Greater => (Greater, a - b),
+        Less => (Less, (b - a).as_()),
+        Greater => (Greater, (a - b).as_()),
         Equal => (Equal, 0),
     }
 }
@@ -150,7 +179,6 @@ pub(crate) fn abs_diff(x: i64, y: i64) -> u64 {
     (x as i128 - y as i128).to_u64().unwrap_or(0)
 }
 
-
 /// Add carry to given number, returning trimmed value and storing overflow back in carry
 ///
 pub(crate) fn add_carry(n: u8, carry: &mut u8) -> u8 {
@@ -164,7 +192,6 @@ pub(crate) fn add_carry(n: u8, carry: &mut u8) -> u8 {
         s - 10
     }
 }
-
 
 /// If n is greater than 10, split and store overflow in carry
 ///
@@ -183,12 +210,11 @@ pub(crate) fn store_carry(n: u8, carry: &mut u8) -> u8 {
     }
 }
 
-
 /// Extend destination vector with values in D, adding carry while carry is not zero
 ///
 /// If carry overflows, it is NOT pushed into the destination vector.
 ///
-pub(crate) fn extend_adding_with_carry<D: Iterator<Item=u8>>(
+pub(crate) fn extend_adding_with_carry<D: Iterator<Item = u8>>(
     dest: &mut Vec<u8>,
     mut digits: D,
     carry: &mut u8,

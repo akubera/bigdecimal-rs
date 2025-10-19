@@ -3,6 +3,8 @@
 
 mod arithmetic {
     use super::*;
+    use stdlib::num::NonZeroI128;
+
 
     macro_rules! impl_test {
         ($t:ty) => {
@@ -51,17 +53,14 @@ mod arithmetic {
                 }
 
                 #[test]
-                fn [< div_ $t >](n: $t, m: i128, e: i8) {
-                    prop_assume!(m != 0);
-
-                    let d = BigDecimal::new(m.into(), e as i64);
+                fn [< div_ $t >](n: $t, m: NonZeroI128, e: i8) {
+                    let d = BigDecimal::new(m.get().into(), e as i64);
                     let quotient_n_ref_d = n / &d;
                     let quotient_n_d = n / d.clone();
                     prop_assert_eq!(&quotient_n_ref_d, &quotient_n_d);
 
                     let prod = quotient_n_d * &d;
                     let diff = n - &prod;
-                    // prop_assert!(dbg!(diff.scale) > 99);
                     prop_assert!(diff.abs() < BigDecimal::new(1.into(), 60));
                 }
             } }
@@ -69,15 +68,12 @@ mod arithmetic {
         (float-div $t:ty) => {
             paste! { proptest! {
                 #[test]
-                fn [< div_ $t >](n: $t, m: i128, e: i8) {
-                    prop_assume!(m != 0);
-
-                    let d = BigDecimal::new(m.into(), e as i64);
+                fn [< div_ $t >](n: $t, m: NonZeroI128, e: i8) {
+                    let d = BigDecimal::new(m.get().into(), e as i64);
                     let quotient_n_ref_d = n / &d;
                     let quotient_n_d = n / d.clone();
                     prop_assert_eq!(&quotient_n_ref_d, &quotient_n_d);
 
-                    let d = BigDecimal::new(m.into(), e as i64);
                     let quotient_ref_d_n = &d / n;
                     let quotient_d_n = d.clone() / n;
                     prop_assert_eq!(&quotient_ref_d_n, &quotient_d_n);
