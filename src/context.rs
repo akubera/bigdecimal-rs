@@ -69,6 +69,15 @@ impl Context {
         }
     }
 
+    /// Rounding mode 'Down' for truncating results when
+    /// proper rounding is not necessary
+    pub(crate) fn new_truncating(prec: u64) -> Self {
+        Self {
+            rounding: RoundingMode::Down,
+            precision: NonZeroU64::new(prec.max(1)).unwrap(),
+        }
+    }
+
     /// Return maximum precision
     pub fn precision(&self) -> NonZeroU64 {
         self.precision
