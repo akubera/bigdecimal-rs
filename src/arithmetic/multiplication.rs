@@ -41,6 +41,15 @@ pub(crate) fn multiply_decimals_with_context<'a, A, B>(
     let a = a.into();
     let b = b.into();
 
+    impl_multiply_decimals_with_context(dest, a, b, ctx);
+}
+
+pub fn impl_multiply_decimals_with_context(
+    dest: &mut BigDecimal,
+    a: BigDecimalRef,
+    b: BigDecimalRef,
+    ctx: &Context,
+) {
     if a.is_zero() || b.is_zero() {
         *dest = BigDecimal::zero();
         return;
