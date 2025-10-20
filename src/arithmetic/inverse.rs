@@ -23,8 +23,9 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
     // use f64 approximation to guess initial inverse
     let guess = n.to_f64()
+        .filter(|f| f.is_normal())
         .map(|f| 1.0 / f)
-        .filter(|f| f.is_finite())
+        .filter(|&f| f != 0.0 && f.is_finite())
         .and_then(BigDecimal::from_f64)
         .map(|mut d| { d.scale -= scale; d })
         .unwrap_or_else(
@@ -296,6 +297,19 @@ mod test {
         impl_case!(prec=50, round=Down, Floor => "-3.0841900519385698894827476971712670726697831310896E-7");
     }
 
+
+    mod invert_2d8722377233432854650en126 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "28722377233432854650456573411382289859440620032075590707304700193738855195818029876568741547799767753181511758371393266031229989006058870578446812747289276920741036671713994469786904880406812933015496296559493964954240161851051500623562557032166800306346000498803201936493334049050141321136859175463065287081665388768669799901545047760009765625e-469"
+            .parse().unwrap()
+        }
+
+        impl_case!(prec=1,  round=Up => "4e125");
+        impl_case!(prec=5,  round=Up => "3.4817e+125");
+        impl_case!(prec=25, round=Up => "3.481605968311006434080812E+125");
+    }
 
     #[test]
     fn inv_random_number() {
