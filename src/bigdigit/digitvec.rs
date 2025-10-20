@@ -156,7 +156,7 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
             return;
         }
 
-        let overflow = self.as_digit_slice_mut().add_value_at(0, n);
+        let overflow = self.as_digit_slice_mut().add_value_at(idx, n);
         if !overflow.is_zero() {
             self.push_significant_digit(overflow);
         }
