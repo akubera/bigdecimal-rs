@@ -1,5 +1,7 @@
 //! Structs and traits for generic operations on big or little endian ints
 
+use crate::*;
+
 use crate::stdlib;
 use crate::stdlib::fmt;
 use crate::stdlib::Vec;
@@ -113,6 +115,9 @@ pub(crate) trait Endianness: Copy + Clone + Default + fmt::Debug {
 
     /// Build BigUint from base-10 digits in slice
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint>;
+
+    /// Split u128 and store in vector
+    fn fill_vec_with_u128<R: RadixType>(vec: &mut Vec<R::Base>, n: u128);
 }
 
 
@@ -245,6 +250,11 @@ impl Endianness for BigEndian {
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
         num_bigint::BigUint::from_radix_be(n, 10)
     }
+
+    fn fill_vec_with_u128<R: RadixType>(vec: &mut Vec<R::Base>, n: u128) {
+        LittleEndian::fill_vec_with_u128::<R>(vec, n);
+        vec.reverse();
+    }
 }
 
 
@@ -375,6 +385,18 @@ impl Endianness for LittleEndian {
 
     fn biguint_from_digits(n: &[u8]) -> Option<num_bigint::BigUint> {
         num_bigint::BigUint::from_radix_le(n, 10)
+    }
+
+    fn fill_vec_with_u128<R: RadixType>(vec: &mut Vec<R::Base>, mut n: u128) {
+        let base = R::RADIX.to_u128().unwrap();
+        vec.clear();
+
+        while !n.is_zero() {
+            let (hi, lo) = num_integer::div_rem(n, base);
+            let lo = R::Base::from_u128(lo).unwrap();
+            vec.push(lo);
+            n = hi;
+        }
     }
 }
 

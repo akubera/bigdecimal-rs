@@ -70,6 +70,18 @@ impl<R: RadixType, E: Endianness> DigitVec<R, E> {
         self.digits.truncate(n);
     }
 
+    /// construct digitvec with u128
+    pub(crate) fn from_u128(n: u128) -> Self {
+        let mut v = Self::new();
+        v.fill_with_u128(n);
+        v
+    }
+
+    /// create vector of bigdigits from u128
+    pub(crate) fn fill_with_u128(&mut self, n: u128) {
+        E::fill_vec_with_u128::<R>(&mut self.digits, n);
+    }
+
     /// Remove 'n' insignificant from the vector
     ///
     /// BigEndian vectors truncate. LittleEndian vectors shift and truncate, and
