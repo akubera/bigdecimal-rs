@@ -9,7 +9,7 @@ impl Div<BigDecimal> for BigDecimal {
         if other.is_zero() {
             panic!("Division by zero");
         }
-        if self.is_zero() || other.is_one() {
+        if self.is_zero() || other.is_one_quickcheck() == Some(true) {
             return self;
         }
 
@@ -35,7 +35,7 @@ impl<'a> Div<&'a BigDecimal> for BigDecimal {
         if other.is_zero() {
             panic!("Division by zero");
         }
-        if self.is_zero() || other.is_one() {
+        if self.is_zero() || other.is_one_quickcheck() == Some(true) {
             return self;
         }
 
@@ -65,7 +65,7 @@ impl Div<&BigDecimal> for &BigDecimal {
             panic!("Division by zero");
         }
         // TODO: Fix setting scale
-        if self.is_zero() || other.is_one() {
+        if self.is_zero() || other.is_one_quickcheck() == Some(true) {
             return self.clone();
         }
 
