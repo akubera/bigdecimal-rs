@@ -16,6 +16,14 @@ categories = [ "mathematics", "science", "no-std" ]
 license = "MIT/Apache-2.0"
 autobenches = false
 edition = "2015"
+include = [
+	'Cargo.toml',
+	'build.rs',
+        'LICENSE-APACHE',
+        'LICENSE-MIT',
+        'src/**/*.rs',
+        'README.md',
+]
 
 [lib]
 bench = false
