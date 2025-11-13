@@ -253,8 +253,8 @@ mod test {
             "#;
             let my_struct: TestStruct = serde_json::from_str(&json_src).unwrap();
             assert_eq!(&my_struct.name, "foo");
-            assert_eq!(&my_struct.value, &"0.0008741329382918".parse().unwrap());
-            assert_eq!(&my_struct.number, &"12.34".parse().unwrap());
+            assert_eq!(&my_struct.value, &"0.0008741329382918".parse::<BigDecimal>().unwrap());
+            assert_eq!(&my_struct.number, &"12.34".parse::<BigDecimal>().unwrap());
 
             let s = serde_json::to_string(&my_struct).unwrap();
             assert_eq!(s, r#"{"name":"foo","value":"0.0008741329382918","number":12.34}"#);
