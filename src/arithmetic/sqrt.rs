@@ -39,7 +39,7 @@ mod test {
                 let n: BigDecimal = $input.parse().unwrap();
                 let value = n.sqrt().unwrap();
 
-                let expected = $expected.parse().unwrap();
+                let expected: BigDecimal = $expected.parse().unwrap();
                 assert_eq!(value, expected);
                 // assert_eq!(value.scale, expected.scale);
             }
@@ -53,7 +53,7 @@ mod test {
                 let n: BigDecimal = $input.parse().unwrap();
                 let value = n.sqrt_with_context(&ctx).unwrap();
 
-                let expected = $expected.parse().unwrap();
+                let expected = $expected.parse::<BigDecimal>().unwrap();
                 assert_eq!(value, expected);
                 // assert_eq!(value.scale, expected.scale);
             }

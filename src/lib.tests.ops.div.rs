@@ -34,7 +34,7 @@ macro_rules! impl_case {
             let num = numerator();
             let den = $denom;
 
-            let expected = $expected.parse().unwrap();
+            let expected: BigDecimal = $expected.parse().unwrap();
 
             {
                 let quotient = &num / den;
@@ -51,7 +51,7 @@ macro_rules! impl_case {
             let num = $numer;
             let den = denominator();
 
-            let expected = $expected.parse().unwrap();
+            let expected: BigDecimal = $expected.parse().unwrap();
 
             {
                 let quotient = num / &den;

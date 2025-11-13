@@ -176,7 +176,7 @@ mod test {
         ];
         let x = BigInt::new(Sign::Minus, v);
         let d = BigDecimal::from(x);
-        let expected = "-2.813416500187520746852694701086705659180043761702417561798711758892800449936819185796527214192677476E-308".parse().unwrap();
+        let expected: BigDecimal = "-2.813416500187520746852694701086705659180043761702417561798711758892800449936819185796527214192677476E-308".parse::<BigDecimal>().unwrap();
         assert_eq!(d.inverse(), expected);
 
         assert_eq!(d.neg().inverse(), expected.neg());
@@ -193,7 +193,7 @@ mod test {
 
                 let result = n.inverse_with_context(&ctx);
 
-                let expected = $expected.parse().unwrap();
+                let expected = $expected.parse::<BigDecimal>().unwrap();
                 assert_eq!(&result, &expected);
 
                 let product = result * &n;
@@ -213,7 +213,7 @@ mod test {
 
                     let result = n.inverse_with_context(&ctx);
 
-                    let expected = $expected.parse().unwrap();
+                    let expected = $expected.parse::<BigDecimal>().unwrap();
                     assert_eq!(&result, &expected);
                     assert_eq!(&result.scale, &expected.scale);
                 }
@@ -317,10 +317,10 @@ mod test {
 
         let ctx = Context::new(NonZeroU64::new(40).unwrap(), RoundingMode::Down);
         let i = n.inverse_with_context(&ctx);
-        assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse().unwrap());
+        assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse::<BigDecimal>().unwrap());
 
         let product = i * &n;
-        assert!(BigDecimal::one() - &product < "1e-39".parse().unwrap());
+        assert!(BigDecimal::one() - &product < "1e-39".parse::<BigDecimal>().unwrap());
     }
 
     #[cfg(property_tests)]

@@ -11,14 +11,16 @@ macro_rules! impl_test {
             fn [< case $name >]() {
                 let n = $input as f32;
                 let d = parse_from_f32(n);
-                assert_eq!(d, $expected.parse().unwrap());
+                let expected: BigDecimal = $expected.parse().unwrap();
+                assert_eq!(d, expected);
             }
 
             #[test]
             fn [< case_neg $name >]() {
                 let n = -($input as f32);
                 let d = parse_from_f32(n);
-                assert_eq!(d, concat!("-", $expected).parse().unwrap());
+                let expected: BigDecimal = concat!("-", $expected).parse().unwrap();
+                assert_eq!(d, expected);
             }
         }
     };
@@ -68,28 +70,28 @@ impl_test!(_2_81341650018752E_n308 : 2.81341650018752E-308 == "0");
 fn case_f32_min() {
     let n = f32::MIN;
     let d = parse_from_f32(n);
-    assert_eq!(d, "-340282346638528859811704183484516925440".parse().unwrap());
+    assert_eq!(d, "-340282346638528859811704183484516925440".parse::<BigDecimal>().unwrap());
 }
 
 #[test]
 fn case_f32_max() {
     let n = f32::MAX;
     let d = parse_from_f32(n);
-    assert_eq!(d, "340282346638528859811704183484516925440".parse().unwrap());
+    assert_eq!(d, "340282346638528859811704183484516925440".parse::<BigDecimal>().unwrap());
 }
 
 #[test]
 fn case_f32_epsilon() {
     let n = f32::EPSILON;
     let d = parse_from_f32(n);
-    assert_eq!(d, "1.1920928955078125E-7".parse().unwrap());
+    assert_eq!(d, "1.1920928955078125E-7".parse::<BigDecimal>().unwrap());
 }
 
 #[test]
 fn case_f32_pi() {
     let n = f32::consts::PI;
     let d = parse_from_f32(n);
-    assert_eq!(d, "3.1415927410125732421875".parse().unwrap());
+    assert_eq!(d, "3.1415927410125732421875".parse::<BigDecimal>().unwrap());
 }
 
 #[test]
@@ -98,7 +100,7 @@ fn case_nan() {
     assert!(n.is_nan());
 
     let d = parse_from_f32(n);
-    assert_eq!(d, "510423550381407695195061911147652317184".parse().unwrap());
+    assert_eq!(d, "510423550381407695195061911147652317184".parse::<BigDecimal>().unwrap());
 }
 
 #[test]
