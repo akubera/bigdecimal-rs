@@ -347,6 +347,18 @@ fn highest_bit_lessthan_scaled(a: &BigUint, b: &BigUint, scale: u64) -> bool {
 
 macro_rules! impl_prim_cmp {
     ($t:ty) => {
+        impl PartialOrd<$t> for BigDecimal {
+            fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
+                self.to_ref().partial_cmp(other)
+            }
+        }
+
+        impl PartialEq<$t> for BigDecimal {
+            fn eq(&self, rhs: &$t) -> bool {
+                self.to_ref().eq(rhs)
+            }
+        }
+
         impl PartialOrd<$t> for &BigDecimal {
             fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
                 self.to_ref().partial_cmp(other)
@@ -357,9 +369,10 @@ macro_rules! impl_prim_cmp {
         {
             fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
                 let rhs = BigDecimal::from(other);
-                (*self).partial_cmp(&rhs.to_ref())
+                self.partial_cmp(&rhs.to_ref())
             }
         }
+
         impl PartialEq<$t> for &BigDecimal {
             fn eq(&self, rhs: &$t) -> bool {
                 self.to_ref().eq(rhs)
