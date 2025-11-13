@@ -175,7 +175,7 @@ workflows:
         name: build-and-test:latest
 
     - build-and-test:
-        name: build-and-proptest:serde
+        name: proptest:serde_json
         rust-features: "--all-targets --features='serde'"
         proptest-enable: true
 
@@ -188,7 +188,7 @@ workflows:
         rust-features: "--no-default-features --features='serde'"
 
     - build-and-test:
-        name: build-and-test:serde_json
+        name: build-and-test:latest:serde_json
         rust-features: "--features='serde-json'"
 
     - build-and-test:
@@ -197,9 +197,9 @@ workflows:
 
     - cargo-semver-check:
         requires:
-        - build-and-proptest:serde
+        - proptest:serde_json
 
     - upload-coverage:
         rust-version: "1.91.0"
         requires:
-        - build-and-proptest:serde
+        - proptest:serde_json
