@@ -345,6 +345,40 @@ fn highest_bit_lessthan_scaled(a: &BigUint, b: &BigUint, scale: u64) -> bool {
     }
 }
 
+macro_rules! impl_prim_cmp {
+    ($t:ty) => {
+        impl PartialOrd<$t> for &BigDecimal {
+            fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
+                self.to_ref().partial_cmp(other)
+            }
+        }
+
+        impl PartialOrd<$t> for BigDecimalRef<'_>
+        {
+            fn partial_cmp(&self, other: &$t) -> Option<Ordering> {
+                let rhs = BigDecimal::from(other);
+                (*self).partial_cmp(&rhs.to_ref())
+            }
+        }
+        impl PartialEq<$t> for &BigDecimal {
+            fn eq(&self, rhs: &$t) -> bool {
+                self.to_ref().eq(rhs)
+            }
+        }
+
+        impl PartialEq<$t> for BigDecimalRef<'_>
+        {
+            fn eq(&self, rhs: &$t) -> bool {
+                let rhs = BigDecimal::from(rhs);
+                check_equality_bigdecimal_ref(*self, rhs.to_ref())
+            }
+        }
+    };
+}
+
+impl_prim_cmp!(u8);
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -461,6 +495,16 @@ mod test {
         assert_eq!(x_ref, &y);
         assert_ne!(x_ref.neg(), x_ref);
         assert_eq!(x_ref.neg().neg(), x_ref);
+    }
+
+    mod cmp_prim {
+        use super::*;
+
+        #[test]
+        fn cmp_zero_u8() {
+            let n = BigDecimal::zero();
+            assert!(&n == 0u8);
+        }
     }
 
     #[cfg(property_tests)]
