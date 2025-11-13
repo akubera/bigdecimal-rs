@@ -487,6 +487,7 @@ pub(crate) struct WithIntCount<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::zero_prefixed_literal)]
 mod test {
     use super::*;
 
