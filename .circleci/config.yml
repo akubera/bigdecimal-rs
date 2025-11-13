@@ -128,22 +128,13 @@ workflows:
                 command: cargo generate-lockfile
 
     - rust/lint-test-build:
-        name: "lint-test-build:1.56"
+        name: "lint-test-build:1.70"
         release: true
-        version: "1.56"
+        version: "1.70"
         pre-steps:
-          - checkout
-          - restore_cache:
-              keys:
-                - bigdecimal-cargo-1.56-{{ checksum "Cargo.toml" }}
-          - run:
-              command: cargo generate-lockfile
-
-        post-steps:
-          - save_cache:
-              paths:
-                - /usr/local/cargo
-              key: bigdecimal-cargo-1.56-{{ checksum "Cargo.toml" }}
+            - checkout
+            - run:
+                command: cargo generate-lockfile
 
     - lint-check
 
