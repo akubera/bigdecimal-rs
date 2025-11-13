@@ -2362,6 +2362,11 @@ mod bigdecimal_tests {
     }
 
     include!("lib.tests.rs");
+
+    mod ops {
+        use super::*;
+        include!("lib.tests.ops.div.rs");
+    }
 }
 
 
