@@ -132,9 +132,18 @@ workflows:
         release: true
         version: "1.56"
         pre-steps:
-            - checkout
-            - run:
-                command: cargo generate-lockfile
+          - checkout
+          - restore_cache:
+              keys:
+                - bigdecimal-cargo-1.56-{{ checksum "Cargo.toml" }}
+          - run:
+              command: cargo generate-lockfile
+
+        post-steps:
+          - save_cache:
+              paths:
+                - /usr/local/cargo
+              key: bigdecimal-cargo-1.56-{{ checksum "Cargo.toml" }}
 
     - lint-check
 
