@@ -131,10 +131,6 @@ workflows:
         name: "lint-test-build:1.56"
         release: true
         version: "1.56"
-        pre-steps:
-            - checkout
-            - run:
-                command: cargo generate-lockfile
 
     - lint-check
 
