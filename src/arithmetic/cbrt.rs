@@ -123,7 +123,7 @@ mod test {
                 let n: BigDecimal = $input.parse().unwrap();
                 let value = n.cbrt();
 
-                let expected = $expected.parse().unwrap();
+                let expected: BigDecimal = $expected.parse().unwrap();
                 assert_eq!(value, expected);
             }
         };
@@ -134,7 +134,7 @@ mod test {
                 let n: BigDecimal = $input.parse().unwrap();
                 let value = n.cbrt_with_context(&ctx);
 
-                let expected = $expected.parse().unwrap();
+                let expected: BigDecimal = $expected.parse().unwrap();
                 assert_eq!(value, expected);
             }
         };

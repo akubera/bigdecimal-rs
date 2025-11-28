@@ -148,9 +148,9 @@ impl Context {
     /// let product = ctx.multiply(&x, &y);
     ///
     /// // rounds to 5 digits of precision
-    /// assert_eq!(product, "4.7124".parse().unwrap());
+    /// assert_eq!(product, "4.7124".parse::<BigDecimal>().unwrap());
     /// // does not equal the 'full' precision
-    /// assert_ne!(product, "4.71238890".parse().unwrap());
+    /// assert_ne!(product, "4.71238890".parse::<BigDecimal>().unwrap());
     /// ```
     ///
     pub fn multiply<'a, L, R>(&self, lhs: L, rhs: R) -> BigDecimal
@@ -177,7 +177,7 @@ impl Context {
     /// let one_over_three = ctx.invert(&x);
     ///
     /// // rounds to 5 digits of precision
-    /// assert_eq!(one_over_three, "0.33333".parse().unwrap());
+    /// assert_eq!(one_over_three, "0.33333".parse::<BigDecimal>().unwrap());
     /// ```
     ///
     pub fn invert<'a, T: Into<BigDecimalRef<'a>>>(&self, n: T) -> BigDecimal {
@@ -243,16 +243,22 @@ mod test_context {
         let b: BigDecimal = "3.0782968222271332463325639E-12".parse().unwrap();
 
         let sum = ctx.add_refs(&a, &b);
-        assert_eq!(sum, "209682.1349721971716913689525271332463325639".parse().unwrap());
+        let expected: BigDecimal =
+            "209682.1349721971716913689525271332463325639".parse().unwrap();
+        assert_eq!(sum, expected);
 
         // make negative copy of b without cloning values
         let neg_b = b.to_ref().neg();
 
         let sum = ctx.add_refs(&a, neg_b);
-        assert_eq!(sum, "209682.1349721971655347753080728667536674361".parse().unwrap());
+        let expected: BigDecimal =
+            "209682.1349721971655347753080728667536674361".parse().unwrap();
+        assert_eq!(sum, expected);
 
         let sum = ctx.with_prec(27).unwrap().with_rounding_mode(RoundingMode::Up).add_refs(&a, neg_b);
-        assert_eq!(sum, "209682.134972197165534775309".parse().unwrap());
+        let expected: BigDecimal =
+            "209682.134972197165534775309".parse().unwrap();
+        assert_eq!(sum, expected);
     }
 
     mod round_decimal_ref {

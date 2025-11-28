@@ -22,7 +22,7 @@ mod powi_with_context {
                                     .with_rounding_mode(RoundingMode::$round)
                                     .with_prec(prec).unwrap();
                     let value = n.powi_with_context(exp, &ctx);
-                    let expected = $expected.parse().unwrap();
+                    let expected: BigDecimal = $expected.parse().unwrap();
                     assert_eq!(value, expected);
                     assert_eq!(value.scale, expected.scale);
                 }
