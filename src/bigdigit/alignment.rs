@@ -108,10 +108,12 @@ where
     R: RadixPowerOfTen,
     I: Iterator<Item = R::Base>,
 {
+    /// Wrap iterator with on shifting
     pub fn new(iter: I) -> Self {
         Self::from_shifter_and_iter(ShiftState::Zero, iter)
     }
 
+    /// Wrap iterator, shifting by shift-state
     pub fn from_shifter_and_iter(shifter: ShiftState<R>, iter: I) -> Self {
         Self {
             shift: shifter,
@@ -238,6 +240,8 @@ where
             }
         }
     }
+
+    /// called when there's further digits to iterate
     fn on_next_digit(&mut self, digit: R::Base) -> R::Base {
         if let ShiftState::Shifted {
             ref mut prev,
@@ -253,6 +257,8 @@ where
         }
     }
 
+    /// called when internal iterator is exhausted, returning final
+    /// shifted digits
     fn on_last_digit(&mut self) -> Option<R::Base> {
         match self.shift {
             ShiftState::Shifted {
@@ -420,7 +426,9 @@ impl<R: RadixPowerOfTen> ShiftState<R> {
 /// Splits a bigdigit into pieces, used when aligning
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct BigDigitSplitter<R: RadixPowerOfTen> {
+    /// dividend to split a bigdigit into high and low digits
     mask: R::Base,
+    /// multiplication shifts high bigdigit to correct place after split
     shift: R::Base,
 }
 
