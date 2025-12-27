@@ -23,8 +23,9 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
     // use f64 approximation to guess initial inverse
     let guess = n.to_f64()
+        .filter(|f| f.is_normal())
         .map(|f| 1.0 / f)
-        .filter(|f| f.is_finite())
+        .filter(|&f| f != 0.0 && f.is_finite())
         .and_then(BigDecimal::from_f64)
         .map(|mut d| { d.scale -= scale; d })
         .unwrap_or_else(
@@ -175,7 +176,7 @@ mod test {
         ];
         let x = BigInt::new(Sign::Minus, v);
         let d = BigDecimal::from(x);
-        let expected = "-2.813416500187520746852694701086705659180043761702417561798711758892800449936819185796527214192677476E-308".parse().unwrap();
+        let expected = "-2.813416500187520746852694701086705659180043761702417561798711758892800449936819185796527214192677476E-308".parse::<BigDecimal>().unwrap();
         assert_eq!(d.inverse(), expected);
 
         assert_eq!(d.neg().inverse(), expected.neg());
@@ -192,7 +193,7 @@ mod test {
 
                 let result = n.inverse_with_context(&ctx);
 
-                let expected = $expected.parse().unwrap();
+                let expected = $expected.parse::<BigDecimal>().unwrap();
                 assert_eq!(&result, &expected);
 
                 let product = result * &n;
@@ -212,7 +213,7 @@ mod test {
 
                     let result = n.inverse_with_context(&ctx);
 
-                    let expected = $expected.parse().unwrap();
+                    let expected = $expected.parse::<BigDecimal>().unwrap();
                     assert_eq!(&result, &expected);
                     assert_eq!(&result.scale, &expected.scale);
                 }
@@ -297,16 +298,29 @@ mod test {
     }
 
 
+    mod invert_2d8722377233432854650en126 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "28722377233432854650456573411382289859440620032075590707304700193738855195818029876568741547799767753181511758371393266031229989006058870578446812747289276920741036671713994469786904880406812933015496296559493964954240161851051500623562557032166800306346000498803201936493334049050141321136859175463065287081665388768669799901545047760009765625e-469"
+            .parse().unwrap()
+        }
+
+        impl_case!(prec=1,  round=Up => "4e125");
+        impl_case!(prec=5,  round=Up => "3.4817e+125");
+        impl_case!(prec=25, round=Up => "3.481605968311006434080812E+125");
+    }
+
     #[test]
     fn inv_random_number() {
         let n = BigDecimal::try_from(0.08121970592310568).unwrap();
 
         let ctx = Context::new(NonZeroU64::new(40).unwrap(), RoundingMode::Down);
         let i = n.inverse_with_context(&ctx);
-        assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse().unwrap());
+        assert_eq!(&i, &"12.31228294456944530942557443718279245563".parse::<BigDecimal>().unwrap());
 
         let product = i * &n;
-        assert!(BigDecimal::one() - &product < "1e-39".parse().unwrap());
+        assert!(BigDecimal::one() - &product < "1e-39".parse::<BigDecimal>().unwrap());
     }
 
     #[cfg(property_tests)]

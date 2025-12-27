@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.4.9"
+version = "0.4.10"
 authors = ["Andrew Kubera"]
 description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
@@ -16,6 +16,13 @@ categories = [ "mathematics", "science", "no-std" ]
 license = "MIT/Apache-2.0"
 autobenches = false
 edition = "2015"
+include = [
+  "LICENSE-APACHE",
+  "LICENSE-MIT",
+  "README.md",
+  "build.rs",
+  "src/**/*.rs",
+]
 
 [lib]
 bench = false

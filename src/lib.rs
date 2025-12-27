@@ -345,9 +345,9 @@ impl BigDecimal {
     ///
     /// let n: BigDecimal = "129.41675".parse().unwrap();
     ///
-    /// assert_eq!(n.with_scale_round(2, RoundingMode::Up),  "129.42".parse().unwrap());
-    /// assert_eq!(n.with_scale_round(-1, RoundingMode::Down),  "120".parse().unwrap());
-    /// assert_eq!(n.with_scale_round(4, RoundingMode::HalfEven),  "129.4168".parse().unwrap());
+    /// assert_eq!(n.with_scale_round(2, RoundingMode::Up),  "129.42".parse::<BigDecimal>().unwrap());
+    /// assert_eq!(n.with_scale_round(-1, RoundingMode::Down),  "120".parse::<BigDecimal>().unwrap());
+    /// assert_eq!(n.with_scale_round(4, RoundingMode::HalfEven),  "129.4168".parse::<BigDecimal>().unwrap());
     /// ```
     pub fn with_scale_round(&self, new_scale: i64, mode: RoundingMode) -> BigDecimal {
         use stdlib::cmp::Ordering::*;
@@ -492,11 +492,11 @@ impl BigDecimal {
     ///
     /// let n: BigDecimal = "129.41675".parse().unwrap();
     ///
-    /// assert_eq!(n.with_prec(2),  "130".parse().unwrap());
+    /// assert_eq!(n.with_prec(2),  "130".parse::<BigDecimal>().unwrap());
     ///
     /// let n_p12 = n.with_prec(12);
     /// let (i, scale) = n_p12.as_bigint_and_exponent();
-    /// assert_eq!(n_p12, "129.416750000".parse().unwrap());
+    /// assert_eq!(n_p12, "129.416750000".parse::<BigDecimal>().unwrap());
     /// assert_eq!(i, 129416750000_u64.into());
     /// assert_eq!(scale, 9);
     /// ```
@@ -647,10 +647,10 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "123.45".parse().unwrap();
-    /// assert_eq!(n.abs(), "123.45".parse().unwrap());
+    /// assert_eq!(n.abs(), "123.45".parse::<BigDecimal>().unwrap());
     ///
     /// let n: BigDecimal = "-123.45".parse().unwrap();
-    /// assert_eq!(n.abs(), "123.45".parse().unwrap());
+    /// assert_eq!(n.abs(), "123.45".parse::<BigDecimal>().unwrap());
     /// ```
     #[inline]
     pub fn abs(&self) -> BigDecimal {
@@ -665,7 +665,7 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "123.45".parse().unwrap();
-    /// assert_eq!(n.double(), "246.90".parse().unwrap());
+    /// assert_eq!(n.double(), "246.90".parse::<BigDecimal>().unwrap());
     /// ```
     pub fn double(&self) -> BigDecimal {
         if self.is_zero() {
@@ -686,7 +686,7 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "123.45".parse().unwrap();
-    /// assert_eq!(n.half(), "61.725".parse().unwrap());
+    /// assert_eq!(n.half(), "61.725".parse::<BigDecimal>().unwrap());
     /// ```
     #[inline]
     pub fn half(&self) -> BigDecimal {
@@ -716,10 +716,10 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
-    /// assert_eq!(n.square(), "1.24456874744734405154288399835406316085210256".parse().unwrap());
+    /// assert_eq!(n.square(), "1.24456874744734405154288399835406316085210256".parse::<BigDecimal>().unwrap());
     ///
-    /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
-    /// assert_eq!(n.square(), "8.5351685337567832225E+169".parse().unwrap());
+    /// let n: BigDecimal = "-9.238597585E+84".parse::<BigDecimal>().unwrap();
+    /// assert_eq!(n.square(), "8.5351685337567832225E+169".parse::<BigDecimal>().unwrap());
     /// ```
     pub fn square(&self) -> BigDecimal {
         if self.is_zero() || self.is_one_quickcheck() == Some(true) {
@@ -743,10 +743,10 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
-    /// assert_eq!(n.cube(), "1.388443899780141911774491376394890472130000455312878627147979955904".parse().unwrap());
+    /// assert_eq!(n.cube(), "1.388443899780141911774491376394890472130000455312878627147979955904".parse::<BigDecimal>().unwrap());
     ///
     /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
-    /// assert_eq!(n.cube(), "-7.88529874035334084567570176625E+254".parse().unwrap());
+    /// assert_eq!(n.cube(), "-7.88529874035334084567570176625E+254".parse::<BigDecimal>().unwrap());
     /// ```
     pub fn cube(&self) -> BigDecimal {
         if self.is_zero() || self.is_one_quickcheck() == Some(true) {
@@ -767,7 +767,7 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = 2.into();
-    /// assert_eq!(n.powi(3000000000), "9.816204233623505350831385407878283564899139328691307267002649220552261820356883420275966921502700387e903089986".parse().unwrap());
+    /// assert_eq!(n.powi(3000000000), "9.816204233623505350831385407878283564899139328691307267002649220552261820356883420275966921502700387e903089986".parse::<BigDecimal>().unwrap());
     /// ```
     #[inline]
     pub fn powi(&self, exp: i64) -> BigDecimal {
@@ -795,7 +795,7 @@ impl BigDecimal {
     /// ```
     /// # use bigdecimal::BigDecimal;
     /// let n: BigDecimal = "1.1156024145937225657484".parse().unwrap();
-    /// assert_eq!(n.sqrt().unwrap(), "1.056220817156016181190291268045893004363809142172289919023269377496528394924695970851558013658193913".parse().unwrap());
+    /// assert_eq!(n.sqrt().unwrap(), "1.056220817156016181190291268045893004363809142172289919023269377496528394924695970851558013658193913".parse::<BigDecimal>().unwrap());
     ///
     /// let n: BigDecimal = "-9.238597585E+84".parse().unwrap();
     /// assert_eq!(n.sqrt(), None);
@@ -1242,11 +1242,11 @@ impl<'a> Sum<&'a BigDecimal> for BigDecimal {
 ///
 /// // call via "standard" reference (implements Into)
 /// let m = add_one(&n);
-/// assert_eq!(m, "124.456".parse().unwrap());
+/// assert_eq!(m, "124.456".parse::<BigDecimal>().unwrap());
 ///
 /// // call by negating the reference (fast: no-digit cloning involved)
 /// let m = add_one(n.to_ref().neg());
-/// assert_eq!(m, "-122.456".parse().unwrap());
+/// assert_eq!(m, "-122.456".parse::<BigDecimal>().unwrap());
 /// ```
 ///
 #[derive(Clone, Copy, Debug, Eq)]
@@ -1273,8 +1273,8 @@ impl<'a> BigDecimalRef<'a> {
     /// let n: BigDecimal = "123.45678".parse().unwrap();
     /// let r = n.to_ref();
     /// assert_eq!(r.to_owned_with_scale(5), n.clone());
-    /// assert_eq!(r.to_owned_with_scale(0), "123".parse().unwrap());
-    /// assert_eq!(r.to_owned_with_scale(-1), "12e1".parse().unwrap());
+    /// assert_eq!(r.to_owned_with_scale(0), "123".parse::<BigDecimal>().unwrap());
+    /// assert_eq!(r.to_owned_with_scale(-1), "12e1".parse::<BigDecimal>().unwrap());
     ///
     /// let x = r.to_owned_with_scale(8);
     /// assert_eq!(&x, &n);
@@ -2362,6 +2362,11 @@ mod bigdecimal_tests {
     }
 
     include!("lib.tests.rs");
+
+    mod ops {
+        use super::*;
+        include!("lib.tests.ops.div.rs");
+    }
 }
 
 

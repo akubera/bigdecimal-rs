@@ -250,7 +250,7 @@ mod bigdecimal_tests {
             fn $name() {
                 let mut a: BigDecimal = $a.parse().unwrap();
                 let b: BigDecimal = $b.parse().unwrap();
-                let expected = $expected.parse().unwrap();
+                let expected: BigDecimal = $expected.parse().unwrap();
 
                 let prod = a.clone() * b.clone();
                 assert_eq!(prod, expected);
@@ -278,7 +278,7 @@ mod bigdecimal_tests {
             fn $name() {
                 let a: BigDecimal = $a.parse().unwrap();
                 let b: $bigt = $b.parse().unwrap();
-                let c = $expected.parse().unwrap();
+                let c: BigDecimal = $expected.parse().unwrap();
 
                 let prod = a.clone() * b.clone();
                 assert_eq!(prod, c);

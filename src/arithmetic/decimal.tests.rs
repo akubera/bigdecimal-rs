@@ -102,10 +102,6 @@ mod prop {
     use proptest::*;
     use proptest::num::f64::*;
 
-    fn random_f64() -> Any {
-        NORMAL | SUBNORMAL | ZERO | NEGATIVE
-    }
-
     proptest! {
         #[test]
         fn check_dec_shift_right_u32(n: u32) {
