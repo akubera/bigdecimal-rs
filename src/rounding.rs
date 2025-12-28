@@ -102,6 +102,31 @@ pub enum RoundingMode {
     /// * -5.5 → -6.0
     ///
     HalfEven,
+
+    /// Round away from zero (i.e up) if least significant digit would
+    /// have been 0 or 5; otherwise round down
+    ///
+    /// Stated another way: unless all insignificant digits are zero
+    /// the rounded decimal will not end with 0 or 5.
+    ///
+    /// This is apparently useful to maintain accuracy when decimals
+    /// are rounded multiple times (AKA rounding to prepare for shorter
+    /// precision).
+    ///
+    /// * 5.5  →  6.0
+    /// * 2.5  →  2.0
+    /// * 1.6  →  1.0
+    /// * 1.1  →  1.0
+    /// * 0.9  →  1.0
+    /// * 0.1  →  1.0
+    /// * 0.0  →  0.0
+    /// * -0.1 → -1.0
+    /// * -1.1 → -1.0
+    /// * -1.6 → -1.0
+    /// * -2.5 → -2.0
+    /// * -5.5 → -6.0
+    ///
+    Up05,
 }
 
 
@@ -147,6 +172,7 @@ impl RoundingMode {
             (Down,      _) => down,
             (Floor,     _) => if sign == Sign::Minus { up } else { down },
             (Ceiling,   _) => if sign == Sign::Minus { down } else { up },
+            (Up05,      _) => if lhs == 0 || lhs == 5 { up } else { down },
             (_,      Less) => down,
             (_,      Greater) => up,
             (_,        Equal) if !trailing_zeros => up,
