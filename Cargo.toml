@@ -28,7 +28,7 @@ include = [
 bench = false
 
 [dependencies]
-libm = "0.2.6"
+libm = "0.2"
 num-bigint = { version = "0.4", default-features = false }
 num-integer = { version = "0.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
@@ -38,7 +38,7 @@ serde_json = { version = "1.0", optional = true, default-features = false, featu
 
 [dev-dependencies]
 paste = "1"
-serde_test = "<1.0.176"
+serde_test = "1"
 siphasher = { version = "0.3.10", default-features = false }
 # The following dev-dependencies are only required for benchmarking
 #   (use the `benchmark-bigdecimal` script to uncomment these and run benchmarks)
