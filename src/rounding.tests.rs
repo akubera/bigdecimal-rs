@@ -362,4 +362,50 @@ mod test_round_biguint_inplace {
         impl_test!(1:   Up => "1" E 2,
                       Down => "9" E 1);
     }
+
+    mod round_05_up {
+        use super::*;
+
+        macro_rules! impl_test {
+            ($name:ident: ($l:literal, $r:literal 000...) => $ex:literal) => {
+                impl_test!($name: (Sign::Plus, ($l, $r), true) => $ex);
+            };
+            ($name:ident: ($l:literal, $r:literal $_:literal) => $ex:literal) => {
+                impl_test!($name: (Sign::Plus, ($l, $r), false) => $ex);
+            };
+            ($name:ident: - ($l:literal, $r:literal 000...) => $ex:literal) => {
+                impl_test!($name: (Sign::Minus, ($l, $r), true) => $ex);
+            };
+            ($name:ident: - ($l:literal, $r:literal $_:literal) => $ex:literal) => {
+                impl_test!($name: (Sign::Minus, ($l, $r), false) => $ex);
+            };
+            ($name:ident: $input:expr => $ex:literal) => {
+                #[test]
+                fn $name() {
+                    let (sign, pair, trailing_zeros) = $input;
+                    let mode = self::RoundingMode::Up05;
+                    let result = mode.round_pair(sign, pair, trailing_zeros);
+                    assert_eq!(result, $ex);
+                }
+            };
+        }
+
+        impl_test!(case_9_9000: (9, 9 000...) => 9);
+        impl_test!(case_9_9001: (9, 9 01) => 9);
+        impl_test!(case_9_6001: (9, 9 01) => 9);
+        impl_test!(case_6_9001: (6, 9 001) => 6);
+        impl_test!(case_5_1001: (5, 1 01) => 6);
+        impl_test!(case_5_1000: (5, 1 000...) => 6);
+        impl_test!(case_5_0000: (5, 0 000...) => 5);
+        impl_test!(case_4_0000: (4, 0 000...) => 4);
+        impl_test!(case_4_9999: (4, 9 999999) => 4);
+        impl_test!(case_0_0001: (0, 0 000001) => 1);
+        impl_test!(case_0_0000: (0, 0 000...) => 0);
+        impl_test!(case_n0_0001: -(0,0 000001) => 1);
+        impl_test!(case_n1_0001: -(1,0 000001) => 1);
+        impl_test!(case_n4_5000: -(4,5 000...) => 4);
+        impl_test!(case_n5_0000: -(5,0 000...) => 5);
+        impl_test!(case_n5_0001: -(5,1 000001) => 6);
+        impl_test!(case_n6_0001: -(6,1 000001) => 6);
+    }
 }
