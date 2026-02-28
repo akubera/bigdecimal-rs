@@ -64,3 +64,6 @@ std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(no_track_caller)'] }
+
+[lints.clippy]
+redundant_closure_for_method_calls = "deny"

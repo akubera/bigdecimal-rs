@@ -204,7 +204,7 @@ impl ToPrimitive for BigDecimalRef<'_> {
             scale -= 19;
         }
 
-        match scale.to_i32().and_then(|x| x.checked_neg()) {
+        match scale.to_i32().and_then(i32::checked_neg) {
             Some(pow) if 0 <= pow => {
                 // 'simple' integer case
                 let f = int_cow.to_f64().map(copy_sign_to_float)?;
