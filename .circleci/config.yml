@@ -140,23 +140,12 @@ workflows:
 
     - build-and-test:
         name: build-and-test:MSRV
-        rust-version: "1.43.1"
+        rust-version: "1.60.0"
         debian-version: "buster"
 
     - build-and-test:
         name: build-and-test:MSRV:serde
-        rust-version: "1.43.1"
-        debian-version: "buster"
-        rust-features: "--all-targets --features='serde'"
-
-    - build-and-test:
-        name: build-and-test:1.60
-        rust-version: "1.60"
-        debian-version: "buster"
-
-    - build-and-test:
-        name: build-and-test:1.60:serde
-        rust-version: "1.60"
+        rust-version: "1.60.0"
         debian-version: "buster"
         rust-features: "--all-targets --features='serde'"
 
