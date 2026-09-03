@@ -77,6 +77,18 @@ impl_case!(case_3025d13579652399025_prec8_round_halfeven; prec=8; round=HalfEven
 impl_case!(case_3025d13579652399025_prec8_round_halfup; prec=8; round=HalfUp; "3025.13579652399025" => "55.001235");
 
 #[test]
+fn sqrt_of_large_even_power_of_ten_is_exact() {
+    // Regression test: sqrt(10^70) == 10^35 exactly.
+    // The input coefficient has 71 digits, which exceeds the working
+    // precision (2 * (30 + 5) = 70) for a Context with 30 significant digits,
+    // so the exponent parity correction must not add an extra factor of 10.
+    let ctx = Context::default().with_prec(30).unwrap();
+    let n = BigDecimal::from(10u64).powi(70);
+    let expected = BigDecimal::from(10u64).powi(35);
+    assert_eq!(n.sqrt_with_context(&ctx).unwrap(), expected);
+}
+
+#[test]
 fn test_sqrt_rounding() {
     let vals = vec![
         // sqrt(1.21) = 1.1, [Ceiling, Up] should round up
