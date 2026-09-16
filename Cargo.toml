@@ -13,7 +13,7 @@ keywords = [
     "arbitrary-precision",
 ]
 categories = [ "mathematics", "science", "no-std" ]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 autobenches = false
 edition = "2015"
 include = [
