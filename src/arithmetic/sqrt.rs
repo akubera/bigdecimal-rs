@@ -14,7 +14,8 @@ pub(crate) fn impl_sqrt(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
     let prec = ctx.precision().get();
     let extra_rounding_digit_count = 5;
     let wanted_digits = 2 * (prec + extra_rounding_digit_count);
-    let exponent = wanted_digits.saturating_sub(num_digits) + u64::from(scale_diff.is_odd());
+    let base_exponent = wanted_digits.saturating_sub(num_digits);
+    let exponent = base_exponent + ((scale as u64 ^ base_exponent) & 1);
     let sqrt_digits = (n * ten_to_the_uint(exponent)).sqrt();
 
     // Calculate the scale of the result
