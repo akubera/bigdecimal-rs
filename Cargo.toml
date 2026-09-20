@@ -15,7 +15,7 @@ keywords = [
 categories = [ "mathematics", "science", "no-std" ]
 license = "MIT/Apache-2.0"
 autobenches = false
-edition = "2015"
+edition = "2018"
 include = [
   "LICENSE-APACHE",
   "LICENSE-MIT",
