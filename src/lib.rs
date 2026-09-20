@@ -1543,6 +1543,15 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
     }
 }
 
+impl<'a> From<&'a BigUint> for BigDecimalRef<'a> {
+    fn from(n: &'a BigUint) -> Self {
+        Self {
+            sign: Sign::Plus,
+            digits: n,
+            scale: 0,
+        }
+    }
+}
 
 /// pair i64 'scale' with some other value
 #[derive(Clone, Copy, Default)]
