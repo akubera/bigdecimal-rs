@@ -1,9 +1,9 @@
 //! Routines for parsing values into BigDecimals
 
+use super::*;
 use super::{BigDecimal, ParseBigDecimalError};
 use stdlib::num::FpCategory;
-
-use stdlib::cmp::{self, Ordering};
+use stdlib::cmp;
 
 use num_bigint::{BigInt, BigUint, Sign};
 use num_traits::Zero;
@@ -51,6 +51,8 @@ fn split_f32_into_parts(f: f32) -> (u32, i64, Sign) {
 /// Create bigdecimal from f32
 ///
 pub(crate) fn parse_from_f32(n: f32) -> BigDecimal {
+    use cmp::Ordering;
+
     if n.classify() == FpCategory::Subnormal {
         return parse_from_f32_subnormal(n);
     }
@@ -205,6 +207,8 @@ pub(crate) fn parse_from_f64_subnormal(n: f64) -> BigDecimal {
 /// Non "normal" values is undefined behavior
 ///
 pub(crate) fn parse_from_f64(n: f64) -> BigDecimal {
+    use cmp::Ordering;
+
     if n.classify() == FpCategory::Subnormal {
         return parse_from_f64_subnormal(n);
     }

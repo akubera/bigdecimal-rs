@@ -144,9 +144,9 @@ pub mod impl_serde;
 #[cfg(feature = "serde_json")]
 pub mod serde {
     /// Parse JSON number directly to BigDecimal
-    pub use impl_serde::arbitrary_precision as json_num;
+    pub use crate::impl_serde::arbitrary_precision as json_num;
     /// Parse JSON (number | null) directly to Option<BigDecimal>
-    pub use impl_serde::arbitrary_precision_option as json_num_option;
+    pub use crate::impl_serde::arbitrary_precision_option as json_num_option;
 }
 
 // construct BigDecimals from strings and floats

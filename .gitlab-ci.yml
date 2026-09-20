@@ -4,7 +4,7 @@
 # Defines jobs for checking/building/testing various
 # configurations of the BigDecimal crate.
 #
-# Always tests against stable and MinimumSupportedRustVersion (1.43)
+# Always tests against stable and MinimumSupportedRustVersion (1.67)
 # Other random versions are available, requiring manual action to run.
 #
 # Most jobs are run upon custom rust containers I try to keep updated:
@@ -263,38 +263,38 @@ cargo:test-nightly:
   <<: *script-cargo-test
 
 
-cargo:check-1.43:
+cargo:check-1.67:
   stage: check
-  image: "akubera/rust-kcov:1.43.1-buster"
+  image: "akubera/rust-kcov:1.67"
   variables:
-    RUST_CACHE_KEY: "1.43"
+    RUST_CACHE_KEY: "1.67"
   <<: *script-cargo-check
 
-cargo:build-1.43:
+cargo:build-1.67:
   stage: build
-  image: "akubera/rust-kcov:1.43.1-buster"
+  image: "akubera/rust-kcov:1.67-bookworm"
   needs:
-    - "cargo:check-1.43"
+    - "cargo:check-1.67"
   variables:
-    RUST_CACHE_KEY: "1.43"
+    RUST_CACHE_KEY: "1.67"
   <<: *script-cargo-build
 
-cargo:test-1.43:
+cargo:test-1.67:
   stage: test
   needs:
-    - "cargo:build-1.43"
-  image: "akubera/rust-kcov:1.43.1-buster"
+    - "cargo:build-1.67"
+  image: "akubera/rust-kcov:1.67.1-bookworm"
   variables:
-    RUST_CACHE_KEY: "1.43"
+    RUST_CACHE_KEY: "1.67"
   <<: *script-cargo-test
 
-cargo:test-1.43:serde:
+cargo:test-1.67:serde:
   stage: test
   needs:
-    - "cargo:build-1.43"
-  image: "akubera/rust-kcov:1.43.1-buster"
+    - "cargo:build-1.67"
+  image: "akubera/rust-kcov:1.67-bookworm"
   variables:
-    RUST_CACHE_KEY: "1.43-serde"
+    RUST_CACHE_KEY: "1.67-serde"
   <<: *script-cargo-test
   script:
     - cargo test --features=serde --all-targets
