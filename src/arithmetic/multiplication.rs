@@ -29,21 +29,59 @@ type SmallDigitVec = DigitVec<RADIX_10_u8, LittleEndian>;
 const BASE2_BIGINT_MUL_THRESHOLD: u64 = 128;
 
 
-pub(crate) fn multiply_decimals_with_context<'a, A, B>(
+/// Generic form of BigDecimal *= BigDecimalRef
+#[inline(always)]
+pub(crate) fn mulassign_bigdecimal_ref<'a>(
     dest: &mut BigDecimal,
-    a: A,
-    b: B,
+    rhs: impl Into<BigDecimalRef<'a>>,
+) {
+   impl_mulassign_bigdecimal_ref(dest, rhs.into());
+}
+
+/// Implementation of BigDecimal *= BigDecimalRef
+pub(crate) fn impl_mulassign_bigdecimal_ref(
+    dest: &mut BigDecimal,
+    rhs: BigDecimalRef,
+) {
+    dest.scale += rhs.scale;
+    mulassign_bigint_biguint_ref(&mut dest.int_val, rhs.digits);
+    if rhs.sign == Sign::Minus {
+        dest.int_val *= -1;
+    }
+}
+
+/// Implement bigint *= biguint
+///
+/// Saves clone for small values
+///
+pub(crate) fn mulassign_bigint_biguint_ref(
+    dest: &mut BigInt,
+    n: &BigUint,
+) {
+    match n.to_u128() {
+        Some(n) => {
+            dest.mul_assign(n);
+        }
+        None => {
+            dest.mul_assign(BigInt::from(n.clone()));
+        }
+    }
+}
+
+/// Generic form of BigDecimal = BigDecimalRef * BigDecimalRef
+pub(crate) fn multiply_decimals_with_context<'a>(
+    dest: &mut BigDecimal,
+    a: impl Into<BigDecimalRef<'a>>,
+    b: impl Into<BigDecimalRef<'a>>,
     ctx: &Context,
-) where
-    A: Into<BigDecimalRef<'a>>,
-    B: Into<BigDecimalRef<'a>>,
-{
+) {
     let a = a.into();
     let b = b.into();
 
     impl_multiply_decimals_with_context(dest, a, b, ctx);
 }
 
+/// Generic form of BigDecimal = BigDecimalRef * BigDecimalRef
 pub fn impl_multiply_decimals_with_context(
     dest: &mut BigDecimal,
     a: BigDecimalRef,

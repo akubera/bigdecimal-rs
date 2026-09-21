@@ -49,6 +49,20 @@ macro_rules! forward_communative_binop {
     };
 }
 
+macro_rules! forward_bigdecimalref_binop {
+    (impl $trait:ident<$t1:ty>::$method:ident for $t2:ty) => {
+        impl $trait<$t1> for $t2 {
+            type Output = BigDecimal;
+
+            #[inline]
+            fn $method(self, rhs: $t1) -> Self::Output {
+                // convert to BigDecimalRef and apply method
+                $trait::$method(BigDecimalRef::from(self), rhs)
+            }
+        }
+    };
+}
+
 /*
 macro_rules! forward_val_ref_binop {
     (impl $imp:ident for $res:ty, $method:ident) => {

@@ -2,8 +2,34 @@
 //!
 
 use super::*;
-use crate::stdlib::mem::swap;
 
+impl<'a, N: Into<BigDecimalRef<'a>>> Mul<N> for BigDecimal {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(mut self, rhs: N) -> Self::Output {
+        self.mul_assign(rhs.into());
+        self
+    }
+}
+
+impl<'a, 'b, N: Into<BigDecimalRef<'a>>> Mul<N> for BigDecimalRef<'b> {
+    type Output = BigDecimal;
+
+    #[inline]
+    fn mul(self, rhs: N) -> Self::Output {
+        let rhs = rhs.into();
+        if self.is_one_quickcheck() == Some(true) {
+            return rhs.to_owned();
+        }
+
+        let mut lhs = self.to_owned();
+        if rhs.is_one_quickcheck() != Some(true) {
+            lhs.mul_assign(rhs);
+        }
+        lhs
+    }
+}
 
 impl Mul<BigDecimal> for BigDecimal {
     type Output = BigDecimal;
@@ -16,26 +42,6 @@ impl Mul<BigDecimal> for BigDecimal {
         if rhs.is_one_quickcheck() != Some(true) {
             self.scale += rhs.scale;
             self.int_val *= rhs.int_val;
-        }
-        self
-    }
-}
-
-impl Mul<&BigDecimal> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigDecimal) -> BigDecimal {
-        if self.is_one_quickcheck() == Some(true) {
-            self.scale = rhs.scale;
-            self.int_val.set_zero();
-            self.int_val += &rhs.int_val;
-        } else if rhs.is_zero() {
-            self.scale = 0;
-            self.int_val.set_zero();
-        } else if !self.is_zero() && rhs.is_one_quickcheck() != Some(true) {
-            self.scale += rhs.scale;
-            self.int_val *= &rhs.int_val;
         }
         self
     }
@@ -76,16 +82,6 @@ impl Mul<BigInt> for BigDecimal {
     }
 }
 
-impl Mul<&BigInt> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigInt) -> BigDecimal {
-        self.int_val *= rhs;
-        self
-    }
-}
-
 impl Mul<BigInt> for &BigDecimal {
     type Output = BigDecimal;
 
@@ -96,27 +92,13 @@ impl Mul<BigInt> for &BigDecimal {
     }
 }
 
-impl Mul<&BigInt> for &BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigInt) -> BigDecimal {
-        if rhs.is_one() {
-            self.normalized()
-        } else if self.is_one_quickcheck() == Some(true) {
-            BigDecimal::new(rhs.clone(), 0)
-        } else {
-            let value = &self.int_val * rhs;
-            BigDecimal::new(value, self.scale)
-        }
-    }
-}
 
 // swap (lhs * rhs) to (rhs * lhs) for (BigInt * BigDecimal)
 forward_communative_binop!(impl Mul<BigDecimal>::mul for BigInt);
 forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigInt);
 forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigInt);
 forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigInt);
+forward_bigdecimalref_binop!(impl Mul<&BigInt>::mul for &BigDecimal);
 
 
 impl Mul<BigUint> for BigDecimal {
@@ -129,49 +111,30 @@ impl Mul<BigUint> for BigDecimal {
     }
 }
 
-impl Mul<&BigUint> for BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(mut self, rhs: &BigUint) -> BigDecimal {
-        self *= rhs;
-        self
-    }
-}
-
 impl Mul<BigUint> for &BigDecimal {
     type Output = BigDecimal;
 
     #[inline]
     fn mul(self, rhs: BigUint) -> BigDecimal {
-        self * BigInt::from_biguint(Sign::Plus, rhs)
+        self * BigInt::from(rhs)
     }
 }
 
-impl Mul<&BigUint> for &BigDecimal {
-    type Output = BigDecimal;
-
-    #[inline]
-    fn mul(self, rhs: &BigUint) -> BigDecimal {
-        if rhs.is_one() {
-            self.normalized()
-        } else if self.is_one_quickcheck() == Some(true) {
-            let value = BigInt::from_biguint(Sign::Plus, rhs.clone());
-            BigDecimal::new(value, 0)
-        } else {
-            let biguint = self.int_val.magnitude() * rhs;
-            let value = BigInt::from_biguint(self.sign(), biguint);
-            BigDecimal::new(value, self.scale)
-        }
-    }
-}
 
 // swap (lhs * rhs) to (rhs * lhs) for (BigUint * BigDecimal)
 forward_communative_binop!(impl Mul<BigDecimal>::mul for BigUint);
 forward_communative_binop!(impl Mul<&BigDecimal>::mul for BigUint);
 forward_communative_binop!(impl Mul<BigDecimal>::mul for &BigUint);
 forward_communative_binop!(impl Mul<&BigDecimal>::mul for &BigUint);
+forward_bigdecimalref_binop!(impl Mul<&BigUint>::mul for &BigDecimal);
 
+impl<'a, N: Into<BigDecimalRef<'a>>> MulAssign<N> for BigDecimal {
+    #[inline]
+    fn mul_assign(&mut self, rhs: N) {
+        let rhs = rhs.into();
+        crate::arithmetic::multiplication::mulassign_bigdecimal_ref(self, rhs);
+    }
+}
 
 impl MulAssign<BigDecimal> for BigDecimal {
     #[inline]
@@ -179,60 +142,26 @@ impl MulAssign<BigDecimal> for BigDecimal {
         if self.is_one_quickcheck() == Some(true) {
             self.int_val = rhs.int_val;
             self.scale = rhs.scale;
-        } else if rhs.is_one_quickcheck() != Some(true) {
+        } else if rhs.is_one_quickcheck() == Some(true) {
+            // no-op
+        } else {
             self.scale += rhs.scale;
             self.int_val *= rhs.int_val;
         }
     }
 }
 
-impl MulAssign<&BigDecimal> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: &BigDecimal) {
-        if rhs.is_one_quickcheck() == Some(true) {
-            return;
-        }
-        self.scale += rhs.scale;
-        self.int_val *= &rhs.int_val;
-    }
-}
-
-impl MulAssign<&BigInt> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: &BigInt) {
-        if rhs.is_one() {
-            return;
-        }
-        self.int_val *= rhs;
-    }
-}
-
 impl MulAssign<BigInt> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: BigInt) {
-        *self *= &rhs
+        self.int_val.mul_assign(rhs)
     }
 }
 
 impl MulAssign<BigUint> for BigDecimal {
     #[inline]
     fn mul_assign(&mut self, rhs: BigUint) {
-        if rhs.is_one() {
-            return;
-        }
-        *self *= BigInt::from_biguint(Sign::Plus, rhs);
-        // *self *= &rhs
-    }
-}
-
-impl MulAssign<&BigUint> for BigDecimal {
-    #[inline]
-    fn mul_assign(&mut self, rhs: &BigUint) {
-        if rhs.is_one() {
-            return;
-        }
-        // No way to multiply bigint and biguint, we have to clone
-        *self *= BigInt::from_biguint(Sign::Plus, rhs.clone());
+        self.mul_assign(BigInt::from(rhs))
     }
 }
 
