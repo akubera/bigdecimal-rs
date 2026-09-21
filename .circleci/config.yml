@@ -177,6 +177,11 @@ workflows:
         name: build-and-test:serde_json+no_std
         rust-features: "--features='serde-json' --no-default-features"
 
+    - build-and-test:
+        name: build-and-test:fuzz
+        rust-version: "1.70"
+        rust-features: "--features='fuzz'"
+
     - cargo-semver-check:
         requires:
         - proptest:serde_json

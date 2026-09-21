@@ -73,6 +73,9 @@ extern crate serde_test;
 #[cfg(all(test, feature = "serde_json"))]
 extern crate serde_json;
 
+#[cfg(feature = "fuzz")]
+extern crate arbitrary;
+
 #[cfg(feature = "std")]
 include!("./with_std.rs");
 
@@ -139,6 +142,10 @@ mod impl_fmt;
 // Implementations for deserializations and serializations
 #[cfg(any(feature = "serde", feature = "serde_json"))]
 pub mod impl_serde;
+
+// Implementations for arbitrary trait (fuzzing support)
+#[cfg(feature = "fuzz")]
+mod impl_arbitrary;
 
 /// re-export serde-json derive modules
 #[cfg(feature = "serde_json")]
