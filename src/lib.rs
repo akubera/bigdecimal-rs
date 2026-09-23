@@ -896,23 +896,40 @@ impl BigDecimal {
             return BigDecimal::one();
         }
 
-        let target_precision = DEFAULT_PRECISION;
+        let ctx = Context::default();
+        let target_precision = ctx.precision().get();
 
-        let precision = self.digits();
+        // The Taylor series for eˣ has all-positive terms only when x ≥ 0.
+        // For x < 0 the terms alternate in sign and grow in magnitude up to
+        // e^|x| before shrinking, while the sum itself is the tiny value
+        // e^-|x|; summing the series directly then suffers catastrophic
+        // cancellation that destroys most of the requested precision.
+        //
+        // Evaluate the numerically-stable series for |x| instead, and take
+        // the reciprocal when x is negative (eˣ = 1 / e^|x|).
+        let x = self.abs();
+        let precision = x.digits();
 
-        let mut term = self.clone();
-        let mut result = self.clone() + BigDecimal::one();
+        let mut term = x.clone();
+        let mut result = &x + BigDecimal::one();
         let mut prev_result = result.clone();
         let mut factorial = BigInt::one();
 
         for n in 2.. {
-            term *= self;
+            term *= &x;
             factorial *= n;
             // ∑ term=x^n/n!
             result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
 
             let trimmed_result = result.with_prec(target_precision + 5);
             if prev_result == trimmed_result {
+                if self.is_negative() {
+                    // `trimmed_result` holds e^|x| to (target_precision + 5)
+                    // significant digits, which provides enough guard digits
+                    // for the reciprocal (computed to DEFAULT_PRECISION digits)
+                    // to be correctly rounded.
+                    return trimmed_result.inverse_with_context(&ctx);
+                }
                 return trimmed_result.with_prec(target_precision);
             }
             prev_result = trimmed_result;
@@ -2239,6 +2256,12 @@ mod bigdecimal_tests {
             ("-10.04", "0.00004361977305405268676261569570537884674661515701779752139657120453194647205771372804663141467275928595"),
             //("-1000.04", "4.876927702336787390535723208392195312680380995235400234563172353460484039061383367037381490416091595E-435"),
             ("-20.07", "1.921806899438469499721914055500607234723811054459447828795824348465763824284589956630853464778332349E-9"),
+            // Large-magnitude negative exponents: the alternating Taylor
+            // series suffers catastrophic cancellation, so these must be
+            // evaluated as 1/e^|x| to keep full precision.
+            ("-25", "1.388794386496402059466176374608685691039976038020505558354779996088136813848144942061810353884315754E-11"),
+            ("-50", "1.928749847963917783017342816527012574752832651230262910897809103820511624979646591652373378777735137E-22"),
+            ("-99.94", "3.950112627264322511871556308197667068747642746715257213303051895765233176004370391122200286370606464E-44"),
             ("10", "22026.46579480671651695790064528424436635351261855678107423542635522520281857079257519912096816452590"),
             ("20", "485165195.4097902779691068305415405586846389889448472543536108003159779961427097401659798506527473494"),
             //("777.7", "5.634022488451236612534495413455282583175841288248965283178668787259870456538271615076138061788051442E+337"),
