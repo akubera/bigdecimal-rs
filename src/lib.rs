@@ -889,7 +889,8 @@ impl BigDecimal {
             return BigDecimal::one();
         }
 
-        let target_precision = DEFAULT_PRECISION;
+        let ctx = Context::default();
+        let target_precision = ctx.precision().get();
 
         // The Taylor series for eˣ has all-positive terms only when x ≥ 0.
         // For x < 0 the terms alternate in sign and grow in magnitude up to
@@ -920,7 +921,7 @@ impl BigDecimal {
                     // significant digits, which provides enough guard digits
                     // for the reciprocal (computed to DEFAULT_PRECISION digits)
                     // to be correctly rounded.
-                    return BigDecimal::one() / &trimmed_result;
+                    return trimmed_result.inverse_with_context(&ctx);
                 }
                 return trimmed_result.with_prec(target_precision);
             }
