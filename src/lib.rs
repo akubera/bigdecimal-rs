@@ -944,6 +944,11 @@ impl BigDecimal {
         }
         let (sign, mut digits) = self.int_val.to_radix_be(10);
         let trailing_count = digits.iter().rev().take_while(|i| **i == 0).count();
+        // Stripping a trailing zero decreases the scale by one to keep the
+        // value unchanged, so we can only strip as many zeros as keep the new
+        // scale representable in `i64` (bounded by `scale - i64::MIN`).
+        let max_strippable = self.scale as i128 - i64::MIN as i128;
+        let trailing_count = (trailing_count as i128).min(max_strippable) as usize;
         let trunc_to = digits.len() - trailing_count;
         digits.truncate(trunc_to);
         let int_val = BigInt::from_radix_be(sign, &digits, 10).unwrap();
@@ -2328,6 +2333,16 @@ mod bigdecimal_tests {
         impl_case!(case_1_900_000en3: (1_900_000, 3) => (19, -2));
         impl_case!(case_834700e4: (834700, -4) => (8347, -6));
         impl_case!(case_n834700e4: (-9900, 2) => (-99, 0));
+
+        #[test]
+        fn case_trailing_zero_at_min_scale_does_not_overflow() {
+            // Stripping the trailing zero here would push the scale below
+            // i64::MIN, so the value is left unchanged instead of panicking.
+            let d = BigDecimal::new(10.into(), i64::MIN);
+            let n = d.normalized();
+            assert_eq!(n.int_val, 10.into());
+            assert_eq!(n.scale, i64::MIN);
+        }
     }
 
     #[test]
