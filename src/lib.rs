@@ -118,6 +118,10 @@ mod arithmetic;
 // digit & radix routines
 mod bigdigit;
 
+// digit & radix routines
+mod generics;
+use generics::with_scale::WithScale;
+
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
 mod impl_trait_from_str;
@@ -1569,52 +1573,6 @@ impl<'a> From<&'a BigUint> for BigDecimalRef<'a> {
         }
     }
 }
-
-/// pair i64 'scale' with some other value
-#[derive(Clone, Copy, Default)]
-struct WithScale<T> {
-    pub value: T,
-    pub scale: i64,
-}
-
-impl<T: fmt::Debug> fmt::Debug for WithScale<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "(scale={} {:?})", self.scale, self.value)
-    }
-}
-
-impl<T> From<(T, i64)> for WithScale<T> {
-    fn from(pair: (T, i64)) -> Self {
-        Self { value: pair.0, scale: pair.1 }
-    }
-}
-
-impl<'a> From<WithScale<&'a BigInt>> for BigDecimalRef<'a> {
-    fn from(obj: WithScale<&'a BigInt>) -> Self {
-        Self {
-            scale: obj.scale,
-            sign: obj.value.sign(),
-            digits: obj.value.magnitude(),
-        }
-    }
-}
-
-impl<'a> From<WithScale<&'a BigUint>> for BigDecimalRef<'a> {
-    fn from(obj: WithScale<&'a BigUint>) -> Self {
-        Self {
-            scale: obj.scale,
-            sign: Sign::Plus,
-            digits: obj.value,
-        }
-    }
-}
-
-impl<T: Zero> WithScale<&T> {
-    fn is_zero(&self) -> bool {
-        self.value.is_zero()
-    }
-}
-
 
 #[rustfmt::skip]
 #[cfg(test)]
