@@ -81,3 +81,18 @@ impl<'a, T> From<&'a WithScale<T>> for WithScale<&'a T> {
         Self { scale, value }
     }
 }
+
+macro_rules! impl_addassign_for {
+    ($t:ty) => {
+        impl WithScale<$t> {
+            pub fn addassign_scaled_biguint<'a, Rhs>(&mut self, rhs: Rhs)
+                where Rhs: Into<WithScale<&'a BigUint>>
+            {
+                use crate::arithmetic::addition::addassign_scaled_biguint;
+                addassign_scaled_biguint(self, rhs.into());
+            }
+        }
+    }
+}
+
+impl_addassign_for!(BigUint);
