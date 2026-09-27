@@ -18,7 +18,9 @@ pub(crate) fn impl_exp(n: BigDecimalRef, ctx: &Context) -> BigDecimal {
     let (x, k) = factor_two_to_k_scale(WithScale { value: n.digits, scale: n.scale });
 
     let target_precision = ctx.precision().get();
-    let target_precision_bits = digit_to_bit_count(target_precision) + k as u64;
+
+    // always at least 3 u64's worth of bits
+    let target_precision_bits = digit_to_bit_count(target_precision).max(64 * 3) + k as u64;
 
     let mut num = x.clone();
     let mut den = WithScale { value: 1u8.into(), scale: 0 };
@@ -34,7 +36,7 @@ pub(crate) fn impl_exp(n: BigDecimalRef, ctx: &Context) -> BigDecimal {
 
     // assuming linear convergence, should break after N; we loop
     // through 2*N for safety
-    let stop = target_precision * 2;
+    let stop = (target_precision * 2).max(10);
 
     for i in 2..stop {
         // each loop iteration:
@@ -66,11 +68,11 @@ pub(crate) fn impl_exp(n: BigDecimalRef, ctx: &Context) -> BigDecimal {
         &mut sum, &mut tmp, k, target_precision_bits
     );
 
+    let result = BigDecimal::from(sum);
     if n.sign == Sign::Minus {
-        let result = BigDecimal::from(sum).with_prec(target_precision * 2);
-        return result.inverse_with_context(&ctx);
+        return ctx.invert(&result);
     } else {
-        return BigDecimal::from(sum).with_prec(target_precision);
+        return ctx.round_decimal(result);
     }
 }
 

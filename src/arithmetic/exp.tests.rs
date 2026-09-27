@@ -1,11 +1,14 @@
 
 macro_rules! test_case {
     ( $name:ident: $a:literal, prec=$prec:literal => $expected:literal ) => {
+        test_case!($name: $a, prec=$prec, round=HalfEven => $expected);
+    };
+    ( $name:ident: $a:literal, prec=$prec:literal, round=$round:ident => $expected:literal ) => {
         #[test]
         fn $name() {
             let x: BigDecimal = $a.parse().unwrap();
             let expected: BigDecimal = $expected.parse().unwrap();
-            let ctx = Context::default().with_prec($prec).unwrap();
+            let ctx = Context::default().with_rounding_mode(RoundingMode::$round).with_prec($prec).unwrap();
             let result = x.exp_with_context(&ctx);
             assert_eq!(&result, &expected);
             assert_eq!(result.scale, expected.scale);
@@ -13,10 +16,15 @@ macro_rules! test_case {
     }
 }
 
+test_case!(case_1_prec1: "1", prec=1 => "3");
+test_case!(case_1_prec1_rounddown: "1", prec=1, round=Down => "2");
+
 test_case!(case_0: "0", prec=10 => "1");
 test_case!(case_1_prec10: "1", prec=10 => "2.718281828");
 test_case!(case_1_prec100: "1", prec=100 => "2.718281828459045235360287471352662497757247093699959574966967627724076630353547594571382178525166427");
 test_case!(case_1d2345_p20: "1.2345", prec=20 => "3.4366597611704631832");
+test_case!(case_1d2345_p20_rounddown: "1.2345", prec=20, round=Down => "3.4366597611704631831");
+
 test_case!(case_n1d2345_p20: "-1.2345", prec=20 => "0.29098021610944063023");
 test_case!(case_0d5_p100: "0.5", prec=100 => "1.648721270700128146848650787814163571653776100710148011575079311640661021194215608632776520056366643");
 test_case!(case_n1_p100: "-1", prec=100 => "0.3678794411714423215955237701614608674458111310317678345078368016974614957448998033571472743459196437");
