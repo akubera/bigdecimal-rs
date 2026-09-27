@@ -179,6 +179,8 @@ use arithmetic::{
     diff_usize,
     count_decimal_digits,
     count_decimal_digits_uint,
+    decimal::bit_to_digit_count,
+    decimal::digit_to_bit_count,
 };
 
 
@@ -896,49 +898,14 @@ impl BigDecimal {
     ///
     #[inline]
     pub fn exp(&self) -> BigDecimal {
-        if self.is_zero() {
-            return BigDecimal::one();
-        }
-
         let ctx = Context::default();
-        let target_precision = ctx.precision().get();
+        self.exp_with_context(&ctx)
+    }
 
-        // The Taylor series for eˣ has all-positive terms only when x ≥ 0.
-        // For x < 0 the terms alternate in sign and grow in magnitude up to
-        // e^|x| before shrinking, while the sum itself is the tiny value
-        // e^-|x|; summing the series directly then suffers catastrophic
-        // cancellation that destroys most of the requested precision.
-        //
-        // Evaluate the numerically-stable series for |x| instead, and take
-        // the reciprocal when x is negative (eˣ = 1 / e^|x|).
-        let x = self.abs();
-        let precision = x.digits();
-
-        let mut term = x.clone();
-        let mut result = &x + BigDecimal::one();
-        let mut prev_result = result.clone();
-        let mut factorial = BigInt::one();
-
-        for n in 2.. {
-            term *= &x;
-            factorial *= n;
-            // ∑ term=x^n/n!
-            result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
-
-            let trimmed_result = result.with_prec(target_precision + 5);
-            if prev_result == trimmed_result {
-                if self.is_negative() {
-                    // `trimmed_result` holds e^|x| to (target_precision + 5)
-                    // significant digits, which provides enough guard digits
-                    // for the reciprocal (computed to DEFAULT_PRECISION digits)
-                    // to be correctly rounded.
-                    return trimmed_result.inverse_with_context(&ctx);
-                }
-                return trimmed_result.with_prec(target_precision);
-            }
-            prev_result = trimmed_result;
-        }
-        unreachable!("Loop did not converge")
+    /// Evaluate the natural-exponential function e<sup>x</sup> to specific precision
+    ///
+    pub fn exp_with_context(&self, ctx: &Context) -> BigDecimal {
+        arithmetic::exp::impl_exp(self.to_ref(), ctx)
     }
 
     #[must_use]
@@ -1132,7 +1099,12 @@ impl One for BigDecimal {
     }
 }
 
-fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
+fn impl_division(
+    mut num: BigInt,
+    den: &BigInt,
+    mut scale: i64,
+    max_precision: u64,
+) -> BigDecimal {
     // quick zero check
     if num.is_zero() {
         return BigDecimal::new(num, 0);
@@ -1419,16 +1391,14 @@ impl<'a> BigDecimalRef<'a> {
 
     /// Return inverse of self, rounding with ctx
     pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
+        use arithmetic::inverse::inverse_scaled_uint_with_context;
         if self.is_zero() {
             return self.to_owned();
         }
 
-        let result = arithmetic::inverse::impl_inverse_uint_scale(
-            self.digits, self.scale, ctx
-        );
-
-        // always copy sign
-        result.take_with_sign(self.sign)
+        // invert and copy sign
+        inverse_scaled_uint_with_context(*self, ctx)
+            .take_with_sign(self.sign)
     }
 
     /// Take square root of this number
@@ -1458,6 +1428,20 @@ impl<'a> BigDecimalRef<'a> {
             result.int_val = result.int_val.neg();
         }
         result
+    }
+
+    /// Evaluate the natural-exponential function e<sup>x</sup>
+    ///
+    #[inline]
+    pub fn exp(&self) -> BigDecimal {
+        let ctx = Context::default();
+        self.exp_with_context(&ctx)
+    }
+
+    /// Evaluate the natural-exponential function e<sup>x</sup> to specific precision
+    ///
+    pub fn exp_with_context(&self, ctx: &Context) -> BigDecimal {
+        arithmetic::exp::impl_exp(*self, ctx)
     }
 
     /// Return if the referenced decimal is zero

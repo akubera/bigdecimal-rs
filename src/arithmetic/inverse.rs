@@ -4,6 +4,14 @@ use crate::*;
 use super::exp2;
 use arithmetic::decimal::get_power_of_ten_u64;
 
+pub(crate) fn inverse_scaled_uint_with_context<'a>(
+    n: impl Into<WithScale<&'a BigUint>>,
+    ctx: &Context,
+) -> BigDecimal {
+    let WithScale { value: n, scale } = n.into();
+    impl_inverse_uint_scale(n, scale, ctx)
+}
+
 /// Implementation of inverse: (1/n)
 pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
 
@@ -34,16 +42,22 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
     let max_precision = ctx.precision().get();
 
-    let s = BigDecimal::new(BigInt::from_biguint(Sign::Plus, n.clone()), scale);
-    let two = BigDecimal::from(2);
-
-    let next_iteration = move |r: BigDecimal| {
-        let tmp = &two - &s * &r;
-        r * tmp
+    let s = BigDecimalRef {
+        digits: n,
+        scale: scale,
+        sign: Sign::Plus,
     };
 
+    // each iteration next(r) = (2 - s * r) * r
+    let next_iteration = move |r: BigDecimal, tmp: &mut BigDecimal| {
+        *tmp = 2 - s * &r;
+        r * &*tmp
+    };
+
+    let mut tmp = BigDecimal::zero();
+
     // calculate first iteration
-    let mut running_result = next_iteration(guess);
+    let mut running_result = next_iteration(guess, &mut tmp);
     debug_assert!(!running_result.is_zero(), "Zero detected in inverse calculation of {}e{}", n, -scale);
 
     let mut prev_result = BigDecimal::one();
@@ -56,7 +70,7 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
         prev_result = result;
 
         // calculate next iteration
-        running_result = next_iteration(running_result).with_prec(max_precision + 2);
+        running_result = next_iteration(running_result, &mut tmp).with_prec(max_precision + 2);
 
         // 'result' has clipped precision, 'running_result' has full precision
         result = if running_result.digits() > max_precision {
