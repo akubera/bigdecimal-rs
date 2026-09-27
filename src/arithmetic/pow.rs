@@ -252,6 +252,26 @@ fn pow_u64_no_context(bd: BigDecimalRef, exp: u64) -> BigDecimal {
     BigDecimal::new(int_val, scale)
 }
 
+/// Optimized n^(2^k) to precision bits
+pub(crate) fn pow_2_k_scaled_biguint(
+   n: &mut WithScale<BigUint>,
+   tmp: &mut BigUint,
+   k: u16,
+   precision_bits: u64,
+) {
+    if k == 0 {
+        return;
+    }
+    *tmp = &n.value * &n.value;
+    n.scale *= 2;
+    stdlib::mem::swap(tmp, &mut n.value);
+    while n.bits() > 2 * (precision_bits + k as u64) + 19 {
+        n.value /= 1_0000000000000000000u64;
+        n.scale -= 19;
+    }
+    pow_2_k_scaled_biguint(n, tmp, k - 1, precision_bits);
+}
+
 #[cfg(not(has_unsigned_abs))]
 fn unsigned_abs(n: i64) -> u64 {
     if n != i64::MIN {

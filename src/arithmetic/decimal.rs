@@ -4,6 +4,7 @@
 //!       math, as high-order bits affect low-order decimals
 //!
 
+use crate::*;
 
 /// Shift u32 right by *n* decimal digits
 #[allow(dead_code)]
@@ -209,6 +210,17 @@ pub(crate) fn count_digits_biguint(n: &num_bigint::BigUint) -> u64 {
     }
     digits
 }
+
+/// convert number of bits to approximate number of digits
+pub(crate) fn bit_to_digit_count(bitcount: u64) -> u64 {
+    (bitcount as f64 / LOG2_10).ceil() as u64
+}
+
+/// convert number of digits to approximate number of bits
+pub(crate) fn digit_to_bit_count(bitcount: u64) -> u64 {
+    (bitcount as f64 * LOG2_10).ceil() as u64
+}
+
 
 /// Return Some(exp) if n == 10^{exp}, otherwise None
 pub(crate) fn get_power_of_ten_u64(n: u64) -> Option<u8> {

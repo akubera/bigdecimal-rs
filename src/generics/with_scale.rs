@@ -5,6 +5,8 @@
 //!
 
 use crate::*;
+use crate::arithmetic::*;
+
 
 /// pair i64 'scale' with some other value
 #[derive(Clone, Copy, Default)]
@@ -75,6 +77,15 @@ impl From<WithScale<BigUint>> for BigDecimal {
     }
 }
 
+impl<'a> From<BigDecimalRef<'a>> for WithScale<&'a BigUint> {
+    fn from(obj: BigDecimalRef<'a>) -> Self {
+        Self {
+            value: obj.digits,
+            scale: obj.scale,
+        }
+    }
+}
+
 impl<'a, T> From<&'a WithScale<T>> for WithScale<&'a T> {
     fn from(obj: &'a WithScale<T>) -> Self {
         let &WithScale { ref value, scale } = obj;
@@ -82,17 +93,27 @@ impl<'a, T> From<&'a WithScale<T>> for WithScale<&'a T> {
     }
 }
 
-macro_rules! impl_addassign_for {
-    ($t:ty) => {
-        impl WithScale<$t> {
-            pub fn addassign_scaled_biguint<'a, Rhs>(&mut self, rhs: Rhs)
-                where Rhs: Into<WithScale<&'a BigUint>>
-            {
-                use crate::arithmetic::addition::addassign_scaled_biguint;
-                addassign_scaled_biguint(self, rhs.into());
-            }
-        }
+impl WithScale<BigUint> {
+    pub fn addassign_scaled_biguint<'a, Rhs>(&mut self, rhs: Rhs)
+        where Rhs: Into<WithScale<&'a BigUint>>
+    {
+        addition::addassign_scaled_biguint(self, rhs.into());
+    }
+
+    pub fn mulassign_scaled_biguint<'a, Rhs>(&mut self, rhs: Rhs)
+        where Rhs: Into<WithScale<&'a BigUint>>
+    {
+        let rhs = rhs.into();
+        self.scale += rhs.scale;
+        self.value *= rhs.value;
+    }
+
+    pub fn count_int_digits(&self) -> i64 {
+        let total_digits = decimal::count_digits_biguint(&self.value);
+        total_digits as i64 - self.scale
+    }
+
+    pub fn bits(&self) -> u64 {
+        self.value.bits()
     }
 }
-
-impl_addassign_for!(BigUint);
