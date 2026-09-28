@@ -1,6 +1,6 @@
 [package]
 name = "bigdecimal"
-version = "0.4.10"
+version = "0.4.11"
 authors = ["Andrew Kubera"]
 description = "Arbitrary precision decimal numbers"
 documentation = "https://docs.rs/bigdecimal"
@@ -64,3 +64,6 @@ std = ["num-bigint/std", "num-integer/std", "num-traits/std"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(no_track_caller)'] }
+
+[lints.clippy]
+redundant_closure_for_method_calls = "deny"

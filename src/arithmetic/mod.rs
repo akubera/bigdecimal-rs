@@ -7,12 +7,14 @@ use num_traits::AsPrimitive;
 pub(crate) mod decimal;
 
 pub(crate) mod addition;
+pub(crate) mod division;
 pub(crate) mod multiplication;
 pub(crate) mod modulo;
 pub(crate) mod sqrt;
 pub(crate) mod cbrt;
 pub(crate) mod inverse;
 pub(crate) mod pow;
+pub(crate) mod exp;
 
 pub(crate) use self::decimal::{
     count_digits_bigint as count_decimal_digits,

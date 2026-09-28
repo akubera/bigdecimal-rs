@@ -2,6 +2,7 @@
 //!
 
 use crate::*;
+use super::*;
 
 
 pub(crate) fn add_bigdecimals(
@@ -114,6 +115,33 @@ pub(crate) fn addassign_bigdecimal_ref<'a, T: Into<BigDecimalRef<'a>>>(
         }
     }
 }
+
+pub(crate) fn addassign_scaled_biguint(
+    lhs: &mut WithScale<BigUint>,
+    rhs: WithScale<&BigUint>,
+) {
+    use stdlib::cmp::Ordering::*;
+
+    if rhs.value.is_zero() {
+        return;
+    }
+    match diff(lhs.scale, rhs.scale) {
+        (Equal, _) => {
+            lhs.value += rhs.value;
+        }
+        (Less, d) => {
+            lhs.scale += d as i64;
+            multiply_by_ten_to_the_uint(&mut lhs.value, d);
+            lhs.value += rhs.value;
+        }
+        (Greater, d) => {
+            let mut tmp = rhs.value.clone();
+            multiply_by_ten_to_the_uint(&mut tmp, d);
+            lhs.value += tmp;
+        }
+    }
+}
+
 
 /// Add BigDecimal references which have the same scale (integer addition)
 fn add_aligned_bigdecimal_ref_ref(

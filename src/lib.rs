@@ -115,6 +115,10 @@ mod arithmetic;
 // digit & radix routines
 mod bigdigit;
 
+// digit & radix routines
+mod generics;
+use generics::with_scale::WithScale;
+
 // From<T>, To<T>, TryFrom<T> impls
 mod impl_convert;
 mod impl_trait_from_str;
@@ -168,6 +172,8 @@ use arithmetic::{
     diff_usize,
     count_decimal_digits,
     count_decimal_digits_uint,
+    decimal::bit_to_digit_count,
+    decimal::digit_to_bit_count,
 };
 
 
@@ -885,32 +891,14 @@ impl BigDecimal {
     ///
     #[inline]
     pub fn exp(&self) -> BigDecimal {
-        if self.is_zero() {
-            return BigDecimal::one();
-        }
+        let ctx = Context::default();
+        self.exp_with_context(&ctx)
+    }
 
-        let target_precision = DEFAULT_PRECISION;
-
-        let precision = self.digits();
-
-        let mut term = self.clone();
-        let mut result = self.clone() + BigDecimal::one();
-        let mut prev_result = result.clone();
-        let mut factorial = BigInt::one();
-
-        for n in 2.. {
-            term *= self;
-            factorial *= n;
-            // ∑ term=x^n/n!
-            result += impl_division(term.int_val.clone(), &factorial, term.scale, 117 + precision);
-
-            let trimmed_result = result.with_prec(target_precision + 5);
-            if prev_result == trimmed_result {
-                return trimmed_result.with_prec(target_precision);
-            }
-            prev_result = trimmed_result;
-        }
-        unreachable!("Loop did not converge")
+    /// Evaluate the natural-exponential function e<sup>x</sup> to specific precision
+    ///
+    pub fn exp_with_context(&self, ctx: &Context) -> BigDecimal {
+        arithmetic::exp::impl_exp(self.to_ref(), ctx)
     }
 
     #[must_use]
@@ -1104,7 +1092,12 @@ impl One for BigDecimal {
     }
 }
 
-fn impl_division(mut num: BigInt, den: &BigInt, mut scale: i64, max_precision: u64) -> BigDecimal {
+fn impl_division(
+    mut num: BigInt,
+    den: &BigInt,
+    mut scale: i64,
+    max_precision: u64,
+) -> BigDecimal {
     // quick zero check
     if num.is_zero() {
         return BigDecimal::new(num, 0);
@@ -1391,16 +1384,14 @@ impl<'a> BigDecimalRef<'a> {
 
     /// Return inverse of self, rounding with ctx
     pub fn inverse_with_context(&self, ctx: &Context) -> BigDecimal {
+        use arithmetic::inverse::inverse_scaled_uint_with_context;
         if self.is_zero() {
             return self.to_owned();
         }
 
-        let result = arithmetic::inverse::impl_inverse_uint_scale(
-            self.digits, self.scale, ctx
-        );
-
-        // always copy sign
-        result.take_with_sign(self.sign)
+        // invert and copy sign
+        inverse_scaled_uint_with_context(*self, ctx)
+            .take_with_sign(self.sign)
     }
 
     /// Take square root of this number
@@ -1430,6 +1421,20 @@ impl<'a> BigDecimalRef<'a> {
             result.int_val = result.int_val.neg();
         }
         result
+    }
+
+    /// Evaluate the natural-exponential function e<sup>x</sup>
+    ///
+    #[inline]
+    pub fn exp(&self) -> BigDecimal {
+        let ctx = Context::default();
+        self.exp_with_context(&ctx)
+    }
+
+    /// Evaluate the natural-exponential function e<sup>x</sup> to specific precision
+    ///
+    pub fn exp_with_context(&self, ctx: &Context) -> BigDecimal {
+        arithmetic::exp::impl_exp(*self, ctx)
     }
 
     /// Return if the referenced decimal is zero
@@ -1536,52 +1541,15 @@ impl<'a> From<&'a BigInt> for BigDecimalRef<'a> {
     }
 }
 
-
-/// pair i64 'scale' with some other value
-#[derive(Clone, Copy, Default)]
-struct WithScale<T> {
-    pub value: T,
-    pub scale: i64,
-}
-
-impl<T: fmt::Debug> fmt::Debug for WithScale<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "(scale={} {:?})", self.scale, self.value)
-    }
-}
-
-impl<T> From<(T, i64)> for WithScale<T> {
-    fn from(pair: (T, i64)) -> Self {
-        Self { value: pair.0, scale: pair.1 }
-    }
-}
-
-impl<'a> From<WithScale<&'a BigInt>> for BigDecimalRef<'a> {
-    fn from(obj: WithScale<&'a BigInt>) -> Self {
+impl<'a> From<&'a BigUint> for BigDecimalRef<'a> {
+    fn from(n: &'a BigUint) -> Self {
         Self {
-            scale: obj.scale,
-            sign: obj.value.sign(),
-            digits: obj.value.magnitude(),
-        }
-    }
-}
-
-impl<'a> From<WithScale<&'a BigUint>> for BigDecimalRef<'a> {
-    fn from(obj: WithScale<&'a BigUint>) -> Self {
-        Self {
-            scale: obj.scale,
             sign: Sign::Plus,
-            digits: obj.value,
+            digits: n,
+            scale: 0,
         }
     }
 }
-
-impl<T: Zero> WithScale<&T> {
-    fn is_zero(&self) -> bool {
-        self.value.is_zero()
-    }
-}
-
 
 #[rustfmt::skip]
 #[cfg(test)]
@@ -2232,6 +2200,12 @@ mod bigdecimal_tests {
             ("-10.04", "0.00004361977305405268676261569570537884674661515701779752139657120453194647205771372804663141467275928595"),
             //("-1000.04", "4.876927702336787390535723208392195312680380995235400234563172353460484039061383367037381490416091595E-435"),
             ("-20.07", "1.921806899438469499721914055500607234723811054459447828795824348465763824284589956630853464778332349E-9"),
+            // Large-magnitude negative exponents: the alternating Taylor
+            // series suffers catastrophic cancellation, so these must be
+            // evaluated as 1/e^|x| to keep full precision.
+            ("-25", "1.388794386496402059466176374608685691039976038020505558354779996088136813848144942061810353884315754E-11"),
+            ("-50", "1.928749847963917783017342816527012574752832651230262910897809103820511624979646591652373378777735137E-22"),
+            ("-99.94", "3.950112627264322511871556308197667068747642746715257213303051895765233176004370391122200286370606464E-44"),
             ("10", "22026.46579480671651695790064528424436635351261855678107423542635522520281857079257519912096816452590"),
             ("20", "485165195.4097902779691068305415405586846389889448472543536108003159779961427097401659798506527473494"),
             //("777.7", "5.634022488451236612534495413455282583175841288248965283178668787259870456538271615076138061788051442E+337"),
