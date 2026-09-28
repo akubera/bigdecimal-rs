@@ -73,6 +73,8 @@
   rules: &rules-always-master-otherwise-manual
     - if: '$CI_COMMIT_BRANCH == "master"'
       when: always
+    - if: '$CI_COMMIT_BRANCH =~ /^releases\-/'
+      when: always
     - if: '$CI_COMMIT_BRANCH == null'
       when: never
     - when: manual
@@ -385,8 +387,9 @@ cargo-publish:
   stage: deploy
   image: "rust:latest"
   when: manual
-  only:
-    - master
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH =~ /^releases\-/'
   allow_failure: true
   cache: []
   # disable downloading artifacts
