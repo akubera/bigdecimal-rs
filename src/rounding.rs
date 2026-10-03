@@ -184,7 +184,7 @@ impl RoundingMode {
 
     /// Round digits, and if rounded up to 10, store 1 in carry and return zero
     pub(crate) fn round_pair_with_carry(
-        &self,
+        self,
         sign: Sign,
         pair: (u8, u8),
         trailing_zeros: bool,
@@ -255,7 +255,7 @@ impl RoundingMode {
     }
 
     /// Hint used to skip calculating trailing_zeros if they don't matter
-    fn needs_trailing_zeros(&self, insig_digit: u8) -> bool {
+    fn needs_trailing_zeros(self, insig_digit: u8) -> bool {
         use RoundingMode::*;
 
         // only need trailing zeros if the rounding digit is 0 or 5
@@ -293,12 +293,12 @@ pub(crate) struct NonDigitRoundingData {
 
 impl NonDigitRoundingData {
     /// Round pair of digits, storing overflow (10) in the carry
-    pub fn round_pair(&self, pair: (u8, u8), trailing_zeros: bool) -> u8 {
+    pub fn round_pair(self, pair: (u8, u8), trailing_zeros: bool) -> u8 {
         self.mode.round_pair(self.sign, pair, trailing_zeros)
     }
 
     /// round-pair with carry-digits
-    pub fn round_pair_with_carry(&self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
+    pub fn round_pair_with_carry(self, pair: (u8, u8), trailing_zeros: bool, carry: &mut u8) -> u8 {
         self.mode.round_pair_with_carry(self.sign, pair, trailing_zeros, carry)
     }
 
@@ -441,15 +441,15 @@ impl InsigData {
         }
     }
 
-    pub fn round_digit(&self, digit: u8) -> u8 {
+    pub fn round_digit(self, digit: u8) -> u8 {
         self.rounding_data.round_pair((digit, self.digit), self.trailing_zeros)
     }
 
-    pub fn round_digit_with_carry(&self, digit: u8, carry: &mut u8) -> u8 {
+    pub fn round_digit_with_carry(self, digit: u8, carry: &mut u8) -> u8 {
         self.rounding_data.round_pair_with_carry((digit, self.digit), self.trailing_zeros, carry)
     }
 
-    pub fn round_slice_into(&self, dest: &mut Vec<u8>, digits: &[u8]) {
+    pub fn round_slice_into(self, dest: &mut Vec<u8>, digits: &[u8]) {
         let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
         let digits = rest.iter().copied();
         let mut carry = 0;
@@ -462,7 +462,7 @@ impl InsigData {
     }
 
     #[allow(dead_code)]
-    pub fn round_slice_into_with_carry(&self, dest: &mut Vec<u8>, digits: &[u8], carry: &mut u8) {
+    pub fn round_slice_into_with_carry(self, dest: &mut Vec<u8>, digits: &[u8], carry: &mut u8) {
         let (&d0, rest) = digits.split_first().unwrap_or((&0, &[]));
         let digits = rest.iter().copied();
         let r0 = self.round_digit_with_carry(d0, carry);
