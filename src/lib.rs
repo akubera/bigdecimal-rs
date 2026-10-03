@@ -1055,11 +1055,20 @@ impl Hash for BigDecimal {
             Sign::NoSign.hash(state);
             return;
         }
-        let (sign, digits) = self.int_val.to_radix_le(10);
-        let trailing_zeros = digits.iter().take_while(|&&d| d == 0).count();
-        sign.hash(state);
-        digits[trailing_zeros..].hash(state);
-        (self.scale as i128 - trailing_zeros as i128).hash(state);
+        let ten_to_the_19 = 10u64.pow(19);
+        let mut digits = self.int_val.magnitude().clone();
+        let mut trailing_zeros = 0i128;
+        while digits.trailing_zeros() >= Some(19) && (&digits % ten_to_the_19).is_zero() {
+            digits /= ten_to_the_19;
+            trailing_zeros += 19;
+        }
+        while digits.is_even() && (&digits % 10u32).is_zero() {
+            digits /= 10u32;
+            trailing_zeros += 1;
+        }
+        self.int_val.sign().hash(state);
+        digits.hash(state);
+        (self.scale as i128 - trailing_zeros).hash(state);
     }
 }
 
