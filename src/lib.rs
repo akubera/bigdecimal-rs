@@ -1049,24 +1049,26 @@ impl From<ParseBigIntError> for ParseBigDecimalError {
     }
 }
 
-#[allow(deprecated)] // trim_right_match -> trim_end_match
 impl Hash for BigDecimal {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut dec_str = self.int_val.to_str_radix(10);
-        let scale = self.scale;
-        let zero = self.int_val.is_zero();
-        if scale > 0 && !zero {
-            let mut cnt = 0;
-            dec_str = dec_str
-                .trim_right_matches(|x| {
-                    cnt += 1;
-                    x == '0' && cnt <= scale
-                })
-                .to_string();
-        } else if scale < 0 && !zero {
-            dec_str.push_str(&"0".repeat(self.scale.abs() as usize));
+        if self.int_val.is_zero() {
+            Sign::NoSign.hash(state);
+            return;
         }
-        dec_str.hash(state);
+        let ten_to_the_19 = 10u64.pow(19);
+        let mut digits = self.int_val.magnitude().clone();
+        let mut trailing_zeros = 0i128;
+        while digits.trailing_zeros() >= Some(19) && (&digits % ten_to_the_19).is_zero() {
+            digits /= ten_to_the_19;
+            trailing_zeros += 19;
+        }
+        while digits.is_even() && (&digits % 10u32).is_zero() {
+            digits /= 10u32;
+            trailing_zeros += 1;
+        }
+        self.int_val.sign().hash(state);
+        digits.hash(state);
+        (self.scale as i128 - trailing_zeros).hash(state);
     }
 }
 
@@ -1859,10 +1861,52 @@ mod bigdecimal_tests {
             ("10000", "10"),
             ("10", "10000"),
             ("10.0", "100"),
+            ("1011", "0.01011"),
+            ("12", "1.2"),
+            ("1.2", "0.12"),
+            ("-1011", "1011"),
+            ("1e900", "1e-900"),
         ];
         for &(x,y) in vals.iter() {
             let a = BigDecimal::from_str(x).unwrap();
             let b = BigDecimal::from_str(y).unwrap();
+            assert!(a != b, "{} == {}", a, b);
+            assert!(hash(&a) != hash(&b), "hash({}) == hash({})", a, b);
+        }
+    }
+
+    #[test]
+    fn test_hash_extreme_scale() {
+        use stdlib::DefaultHasher;
+        use stdlib::hash::{Hash, Hasher};
+
+        fn hash<T>(obj: &T) -> u64
+            where T: Hash
+        {
+            let mut hasher = DefaultHasher::new();
+            obj.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        let equal = vec![
+            ((10, i64::MIN), (100, i64::MIN + 1)),
+            ((10, i64::MAX), (1, i64::MAX - 1)),
+            ((0, i64::MIN), (0, i64::MAX)),
+        ];
+        for &((xi, xs), (yi, ys)) in equal.iter() {
+            let a = BigDecimal::new(BigInt::from(xi), xs);
+            let b = BigDecimal::new(BigInt::from(yi), ys);
+            assert_eq!(a, b);
+            assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
+        }
+
+        let not_equal = vec![
+            ((1, i64::MIN), (1, i64::MAX)),
+            ((10, i64::MIN), (1, i64::MIN)),
+        ];
+        for &((xi, xs), (yi, ys)) in not_equal.iter() {
+            let a = BigDecimal::new(BigInt::from(xi), xs);
+            let b = BigDecimal::new(BigInt::from(yi), ys);
             assert!(a != b, "{} == {}", a, b);
             assert!(hash(&a) != hash(&b), "hash({}) == hash({})", a, b);
         }
