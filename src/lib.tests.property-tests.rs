@@ -114,3 +114,26 @@ mod arithmetic {
         }
     }
 }
+
+mod hash {
+    use super::*;
+    use stdlib::DefaultHasher;
+    use stdlib::hash::{Hash, Hasher};
+
+    fn hash(n: &BigDecimal) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        n.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    proptest! {
+        #[test]
+        fn equal_values_hash_equal(m: i128, e in i64::MIN..=i64::MAX - 40, k in 0u64..40) {
+            let a = BigDecimal::new(m.into(), e);
+            let b = BigDecimal::new(BigInt::from(m) * ten_to_the(k), e + k as i64);
+
+            prop_assert_eq!(&a, &b);
+            prop_assert_eq!(hash(&a), hash(&b));
+        }
+    }
+}
