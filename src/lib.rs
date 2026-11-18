@@ -521,16 +521,18 @@ impl BigDecimal {
                 let diff = digits - prec;
                 let p = ten_to_the(diff);
                 let (mut q, r) = self.int_val.div_rem(&p);
+                let mut scale = self.scale.checked_sub(diff as i64).expect("precision overflow");
 
                 // check for "leading zero" in remainder term; otherwise round
-                if p < 10 * &r {
-                    q += get_rounding_term(&r);
+                if p < 10 * &r && get_rounding_term(&r) != 0 {
+                    q += 1;
+                    if prec != 0 && count_decimal_digits(&q) > prec {
+                        q /= 10;
+                        scale = scale.checked_sub(1).expect("precision overflow");
+                    }
                 }
 
-                BigDecimal {
-                    int_val: q,
-                    scale: self.scale - diff as i64,
-                }
+                BigDecimal::new(q, scale)
             }
             Ordering::Less => {
                 let diff = prec - digits;
@@ -544,38 +546,23 @@ impl BigDecimal {
     }
 
     /// Return this BigDecimal with the given precision, rounding if needed
-    #[cfg(rustc_1_46)] // Option::zip
-    #[allow(clippy::incompatible_msrv)]
     pub fn with_precision_round(
         &self,
         prec: stdlib::num::NonZeroU64,
         round: RoundingMode,
     ) -> BigDecimal {
-        let digit_count = self.digits();
-        let new_prec = prec.get().to_i64();
-        let new_scale = new_prec
-                        .zip(digit_count.to_i64())
-                        .and_then(|(new_prec, old_prec)| new_prec.checked_sub(old_prec))
-                        .and_then(|prec_diff| self.scale.checked_add(prec_diff))
-                        .expect("precision overflow");
+        let precision = prec.get().to_i64().expect("precision overflow");
+        let digits = self.digits().to_i64().expect("precision overflow");
 
-        self.with_scale_round(new_scale, round)
-    }
+        if precision >= digits {
+            let scale = self.scale.checked_add(precision - digits).expect("precision overflow");
+            return self.with_scale(scale);
+        }
 
-    #[cfg(not(rustc_1_46))]
-    pub fn with_precision_round(
-        &self,
-        prec: stdlib::num::NonZeroU64,
-        round: RoundingMode,
-    ) -> BigDecimal {
-        let new_scale = self.digits().to_i64().and_then(
-                            |old_prec| {
-                                prec.get().to_i64().and_then(
-                                    |new_prec| { new_prec.checked_sub(old_prec) })})
-                            .and_then(|prec_diff| self.scale.checked_add(prec_diff))
-                            .expect("precision overflow");
-
-        self.with_scale_round(new_scale, round)
+        // Rounding all nines can remove one more digit than the difference in precision.
+        let rounded = round.round_bigint_to_prec(self.int_val.clone(), prec);
+        let scale = self.scale.checked_add(rounded.scale).expect("precision overflow");
+        BigDecimal::new(rounded.value, scale)
     }
 
     /// Return the sign of the `BigDecimal` as `num::bigint::Sign`.
@@ -1894,6 +1881,38 @@ mod bigdecimal_tests {
             assert_eq!(a, b);
             assert_eq!(hash(&a), hash(&b), "hash({}) != hash({})", a, b);
         }
+    }
+
+    #[test]
+    fn with_precision_round_significant_digits() {
+        use stdlib::num::NonZeroU64;
+        use RoundingMode::*;
+
+        for &(value, precision, mode, coefficient, scale) in &[
+            ("99.9", 1, HalfUp, 1, -2),
+            ("99.9", 2, HalfUp, 10, -1),
+            ("-99.5", 2, HalfEven, -10, -1),
+            ("-99.5", 2, Ceiling, -99, 0),
+            ("199.5", 3, HalfUp, 200, 0),
+            ("0.00999", 2, Up, 10, 3),
+            ("100.0", 2, HalfUp, 10, -1),
+            ("1", 3, HalfUp, 100, 2),
+            ("0.0", 3, HalfUp, 0, 3),
+            ("999999999999999999995", 1, HalfUp, 1, -21),
+        ] {
+            let n = BigDecimal::from_str(value).unwrap();
+            let rounded = n.with_precision_round(NonZeroU64::new(precision).unwrap(), mode);
+            assert_eq!(
+                rounded.into_bigint_and_scale(), (coefficient.into(), scale),
+                "{} at precision {} ({:?})", value, precision, mode
+            );
+        }
+    }
+
+    #[test]
+    fn with_prec_carry_preserves_precision() {
+        let rounded = BigDecimal::from(99).with_prec(1);
+        assert_eq!(rounded.into_bigint_and_scale(), (1.into(), -2));
     }
 
     #[test]
