@@ -1,19 +1,24 @@
 //! inverse implementation
 
 use crate::*;
-use super::exp2;
 use arithmetic::decimal::get_power_of_ten_u64;
 
 pub(crate) fn inverse_scaled_uint_with_context<'a>(
     n: impl Into<WithScale<&'a BigUint>>,
+    sign: Sign,
     ctx: &Context,
 ) -> BigDecimal {
     let WithScale { value: n, scale } = n.into();
-    impl_inverse_uint_scale(n, scale, ctx)
+    impl_inverse_signed_uint_scale(n, scale, sign, ctx)
 }
 
-/// Implementation of inverse: (1/n)
-pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) -> BigDecimal {
+/// Implementation of inverse: 1/(sign * n * 10^(-scale)), rounded with ctx
+///
+/// The sign is needed before rounding, so that Floor and Ceiling
+/// round in the right direction for negative numbers.
+///
+fn impl_inverse_signed_uint_scale(n: &BigUint, scale: i64, sign: Sign, ctx: &Context) -> BigDecimal {
+    debug_assert!(!n.is_zero());
 
     if let Some(small_pow_ten) = n.to_u64().and_then(get_power_of_ten_u64) {
         // optimized inversion for small power of ten:
@@ -21,7 +26,7 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
 
         // create bigint with requested precision
         let prec = ctx.precision().get();
-        let inv_int = BigInt::from(10u8).pow(prec as u32 - 1);
+        let inv_int = BigInt::from_biguint(sign, ten_to_the_uint(prec - 1));
 
         // increase inverted scale by requested precision
         let inv_scale = small_pow_ten as i64 - scale + prec as i64 - 1;
@@ -29,150 +34,25 @@ pub(crate) fn impl_inverse_uint_scale(n: &BigUint, scale: i64, ctx: &Context) ->
         return BigDecimal::new(inv_int, inv_scale);
     }
 
-    // use f64 approximation to guess initial inverse
-    let guess = n.to_f64()
-        .filter(|f| f.is_normal())
-        .map(|f| 1.0 / f)
-        .filter(|&f| f != 0.0 && f.is_finite())
-        .and_then(BigDecimal::from_f64)
-        .map(|mut d| { d.scale -= scale; d })
-        .unwrap_or_else(
-            // couldn't use floating point, so just approximate with number of bits
-            || make_inv_guess(n.bits(), scale));
+    // 1/(n * 10^-scale) = (10^shift / n) * 10^(scale - shift)
+    //
+    // With shift = prec + digits(n), the integer quotient has 'prec'
+    // or 'prec + 1' digits, so it holds every digit we keep.
+    let prec = ctx.precision().get();
+    let shift = prec + count_decimal_digits_uint(n);
+    let (quotient, remainder) = ten_to_the_uint(shift).div_rem(n);
 
-    let max_precision = ctx.precision().get();
-
-    let s = BigDecimalRef {
-        digits: n,
-        scale: scale,
-        sign: Sign::Plus,
-    };
-
-    // each iteration next(r) = (2 - s * r) * r
-    let next_iteration = move |r: BigDecimal, tmp: &mut BigDecimal| {
-        *tmp = 2 - s * &r;
-        r * &*tmp
-    };
-
-    let mut tmp = BigDecimal::zero();
-
-    // calculate first iteration
-    let mut running_result = next_iteration(guess, &mut tmp);
-    debug_assert!(!running_result.is_zero(), "Zero detected in inverse calculation of {}e{}", n, -scale);
-
-    let mut prev_result = BigDecimal::one();
-    let mut result = BigDecimal::zero();
-
-    // TODO: Prove that we don't need to arbitrarily limit iterations
-    // and that convergence can be calculated
-    while prev_result != result {
-        // store current result to test for convergence
-        prev_result = result;
-
-        // calculate next iteration
-        running_result = next_iteration(running_result, &mut tmp).with_prec(max_precision + 2);
-
-        // 'result' has clipped precision, 'running_result' has full precision
-        result = if running_result.digits() > max_precision {
-            running_result.with_precision_round(ctx.precision(), ctx.rounding_mode())
-        } else {
-            running_result.clone()
-        };
+    // Append one more digit: 0 if the division is exact, else 1.
+    // This tells the rounding step whether the dropped digits are
+    // all zero, so Up/Ceiling/Floor and the half-way modes see the
+    // exact value instead of a truncated one.
+    let mut digits = quotient * 10u8;
+    if !remainder.is_zero() {
+        digits += 1u8;
     }
 
-    return result;
-}
-
-
-/// guess inverse based on the number of bits in the integer and decimal's scale
-fn make_inv_guess(bit_count: u64, scale: i64) -> BigDecimal {
-    // scale by ln(2)
-    let magic_factor = stdlib::f64::consts::LN_2;
-
-    let bit_count = bit_count as f64;
-    let initial_guess = magic_factor * exp2(-bit_count);
-    if initial_guess.is_finite() && initial_guess != 0.0 {
-        if let Ok(mut result) = BigDecimal::try_from(initial_guess) {
-            result.scale -= scale;
-            return result;
-        }
-    }
-
-    // backup guess for out-of-range integers
-
-    let approx_scale = bit_count * stdlib::f64::consts::LOG10_2;
-    let approx_scale_int = approx_scale.trunc();
-    let approx_scale_frac = approx_scale - approx_scale_int;
-
-    let recip = libm::exp10(-approx_scale_frac);
-    let mut res = BigDecimal::from_f32((magic_factor * recip) as f32).unwrap();
-    res.scale += approx_scale_int as i64;
-    res.scale -= scale;
-    return res;
-}
-
-
-#[cfg(test)]
-mod test_make_inv_guess {
-    use super::*;
-    use paste::paste;
-
-    macro_rules! impl_case {
-        ( $bin_count:literal, -$scale:literal => $expected:literal ) => {
-            paste! { impl_case!( [< case_ $bin_count _n $scale >]: $bin_count, -$scale => $expected); }
-        };
-        ( $bin_count:literal, $scale:literal => $expected:literal ) => {
-            paste! { impl_case!( [< case_ $bin_count _ $scale >]: $bin_count, $scale => $expected); }
-        };
-        ( $name:ident: $bin_count:expr, $scale:expr => $expected:literal ) => {
-            impl_case!($name: $bin_count, $scale, prec=5 => $expected);
-        };
-        ( $name:ident: $bin_count:expr, $scale:expr, prec=$prec:literal => $expected:literal ) => {
-            #[test]
-            fn $name() {
-                let guess = make_inv_guess($bin_count, $scale);
-                let expected: BigDecimal = $expected.parse().unwrap();
-                assert_eq!(guess.with_prec($prec), expected.with_prec($prec));
-            }
-        };
-    }
-
-    impl_case!(0, 0 => "0.69315");
-    impl_case!(1, 0 => "0.34657");
-    impl_case!(2, 0 => "0.17329");
-    impl_case!(2, 1 => "1.7329");
-
-    // 1 / (2^3 * 10^5) ~
-    impl_case!(3, -5 => "8.6643e-07");
-
-    // 2^-20
-    impl_case!(20, 0 => "6.6104e-07");
-    impl_case!(20, -900 => "6.6104E-907");
-    impl_case!(20, 800 => "6.6104E+793");
-
-    impl_case!(40, 10000 => "6.3041E+9987");
-
-    impl_case!(70, -5 => "5.8712e-27");
-    impl_case!(70, 5 => "5.8712e-17");
-    impl_case!(70, 50 => "5.8712e+28");
-
-    impl_case!(888, -300 => "3.3588E-568");
-    impl_case!(888, -19 => "3.3588E-287");
-    impl_case!(888, 0 => "3.3588E-268");
-    impl_case!(888, 270 => "335.88");
-
-    impl_case!(1022, 10 => "1.5423e-298");
-    impl_case!(1022, 308 => "1.5423");
-
-    impl_case!(1038, 316 => "2353.4");
-
-    impl_case!(case_31028_n659: 31028, -659 => "3.0347E-10000");
-    impl_case!(case_31028_0: 31028, 0 => "3.0347E-9341");
-    impl_case!(case_31028_1: 31028, 1 => "3.0347E-9340");
-    impl_case!(case_31028_9340: 31028, 9340 => ".30347");
-    impl_case!(case_31028_10000: 31028, 10000 => "3.0347E+659");
-
-    // impl_case!(case_max: u64::MAX, 270 => "335.88");
+    let result = BigDecimal::new(BigInt::from_biguint(sign, digits), shift as i64 + 1 - scale);
+    result.with_precision_round(ctx.precision(), ctx.rounding_mode())
 }
 
 #[cfg(test)]
@@ -306,9 +186,46 @@ mod test {
             "-3242342.34324".parse().unwrap()
         }
 
-        // note: floor ceiling wrong
-        impl_case!(prec=50, round=Up, Ceiling => "-3.0841900519385698894827476971712670726697831310897E-7");
-        impl_case!(prec=50, round=Down, Floor => "-3.0841900519385698894827476971712670726697831310896E-7");
+        impl_case!(prec=50, round=Up, Floor => "-3.0841900519385698894827476971712670726697831310897E-7");
+        impl_case!(prec=50, round=Down, Ceiling => "-3.0841900519385698894827476971712670726697831310896E-7");
+    }
+
+    mod invert_n7 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            BigDecimal::from(-7)
+        }
+
+        // -1/7 = -0.142857142857...
+        impl_case!(prec=10, round=Up, Floor => "-0.1428571429");
+        impl_case!(prec=10, round=Down, Ceiling => "-0.1428571428");
+    }
+
+    mod invert_9d99en8 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "9.99e-8".parse().unwrap()
+        }
+
+        // 1/9.99e-8 = 10010010.01001001...
+        // the digits after the 4th are "0010.01...", not zero
+        impl_case!(prec=4, round=Up, Ceiling => "1.002e7");
+        impl_case!(prec=4, round=Down, Floor, HalfUp, HalfEven => "1.001e7");
+        impl_case!(prec=6, round=Up => "1.00101e7");
+        impl_case!(prec=6, round=Down => "1.00100e7");
+    }
+
+    mod invert_n9d99en8 {
+        use super::*;
+
+        fn test_input() -> BigDecimal {
+            "-9.99e-8".parse().unwrap()
+        }
+
+        impl_case!(prec=4, round=Up, Floor => "-1.002e7");
+        impl_case!(prec=4, round=Down, Ceiling => "-1.001e7");
     }
 
 

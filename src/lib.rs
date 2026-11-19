@@ -483,21 +483,6 @@ impl BigDecimal {
         }
     }
 
-    /// Take and return bigdecimal with the given sign
-    ///
-    /// The Sign value `NoSign` is ignored: only use Plus & Minus
-    ///
-    pub(crate) fn take_with_sign(self, sign: Sign) -> BigDecimal {
-        let BigDecimal { scale, mut int_val } = self;
-        if int_val.sign() != sign && sign != Sign::NoSign {
-            int_val = int_val.neg();
-        }
-        BigDecimal {
-            int_val: int_val,
-            scale: scale,
-        }
-    }
-
     /// Return a new BigDecimal object with precision set to new value
     ///
     /// ```
@@ -1396,9 +1381,8 @@ impl<'a> BigDecimalRef<'a> {
             return self.to_owned();
         }
 
-        // invert and copy sign
-        inverse_scaled_uint_with_context(*self, ctx)
-            .take_with_sign(self.sign)
+        // sign is passed in, as rounding depends on it (Floor/Ceiling)
+        inverse_scaled_uint_with_context(*self, self.sign, ctx)
     }
 
     /// Take square root of this number

@@ -8,7 +8,6 @@ use super::*;
 /// Calculate e^n
 pub(crate) fn impl_exp(n: BigDecimalRef, ctx: &Context) -> BigDecimal {
     use arithmetic::division::scaled_uint_division_into;
-    use arithmetic::inverse::impl_inverse_uint_scale;
 
     if n.is_zero() {
         return BigDecimal::one();
