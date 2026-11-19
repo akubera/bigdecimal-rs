@@ -23,11 +23,6 @@ pub(crate) use self::decimal::{
 
 #[cfg(not(feature = "std"))]
 mod funcs {
-    // f64::exp2 is only available in std, we have to use an external crate like libm
-    pub fn exp2(x: f64) -> f64 {
-        libm::exp2(x)
-    }
-
     // f64::log10 is only available in std, we have to use an external crate like libm
     pub fn log10(x: f64) -> f64 {
         libm::log10(x)
@@ -36,10 +31,6 @@ mod funcs {
 
 #[cfg(feature = "std")]
 mod funcs {
-    pub fn exp2(x: f64) -> f64 {
-        x.exp2()
-    }
-
     pub fn log10(x: f64) -> f64 {
         x.log10()
     }

@@ -72,7 +72,7 @@ mod impl_div {
         let quotient_n_d = n / d.clone();
         assert_eq!(quotient_n_ref_d, quotient_n_d);
 
-        let expected: BigDecimal = "1.258847517281104957975270408416632052090243053529147458917576143852500316808428812104171430669001064E-38".parse().unwrap();
+        let expected: BigDecimal = "1.258847517281104957975270408416632052090243053529147458917576143852500316808428812104171430669001065E-38".parse().unwrap();
         assert_eq!(quotient_n_ref_d, expected);
     }
 }
