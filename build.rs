@@ -22,9 +22,6 @@ fn main() {
     // slice::fill
     ac.emit_rustc_version(1, 50);
 
-    // Option::zip
-    ac.emit_rustc_version(1, 46);
-
     // int::unsigned_abs (1.51)
     ac.emit_expression_cfg("0i64.unsigned_abs()", "has_unsigned_abs");
 
