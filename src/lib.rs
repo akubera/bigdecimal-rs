@@ -523,9 +523,8 @@ impl BigDecimal {
                 let (mut q, r) = self.int_val.div_rem(&p);
                 let mut scale = self.scale.checked_sub(diff as i64).expect("precision overflow");
 
-                // check for "leading zero" in remainder term; otherwise round
-                if p < 10 * &r && get_rounding_term(&r) != 0 {
-                    q += 1;
+                if r.abs() * 2u8 >= p {
+                    q += self.int_val.signum();
                     if prec != 0 && count_decimal_digits(&q) > prec {
                         q /= 10;
                         scale = scale.checked_sub(1).expect("precision overflow");
@@ -1913,6 +1912,23 @@ mod bigdecimal_tests {
     fn with_prec_carry_preserves_precision() {
         let rounded = BigDecimal::from(99).with_prec(1);
         assert_eq!(rounded.into_bigint_and_scale(), (1.into(), -2));
+    }
+
+    #[test]
+    fn with_prec_rounds_negative_values() {
+        for &(input, precision, coefficient, scale) in &[
+            ("-598.60155", 7, -5_986_016, 4),
+            ("-8208.8", 4, -8209, 0),
+            ("-9.99", 2, -10, 0),
+            ("-9.94", 2, -99, 1),
+            ("-1.05", 1, -1, 0),
+        ] {
+            let rounded = BigDecimal::from_str(input).unwrap().with_prec(precision);
+            assert_eq!(
+                rounded.into_bigint_and_scale(), (coefficient.into(), scale),
+                "{}", input
+            );
+        }
     }
 
     #[test]
