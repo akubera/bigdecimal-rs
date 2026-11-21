@@ -67,10 +67,10 @@ extern crate paste;
 #[cfg(feature = "serde")]
 extern crate serde as serde_crate;
 
-#[cfg(all(test, any(feature = "serde", feature = "serde_json")))]
+#[cfg(all(test, any(feature = "serde", feature = "serde-json")))]
 extern crate serde_test;
 
-#[cfg(all(test, feature = "serde_json"))]
+#[cfg(all(test, feature = "serde-json"))]
 extern crate serde_json;
 
 #[cfg(feature = "fuzz")]
@@ -144,7 +144,7 @@ mod impl_num;
 mod impl_fmt;
 
 // Implementations for deserializations and serializations
-#[cfg(any(feature = "serde", feature = "serde_json"))]
+#[cfg(any(feature = "serde", feature = "serde-json"))]
 pub mod impl_serde;
 
 // Implementations for arbitrary trait (fuzzing support)
@@ -152,7 +152,7 @@ pub mod impl_serde;
 mod impl_arbitrary;
 
 /// re-export serde-json derive modules
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 pub mod serde {
     /// Parse JSON number directly to BigDecimal
     pub use crate::impl_serde::arbitrary_precision as json_num;
