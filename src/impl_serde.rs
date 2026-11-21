@@ -97,7 +97,14 @@ impl<'de> de::Deserialize<'de> for BigDecimal {
     where
         D: de::Deserializer<'de>,
     {
-        d.deserialize_any(BigDecimalVisitor)
+        // Formats which are not human-readable (postcard, bincode, ...)
+        // are often not self-describing and do not support
+        // deserialize_any; read back the string written by Serialize
+        if d.is_human_readable() {
+            d.deserialize_any(BigDecimalVisitor)
+        } else {
+            d.deserialize_str(BigDecimalVisitor)
+        }
     }
 }
 
@@ -117,7 +124,7 @@ mod test {
     use paste::paste;
 
     use serde_test::{
-        Token, assert_tokens, assert_de_tokens, assert_de_tokens_error
+        Configure, Token, assert_tokens, assert_de_tokens, assert_de_tokens_error
     };
 
     mod serde_serialize_deserialize_str {
@@ -129,7 +136,7 @@ mod test {
                 fn $name() {
                     let expected = Token::Str($output);
                     let decimal: BigDecimal = $input.parse().unwrap();
-                    assert_tokens(&decimal, &[expected]);
+                    assert_tokens(&decimal.readable(), &[expected]);
                 }
             };
         }
@@ -161,7 +168,7 @@ mod test {
                 fn $name() {
                     let expected = BigDecimal::from($input);
                     let token = Token::$type($input);
-                    assert_de_tokens(&expected, &[token]);
+                    assert_de_tokens(&expected.readable(), &[token]);
                 }
             };
         }
@@ -184,7 +191,7 @@ mod test {
                     fn [< $name _ $ttype:lower >]() {
                         let expected: BigDecimal = $expected.parse().unwrap();
                         let token = Token::$ttype($input);
-                        assert_de_tokens(&expected, &[token]);
+                        assert_de_tokens(&expected.readable(), &[token]);
                     }
                 }
             };
@@ -220,16 +227,94 @@ mod test {
         #[test]
         fn case_f32() {
             let tokens = [ Token::F32(f32::NAN) ];
-            assert_de_tokens_error::<BigDecimal>(&tokens, "NAN");
+            assert_de_tokens_error::<serde_test::Readable<BigDecimal>>(&tokens, "NAN");
         }
 
         #[test]
         fn case_f64() {
             let tokens = [ Token::F64(f64::NAN) ];
-            assert_de_tokens_error::<BigDecimal>(&tokens, "NAN");
+            assert_de_tokens_error::<serde_test::Readable<BigDecimal>>(&tokens, "NAN");
         }
     }
 
+
+    /// Formats which are not human-readable (postcard, bincode, ...)
+    /// still read back the string written by Serialize
+    mod serde_deserialize_compact {
+        use super::*;
+
+        /// Minimal non-self-describing deserializer, holding a
+        /// single string: like postcard, it refuses deserialize_any
+        struct CompactStrDeserializer<'a>(&'a str);
+
+        impl<'de, 'a> de::Deserializer<'de> for CompactStrDeserializer<'a> {
+            type Error = de::value::Error;
+
+            fn is_human_readable(&self) -> bool {
+                false
+            }
+
+            fn deserialize_any<V>(self, _: V) -> Result<V::Value, Self::Error>
+            where
+                V: de::Visitor<'de>,
+            {
+                Err(de::Error::custom("deserialize_any is not supported"))
+            }
+
+            fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+            where
+                V: de::Visitor<'de>,
+            {
+                visitor.visit_str(self.0)
+            }
+
+            serde::forward_to_deserialize_any! {
+                bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char string
+                bytes byte_buf option unit unit_struct newtype_struct seq tuple
+                tuple_struct map struct enum identifier ignored_any
+            }
+        }
+
+        macro_rules! impl_case {
+            ($name:ident : $input:literal) => {
+                mod $name {
+                    use super::*;
+
+                    #[test]
+                    fn from_str() {
+                        let expected: BigDecimal = $input.parse().unwrap();
+                        let value = BigDecimal::deserialize(CompactStrDeserializer($input)).unwrap();
+                        assert_eq!(value, expected);
+                        assert_eq!(value.to_string(), expected.to_string());
+                    }
+
+                    #[test]
+                    fn tokens() {
+                        let decimal: BigDecimal = $input.parse().unwrap();
+                        assert_tokens(&decimal.compact(), &[Token::Str($input)]);
+                    }
+                }
+            };
+        }
+
+        impl_case!(case_1d0: "1.0");
+        impl_case!(case_50: "50");
+        impl_case!(case_n0d001: "-0.001");
+        impl_case!(case_40d0010: "40.0010");
+        impl_case!(case_123456789d987654321: "123456789.987654321");
+
+        #[test]
+        fn empty_string() {
+            let err = BigDecimal::deserialize(CompactStrDeserializer("")).unwrap_err();
+            assert_eq!(err.to_string(), "Failed to parse empty string");
+        }
+
+        #[test]
+        fn invalid_string() {
+            let res = BigDecimal::deserialize(CompactStrDeserializer("1.2.3"));
+            assert!(res.is_err());
+        }
+    }
 
     #[cfg(feature = "serde_json")]
     mod json_support {
