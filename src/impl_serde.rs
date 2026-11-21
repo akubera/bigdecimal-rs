@@ -5,7 +5,7 @@ use crate::*;
 use serde_crate::{self as serde, de, ser, Serialize, Deserialize};
 
 // const SERDE_SCALE_LIMIT: usize = = ${RUST_BIGDECIMAL_SERDE_SCALE_LIMIT} or  150_000;
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 include!(concat!(env!("OUT_DIR"), "/serde_scale_limit.rs"));
 
 impl ser::Serialize for BigDecimal {
@@ -231,7 +231,7 @@ mod test {
     }
 
 
-    #[cfg(feature = "serde_json")]
+    #[cfg(feature = "serde-json")]
     mod json_support {
         use super::*;
         use impl_serde::{Serialize, Deserialize};
@@ -285,7 +285,7 @@ mod test {
 ///     r#"{"value":123.400}"#
 /// );
 /// ```
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 pub mod arbitrary_precision {
     use super::*;
 
@@ -342,7 +342,7 @@ pub mod arbitrary_precision {
 ///     r#"{"value":null}"#
 /// );
 /// ```
-#[cfg(feature = "serde_json")]
+#[cfg(feature = "serde-json")]
 pub mod arbitrary_precision_option {
     use super::*;
 
@@ -371,7 +371,7 @@ pub mod arbitrary_precision_option {
 }
 
 
-#[cfg(all(test, feature = "serde_json"))]
+#[cfg(all(test, feature = "serde-json"))]
 mod test_jsonification {
     use super::*;
     extern crate serde_json;
